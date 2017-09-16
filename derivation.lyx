@@ -1,0 +1,1169 @@
+#LyX 2.1 created this file. For more info see http://www.lyx.org/
+\lyxformat 474
+\begin_document
+\begin_header
+\textclass article
+\begin_preamble
+\usepackage{amsmath}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\end_preamble
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_math auto
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Visual-Inertial UKF
+\end_layout
+
+\begin_layout Author
+James Jackson
+\end_layout
+
+\begin_layout Section
+Objective
+\end_layout
+
+\begin_layout Standard
+To derive an UKF which uses principles from both relative navigation and
+ state-of-the-art tightly-coupled navigation techniques to produce an observable
+ and accurate state estimate in an Unscented Kalman Filter Framework.
+\end_layout
+
+\begin_layout Section
+\begin_inset Formula $\boxplus$
+\end_inset
+
+ and 
+\begin_inset Formula $\boxminus$
+\end_inset
+
+ operators
+\end_layout
+
+\begin_layout Itemize
+\begin_inset CommandInset citation
+LatexCommand cite
+key "key-1"
+
+\end_inset
+
+Introduces a new syntax for working with manifold representation of Lie
+ Groups as if they were vectors.
+\end_layout
+
+\begin_layout Itemize
+Example: Quaternion Dynamics:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{eqnarray}
+\boldsymbol{q}_{t+1} & = & \boldsymbol{q}_{t}\boxplus\boldsymbol{\theta}\\
+\boldsymbol{\theta} & = & \boldsymbol{q}_{1}\boxminus\boldsymbol{q}_{2}
+\end{eqnarray}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+It is important to note that the dimensionalities of 
+\begin_inset Formula $\boldsymbol{\theta}$
+\end_inset
+
+ and 
+\begin_inset Formula $\boldsymbol{q}$
+\end_inset
+
+ are different.
+ The actual 
+\begin_inset Formula $\boxplus$
+\end_inset
+
+ and 
+\begin_inset Formula $\boxminus$
+\end_inset
+
+ operators are defined for robocentric quaternions representation as follows:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align}
+\boxplus & :SO\left(3\right)\times\mathbb{R}^{3}\rightarrow SO\left(3\right),\\
+ & {\bf q},\boldsymbol{\theta}\mapsto{\bf q}\otimes\exp\left(\boldsymbol{\theta}\right)\\
+\boxminus & :SO\left(3\right)\times SO\left(3\right)\rightarrow\mathbb{R}^{3},\\
+ & {\bf q},{\bf p}\mapsto\log\left({\bf p}\otimes{\bf q}^{-1}\right),
+\end{align}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This is a sort of weird syntax, but it allows us to work with these parameteriza
+tions as if they were vectors.
+ These operators become the equivalent of vector addition and subtraction,
+ and therefore allow proper defintions of derivatives and integrals across
+ these operators.
+ A properly defined 
+\begin_inset Formula $\boxplus$
+\end_inset
+
+ manifold must obey the following identies
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{eqnarray}
+ & x\boxplus0 & =x\\
+\forall y\in S:\quad & x\boxplus\left(y\boxminus x\right) & =y\\
+\forall\delta\in V:\quad & (x\boxplus\delta)\boxminus x & =\delta\\
+\forall\delta_{1}\delta_{1}\in\mathbb{R}^{n}:\quad & \lVert(x\boxplus\delta_{1})\boxminus(x\boxplus\delta_{2})\rVert & \leq\lVert\delta_{1}-\delta_{2}\rVert
+\end{eqnarray}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+These operators must also form a diffeomorphism from 
+\begin_inset Formula $V$
+\end_inset
+
+ to 
+\begin_inset Formula $S$
+\end_inset
+
+, so that derivatives of 
+\begin_inset Formula $\delta$
+\end_inset
+
+ correspond to limits of 
+\begin_inset Formula $x\boxplus\delta$
+\end_inset
+
+.
+ For example, the derivative of a quaternion, as defined using the 
+\begin_inset Formula $\boxplus$
+\end_inset
+
+ and 
+\begin_inset Formula $\boxminus$
+\end_inset
+
+ operators are
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{eqnarray}
+\dfrac{\partial}{\partial x}\boldsymbol{q}(x) & : & =\lim_{\epsilon\rightarrow0}\dfrac{\boldsymbol{q}(x+\epsilon)\boxminus\boldsymbol{q}(x)}{\epsilon}\\
+\dfrac{\partial}{\partial\boldsymbol{q}}x(\boldsymbol{q}) & : & =\lim_{\epsilon\rightarrow0}\left[\begin{array}{c}
+\dfrac{x\left(\boldsymbol{q}\boxplus(\boldsymbol{e}_{1}\epsilon)\right)-x\left(\boldsymbol{q}\right)}{\epsilon}\\
+\dfrac{x\left(\boldsymbol{q}\boxplus(\boldsymbol{e}_{2}\epsilon)\right)-x\left(\boldsymbol{q}\right)}{\epsilon}\\
+\dfrac{x\left(\boldsymbol{q}\boxplus(\boldsymbol{e}_{3}\epsilon)\right)-x\left(\boldsymbol{q}\right)}{\epsilon}
+\end{array}\right]^{\top}
+\end{eqnarray}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Derivatives over all 
+\begin_inset Formula $\boxplus$
+\end_inset
+
+ and 
+\begin_inset Formula $\boxminus$
+\end_inset
+
+ operators can be found in a similar manner.
+ Which allows us to use this operator to define dynamics and Jacobians across
+ our non-linear manifold representations.
+\end_layout
+
+\begin_layout Standard
+We can represent covariance using the 
+\begin_inset Formula $\boxplus$
+\end_inset
+
+ and 
+\begin_inset Formula $\boxminus$
+\end_inset
+
+ operators in the following method
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\mathcal{N}\left(\mu,\Sigma\right):=\mu\boxplus\mathcal{N}\left(0,\Sigma\right)
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+It is important to note here that in many cases,
+\begin_inset Formula 
+\begin{align}
+\mu\in\mathbb{R}^{m}\\
+\Sigma\in\mathbb{R}^{n\times n}\\
+m\neq n
+\end{align}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Helpful Derivatives
+\end_layout
+
+\begin_layout Standard
+The derivative of the norm of a vector
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{d}{dv}\left\Vert v\right\Vert  & =\frac{d}{dv}\sqrt{v^{\top}v}\\
+ & =\frac{2v}{2\sqrt{v^{\top}v}}\\
+ & =\frac{v}{\left\Vert v\right\Vert }
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Quaternions
+\end_layout
+
+\begin_layout Standard
+We will use standard Hamiltonian Notation for quaternions:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+{\bf q}=q_{w}+q_{x}{\bf i}+q_{y}{\bf j}+q_{z}{\bf k}=\begin{bmatrix}\bar{{\bf q}}^{\top} & q_{w}\end{bmatrix}^{\top},
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+where quaternion multiplication is defined as
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\boldsymbol{p}\otimes\boldsymbol{q}=\begin{bmatrix}p_{w} & -\bar{\boldsymbol{p}}^{\top}\\
+\bar{\boldsymbol{p}} & p_{w}{\bf I}+\left\lfloor \bar{\boldsymbol{p}}\right\rfloor 
+\end{bmatrix}\begin{bmatrix}q_{w}\\
+\bar{\boldsymbol{q}}
+\end{bmatrix},
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The 
+\begin_inset Formula $3\times3$
+\end_inset
+
+ Rotation matrix based on this quaternion is defined as follows
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+R\left({\bf q}\right)=\left(2q_{w}^{2}-1\right){\bf I}-2q_{w}\left\lfloor \bar{{\bf q}}\right\rfloor +2\bar{{\bf q}}\bar{{\bf q}}^{\top}\in\mathbb{R}^{3\times3}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The exponential mapping used to define the 
+\begin_inset Formula $\boxplus$
+\end_inset
+
+ and 
+\begin_inset Formula $\boxminus$
+\end_inset
+
+ operators 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\exp\left(\boldsymbol{\delta}\right)=\begin{bmatrix}\bar{\boldsymbol{q}}\\
+\boldsymbol{q}_{w}
+\end{bmatrix}=\begin{bmatrix}\cos\left(\frac{\lVert\delta\rVert}{2}\right)\\
+\sin\left(\frac{\lVert\delta\rVert}{2}\right)\frac{\delta}{\lVert\delta\rVert}
+\end{bmatrix},
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\log\left({\bf q}\right)=2\mathrm{atan2}\left(\left\Vert \bar{\boldsymbol{q}}\right\Vert ,q_{w}\right)\frac{\bar{\boldsymbol{q}}}{\left\Vert \bar{\boldsymbol{q}}\right\Vert },
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Because of numerical precision issues, these operators are typically approximate
+d using the first order representation linearized about 
+\begin_inset Formula $\boldsymbol{\delta}=0$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\exp\left(\boldsymbol{\delta}\right) & =\exp(0)+\frac{d}{d\delta}\exp(0)\boldsymbol{\delta}+\frac{d^{2}}{dt^{2}}\frac{\exp(0)}{2}\boldsymbol{\delta}^{2}+\cdots\\
+ & =\begin{bmatrix}1\\
+\boldsymbol{0}
+\end{bmatrix}+\frac{d}{d\delta}\left.\begin{bmatrix}\cos\left(\frac{\left\Vert \delta\right\Vert }{2}\right)\\
+\sin\left(\frac{\left\Vert \delta\right\Vert }{2}\right)\frac{\delta}{\left\Vert \delta\right\Vert }
+\end{bmatrix}\right|_{0}\delta\\
+ & \approx\begin{bmatrix}1\\
+\boldsymbol{0}
+\end{bmatrix}+\left.\begin{bmatrix}-\frac{\delta}{2\left\Vert \delta\right\Vert }\sin\left(\frac{\left\Vert \delta\right\Vert }{2}\right)\\
+\cos\left(\frac{\left\Vert \delta\right\Vert }{2}\right)\frac{\delta^{\top}\delta}{2\delta^{\top}\delta}+\sin\left(\frac{\left\Vert \delta\right\Vert }{2}\right)\frac{1}{\left\Vert \delta\right\Vert }
+\end{bmatrix}\right|_{0}\delta\\
+ & \approx\begin{bmatrix}1\\
+\boldsymbol{0}
+\end{bmatrix}+\left.\begin{bmatrix}0\\
+\frac{1}{2}\cos\left(\frac{\left\Vert \delta\right\Vert }{2}\right)+\sin\left(\frac{\left\Vert \delta\right\Vert }{2}\right)\frac{1}{\left\Vert \delta\right\Vert }
+\end{bmatrix}\right|_{0}\delta\\
+ & \approx\begin{bmatrix}1\\
+\boldsymbol{0}
+\end{bmatrix}+\begin{bmatrix}0\\
+\frac{\delta}{2}
+\end{bmatrix}\\
+ & \approx\left[\begin{array}{c}
+1\\
+\frac{\delta}{2}
+\end{array}\right]
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+To solve this next proof, we must first define some projections to extract
+ the vector and scalar portions of the quaternion
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+P_{w}=\left[\begin{array}{cc}
+1 & 0_{1\times3}\end{array}\right]\in\mathbb{R}^{1\times4}
+\]
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Formula 
+\[
+P_{v}=\left[\begin{array}{cc}
+0_{3\times1} & I_{3x3}\end{array}\right]\in\mathbb{R}^{3\times4}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Using these projections, 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\bar{q}=P_{v}q
+\]
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Formula 
+\[
+q_{w}=P_{W}q
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+We can linearize the log for quaternions
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\log\left({\bf q}\right)\approx\textrm{sign}\left(\boldsymbol{q}_{w}\right)\bar{\boldsymbol{q}},
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\log(q) & =2\mathrm{atan2}\left(\left\Vert \bar{q}\right\Vert ,q_{w}\right)\frac{\bar{q}}{\left\Vert \bar{q}\right\Vert },\\
+ & =\log(q_{I})+\frac{d}{dq}\log(q_{I})q+\frac{d^{2}}{dq^{2}}\frac{\log\left(q_{I}\right)}{2}q^{2}+\cdots\\
+ & \approx0+\frac{d}{dq}\left.\left(2\mathrm{atan}\left(\frac{\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}{P_{W}q}\right)\frac{P_{V}q}{\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}\right)\right|_{q_{I}}q\\
+ & \approx2\left.\left(\frac{d}{dq}\left(\mathrm{atan}\left(\frac{\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}{P_{W}q_{w}}\right)\right)\frac{P_{V}q}{\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}+\mathrm{atan}\left(\frac{\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}{q_{w}}\right)\frac{d}{dq}\frac{P_{V}q}{\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}\right)\right|_{I}q\\
+ & \approx2\left.\left(\frac{d}{dq}\left(\frac{\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}{P_{W}q}\right)\left(\frac{1}{1+\frac{q^{\top}P_{V}^{\top}P_{V}q}{q_{w}^{2}}}\right)\frac{P_{V}q}{\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}+\mathrm{atan}\left(\frac{\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}{q_{w}}\right)\frac{d}{dq}\frac{P_{V}q}{\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}\right)\right|_{I}q\\
+ & \approx2\left.\left(\left(\left(\frac{q^{\top}\left(P_{V}^{\top}P_{V}+\left(P_{V}^{\top}P_{V}\right)^{\top}\right)}{2P_{W}q\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}\right)-\left(\frac{P_{w}\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}{q^{\top}P_{W}^{\top}P_{W}q}\right)\right)\left(\frac{1}{1+\frac{q^{\top}P_{V}^{\top}P_{V}q}{P_{W}q_{w}}}\right)\frac{P_{V}q}{\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}+\mathrm{atan}\left(\frac{\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}{P_{W}q}\right)\frac{d}{dq}\frac{P_{V}q}{\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}\right)\right|_{I}q\\
+ & \approx2\left.\left(\left(\left(\frac{q^{\top}\left(P_{V}^{\top}P_{V}+\left(P_{V}^{\top}P_{V}\right)^{\top}\right)}{2P_{W}q\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}\right)-\left(\frac{P_{w}\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}{q^{\top}P_{W}^{\top}P_{W}q}\right)\right)\left(\frac{1}{1+\frac{q^{\top}P_{V}^{\top}P_{V}q}{P_{W}q_{w}}}\right)\frac{P_{V}q}{\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}+\mathrm{atan}\left(\frac{\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}{P_{W}q}\right)\left(\frac{P_{V}\sqrt{q^{\top}P_{V}^{\top}P_{V}q}-P_{V}q\left(q^{\top}\left(P_{V}^{\top}P_{V}+\left(P_{V}^{\top}P_{V}\right)^{\top}\right)\right)}{q^{\top}P_{V}^{\top}P_{V}q2\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}\right)\right)\right|_{I}q\\
+ & \approx2\left.\left(\left(\left(\frac{q^{\top}P_{V}^{\top}P_{V}}{P_{W}q\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}\right)-\left(\frac{1}{\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}\right)\right)\left(\frac{1}{1+\frac{q^{\top}P_{V}^{\top}P_{V}q}{P_{W}q_{w}}}\right)\frac{P_{V}q}{\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}+\mathrm{atan}\left(\frac{\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}{P_{W}q}\right)\left(\frac{P_{V}\sqrt{q^{\top}P_{V}^{\top}P_{V}q}-2P_{V}qq^{\top}P_{V}^{\top}P_{V}}{2q^{\top}P_{V}^{\top}P_{V}q\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}\right)\right)\right|_{I}q\\
+ & \approx2\left.\left(0+\left(\frac{\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}{P_{W}q}\right)\left(\frac{P_{V}\sqrt{q^{\top}P_{V}^{\top}P_{V}q}-2P_{V}qq^{\top}P_{V}^{\top}P_{V}}{2q^{\top}P_{V}^{\top}P_{V}q\sqrt{q^{\top}P_{V}^{\top}P_{V}q}}\right)\right)\right|_{I}q\\
+ & \approx2P_{V}q\\
+ & \approx2\textrm{sign}\left(q_{w}\right)\bar{q}
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The 
+\begin_inset Formula $\boxminus$
+\end_inset
+
+ and 
+\series bold
+
+\begin_inset Formula $\boxplus$
+\end_inset
+
+ 
+\series default
+operators for quaternions were defined earlier and shown here for reference
+ 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align}
+\boxplus & :SO\left(3\right)\times\mathbb{R}^{3}\rightarrow SO\left(3\right),\\
+ & {\bf q},\boldsymbol{\theta}\mapsto{\bf q}\otimes\exp\left(\boldsymbol{\theta}\right)\\
+\boxminus & :SO\left(3\right)\times SO\left(3\right)\rightarrow\mathbb{R}^{3},\\
+ & {\bf q},{\bf p}\mapsto\log\left({\bf p}\otimes{\bf q}^{-1}\right),
+\end{align}
+
+\end_inset
+
+These can be used to add rotation pertubations to quaternions and difference
+ quaternions as shown below
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{eqnarray}
+\boldsymbol{q}_{t+1} & = & \boldsymbol{q}_{t}\boxplus\boldsymbol{\theta}\\
+\boldsymbol{\theta} & = & \boldsymbol{q}_{1}\boxminus\boldsymbol{q}_{2}
+\end{eqnarray}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+To derive the derivative of a quaternion, we must clarify the definition
+ of the angular velocity of a body with respect to an inertial frame as
+ they pertain to the tangent space of 
+\begin_inset Formula $SO(3)$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\boldsymbol{\omega}_{I}^{B} & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\boldsymbol{\delta}_{B\left(t\right)}^{B\left(t+\epsilon\right)}\right)\\
+ & =\frac{d}{dt}\left(\boldsymbol{\delta}\left(t\right)\right)
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+We can also use the small-angle representation to show that
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned} & \lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\exp\left(\epsilon\boldsymbol{\delta}_{1}\right)\otimes\exp\left(\epsilon\boldsymbol{\delta}_{2}\right)\right)\right)\\
+= & \lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\begin{bmatrix}1\\
+\frac{\epsilon\boldsymbol{\delta}_{1}}{2}
+\end{bmatrix}\otimes\begin{bmatrix}1\\
+\frac{\epsilon\boldsymbol{\delta}_{2}}{2}
+\end{bmatrix}\right)\right)\\
+= & \lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\begin{bmatrix}1 & -\frac{\epsilon\boldsymbol{\delta}_{1}}{2}^{\top}\\
+\frac{\epsilon\boldsymbol{\delta}_{1}}{2} & {\bf I}+\left\lfloor \frac{\epsilon\boldsymbol{\delta}_{1}}{2}\right\rfloor 
+\end{bmatrix}\begin{bmatrix}1\\
+\frac{\epsilon\boldsymbol{\delta}_{2}}{2}
+\end{bmatrix}\right)\right)\\
+= & \lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\begin{bmatrix}1-\frac{\epsilon^{2}}{4}\left(\boldsymbol{\delta}_{1}^{\top}\boldsymbol{\delta}_{2}\right)\\
+\frac{\epsilon\boldsymbol{\delta}_{1}}{2}+\left(\frac{\epsilon}{2}{\bf I}+\frac{\epsilon^{2}}{4}\left\lfloor \boldsymbol{\delta}_{1}\right\rfloor \right)\boldsymbol{\delta}_{2}
+\end{bmatrix}\right)\right)\\
+= & \lim_{\epsilon\to0}\frac{1}{\epsilon}\left(2\textrm{sign}\left(1-\frac{\epsilon^{2}}{4}\left(\boldsymbol{\delta}_{1}^{\top}\boldsymbol{\delta}_{2}\right)\right)\left(\frac{\epsilon\boldsymbol{\delta}_{1}}{2}+\left(\frac{\epsilon}{2}{\bf I}+\frac{\epsilon^{2}}{4}\left\lfloor \boldsymbol{\delta}_{1}\right\rfloor \right)\boldsymbol{\delta}_{2}\right)\right)\\
+= & \lim_{\epsilon\to0}\frac{1}{\epsilon}\left(2\textrm{sign}\left(1\right)\left(\frac{\epsilon\boldsymbol{\delta}_{1}}{2}+\left(\frac{\epsilon}{2}{\bf I}\right)\boldsymbol{\delta}_{2}\right)\right)\\
+= & \lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\epsilon\boldsymbol{\delta}_{1}+\epsilon\boldsymbol{\delta}_{2}\right)\\
+= & \boldsymbol{\delta}_{1}+\boldsymbol{\delta}_{2}
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The derivative of a quaternion representing a rotation between two rotating
+ frames can be shown as follows, using the small-angle approximations defined
+ above
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\dot{\boldsymbol{q}}_{A\left(t\right)}^{B\left(t\right)} & =\frac{d}{dt}\boldsymbol{q}_{A\left(t\right)}^{B\left(t\right)}\\
+ & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\boldsymbol{q}_{A\left(t+\epsilon\right)}^{B\left(t+\epsilon\right)}\boxminus\boldsymbol{q}_{A\left(t\right)}^{B\left(t\right)}\right)\\
+ & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\left(\boldsymbol{q}_{A\left(t\right)}^{B\left(t+\epsilon\right)}\otimes\boldsymbol{q}_{A\left(t+\epsilon\right)}^{A\left(t\right)}\right)\boxminus\boldsymbol{q}_{A\left(t\right)}^{B\left(t\right)}\right)\\
+ & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\exp\left(\boldsymbol{\delta}_{B\left(t\right)}^{B\left(t+\epsilon\right)}\right)\otimes\boldsymbol{q}_{A\left(t\right)}^{B\left(t\right)}\otimes\exp\left(\boldsymbol{\delta}_{A\left(t+\epsilon\right)}^{A\left(t\right)}\right)\otimes\boldsymbol{q}_{A}^{-1\,B\left(t\right)}\right)\right)\\
+ & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\exp\left(\boldsymbol{\delta}_{B\left(t\right)}^{B\left(t+\epsilon\right)}\right)\otimes\exp\left(\boldsymbol{\delta}_{A\left(t+\epsilon\right)}^{A\left(t\right)}\right)\right)\right)\\
+ & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\exp\left(\boldsymbol{\delta}_{B\left(t\right)}^{B\left(t+\epsilon\right)}\right)\otimes\exp\left(\boldsymbol{\delta}_{A\left(t+\epsilon\right)}^{A\left(t\right)}\right)\right)\right)\\
+ & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\exp\left(\epsilon\omega_{I}^{B(t)}\right)\otimes\exp\left(-\epsilon\omega_{I}^{A(t)}\right)\right)\right)\\
+ & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\epsilon\left(\omega_{I}^{B\left(t\right)}-\omega_{I}^{A(t)}\right)\right)\\
+ & =\omega_{I}^{B\left(t\right)}-\omega_{I}^{A(t)}\\
+ & =\omega_{A(t)}^{B(t)}
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+If the quaternion is defined with respect to an inertial frame, then the
+ above simplifies to
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\dot{\boldsymbol{q}}_{I}^{B\left(t\right)} & =\frac{d}{dt}\boldsymbol{q}_{I}^{B\left(t\right)}\\
+ & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\boldsymbol{q}_{I\left(t\right)}^{B\left(t+\epsilon\right)}\boxminus\boldsymbol{q}_{I}^{B\left(t\right)}\right)\\
+ & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\left(\boldsymbol{q}_{I}^{B\left(t\right)}\otimes\boldsymbol{q}_{B\left(t\right)}^{B\left(t+\epsilon\right)}\right)\boxminus\boldsymbol{q}_{I}^{B\left(t\right)}\right)\\
+ & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\boldsymbol{q}_{I}^{B(t)}\otimes\exp\left(\boldsymbol{\delta}_{B\left(t\right)}^{B\left(t+\epsilon\right)}\right)\otimes\boldsymbol{q}_{I}^{-1\,B\left(t\right)}\right)\right)\\
+ & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\exp\left(\boldsymbol{\delta}_{B\left(t\right)}^{B\left(t+\epsilon\right)}\right)\right)\right)\\
+ & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\exp\left(\epsilon\omega_{I}^{B(t)}\right)\right)\right)\\
+ & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\epsilon\left(\omega_{I}^{B\left(t\right)}\right)\right)\\
+ & =\omega_{I}^{B\left(t\right)}
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Bearing Vectors
+\end_layout
+
+\begin_layout Standard
+We have to find some way to parameterize the bearing vectors to features
+ using the 
+\begin_inset Formula $\boxplus$
+\end_inset
+
+ and 
+\begin_inset Formula $\boxminus$
+\end_inset
+
+ operators.
+ While the most obvious parameterization would seem to be unit vectors on
+ 
+\begin_inset Formula $S^{2}$
+\end_inset
+
+, there is no way to define a set of orthonormal vectors which span the
+ space such that a suitable difference operator can be defined.
+ Apparently, the 
+\begin_inset Quotes eld
+\end_inset
+
+hairy ball theorem
+\begin_inset Quotes erd
+\end_inset
+
+ has something to do with this.
+\end_layout
+
+\begin_layout Standard
+Instead, we will use rotations to define the represenation.
+ Let 
+\begin_inset Formula $\boldsymbol{\zeta}_{i}$
+\end_inset
+
+ be the 3D unit vector directed at feature 
+\begin_inset Formula $i$
+\end_inset
+
+, with respect to the camera frame 
+\begin_inset Formula $\mathcal{C}$
+\end_inset
+
+.
+ We then define 
+\begin_inset Formula $\boldsymbol{q}_{C}^{\zeta_{i}}$
+\end_inset
+
+as the quaternion rotation between 
+\begin_inset Formula $\boldsymbol{e}_{z}$
+\end_inset
+
+, the z-axis of the camera frame and the 3D unit bearing vector
+\begin_inset Formula $\boldsymbol{\zeta}_{i}$
+\end_inset
+
+.
+ The change between two 3D unit vectors 
+\begin_inset Formula $\boldsymbol{\zeta}_{i}$
+\end_inset
+
+ and 
+\begin_inset Formula $\boldsymbol{\zeta}_{j}$
+\end_inset
+
+ can be described using an axis-angle representation, where the direction
+ of the axis of rotation is perpendicular to the 3D unit vectors, scaled
+ by the angle.
+ This is shown in the figure below.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/unit_vector_picture.png
+	lyxscale 50
+	width 80col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Illustration of Bearing Vector Geometry
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+As can be seen in the picture, there are only 2 degrees of freedom in this
+ parameterization because the axis of rotation is always in the 
+\begin_inset Formula $\boldsymbol{e}_{y}$
+\end_inset
+
+-
+\begin_inset Formula $\boldsymbol{e}_{x}$
+\end_inset
+
+ plane.
+ Therefore, we can define a projection matrix 
+\begin_inset Formula $T_{\zeta}$
+\end_inset
+
+, which reduced the dimensionality of the axis-angle representation to 
+\begin_inset Formula $\mathbb{R}^{2}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\boldsymbol{\zeta}=R\left(q_{c}^{\zeta}\right)\boldsymbol{e}_{z}\in\mathcal{S}^{2}\subset\mathbb{R}^{3}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+T_{\zeta}=R\left(q_{c}^{\zeta}\right)\left[\begin{array}{cc}
+\boldsymbol{e}_{x} & \boldsymbol{e_{y}}\end{array}\right]\in\mathbb{R}^{3\times2}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Here are the definitions of the 
+\begin_inset Formula $\boxplus$
+\end_inset
+
+ and 
+\begin_inset Formula $\boxminus$
+\end_inset
+
+ operators of this space.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align}
+\boxplus & :SO\left(3\right)\times\mathbb{R}^{2}\rightarrow SO\left(3\right),\\
+ & \boldsymbol{q}_{C}^{\zeta},\boldsymbol{u}\mapsto\exp(T_{\zeta}u)\otimes\boldsymbol{q}_{C}^{\zeta},\\
+\boxminus & :SO\left(3\right)\times SO\left(3\right)\rightarrow\mathbb{R}^{2},\\
+ & \boldsymbol{q}_{C}^{\zeta_{i}},\boldsymbol{q}_{C}^{\zeta_{j}}\mapsto T_{\zeta_{j}}^{\top}\boldsymbol{\theta}\left(\boldsymbol{q}_{C}^{\zeta_{i}},\:\boldsymbol{q}_{C}^{\zeta_{j}}\right),
+\end{align}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+where 
+\begin_inset Formula $\boldsymbol{\theta}$
+\end_inset
+
+ maps two unit vectors to the minimal rotation vector between them
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\boldsymbol{\theta}\left(n\left(\boldsymbol{p}\right),\:n\left(\boldsymbol{q}\right)\right):=\cos^{-1}\left(n\left(\boldsymbol{p}\right)^{\top}n\left(\boldsymbol{q}\right)\right)\dfrac{n\left(\boldsymbol{p}\right)\times n\left(\boldsymbol{q}\right)}{\lVert n\left(\boldsymbol{p}\right)\times n\left(\boldsymbol{q}\right)\rVert}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\boldsymbol{\theta}\left(\boldsymbol{q}_{C}^{\zeta_{i}},\:\boldsymbol{q}_{C}^{\zeta_{j}}\right) & :=\end{aligned}
+\cos^{-1}\left(\zeta_{i}{}^{\top}\zeta_{j}\right)\dfrac{\zeta_{i}\times\zeta_{j}}{\lVert\zeta_{i}\times\zeta_{j}\rVert}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+and 
+\begin_inset Formula $n\left(\boldsymbol{q}\right)$
+\end_inset
+
+ is the unit vector which results when rotating 
+\begin_inset Formula $\boldsymbol{e}_{z}$
+\end_inset
+
+ by 
+\begin_inset Formula $\boldsymbol{q}$
+\end_inset
+
+.
+ For example:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+n(\boldsymbol{q}_{C}^{\zeta})=R\left(q_{c}^{\zeta}\right)\boldsymbol{e}_{z}\boldsymbol{\zeta}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Let us now define the derivative of the quaternion between the camera frame
+ and a bearing vector with respect to a moving camera frame
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\dot{q}_{C(t)}^{\zeta(t)} & =\frac{d}{dt}\dot{q}_{C\left(t\right)}^{\zeta\left(t\right)}\\
+ & =\frac{d}{dq_{C}^{\zeta}}\frac{dq_{C}^{\zeta}}{dt}\left(\zeta\right)\\
+ & =\frac{d}{dq_{C\left(t\right)}^{\zeta\left(t\right)}}\left(R\left(q_{c\left(t\right)}^{\zeta\left(t\right)}\right)\boldsymbol{e}_{z,C\left(t\right)}\right)\frac{dq_{C(t)}^{\zeta(t)}}{dt}\\
+ & =-\bigl\lfloor R\left(q_{c\left(t\right)}^{\zeta\left(t\right)}\right)\boldsymbol{e}_{z,C\left(t\right)}\bigr\rfloor\frac{dq_{C(t)}^{\zeta(t)}}{dt}\\
+ & =\bigl\lfloor\zeta_{C}\bigr\rfloor T_{\zeta}\dot{\zeta}
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+It is important to note that 
+\begin_inset Formula $\dot{\zeta}$
+\end_inset
+
+ is the angular velocity in the camera frame of the frame with it's 
+\begin_inset Formula $z$
+\end_inset
+
+ axis directed at the feature.
+ As noted before, this exists in 
+\begin_inset Formula $\mathbb{R}^{2}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+State Definition
+\end_layout
+
+\begin_layout Standard
+I am going to derive the state as follows:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\boldsymbol{p}_{I}^{b} & \quad\textrm{position of MAV body frame wrt inertial frame}\\
+\boldsymbol{v}_{b} & \quad\textrm{velocity of MAV in body frame}\\
+\boldsymbol{q}_{I}^{b} & \quad\textrm{rotation from inertial to body frame, expressed in the inertial frame as a unit quaternion}\\
+\boldsymbol{\beta}_{a} & \quad\textrm{accelerometer constant bias}\\
+\boldsymbol{\beta}_{\omega} & \quad\textrm{rate gyroscope constant bias}\\
+\mu & \quad\textrm{constant linear drag term}\\
+\boldsymbol{q}_{C}^{\zeta_{i}} & \quad\textrm{rotation from the camera z axis to the unit bearing vector pointing at feature }i\textrm{ expressed in the camera frame as a unit quaternion}\\
+\rho_{i} & \quad\textrm{depth to feature }i\textrm{ parameterized in inverse depth}
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\boldsymbol{x}=\left[\boldsymbol{p}_{I},\boldsymbol{v}_{b},\boldsymbol{q}_{I}^{b},\boldsymbol{\beta}_{a},\boldsymbol{\beta}_{\omega},\mu,\boldsymbol{\zeta}_{0}\cdots\boldsymbol{\zeta}_{n},\rho_{0}\cdots\rho_{n}\right]^{\top}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Where 
+\begin_inset Formula $x$
+\end_inset
+
+ is a 
+\begin_inset Formula $17+5n$
+\end_inset
+
+ vector.
+\end_layout
+
+\begin_layout Standard
+The covariance matrix 
+\begin_inset Formula $P$
+\end_inset
+
+ which is defined as 
+\begin_inset Formula 
+\[
+P=E\left[\hat{\boldsymbol{x}}\boxminus\boldsymbol{x}\right]E\left[\hat{\boldsymbol{x}}\boxminus\boldsymbol{x}\right]^{\top}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+is a 
+\begin_inset Formula $\left(16+3n\right)\times\left(16+3n\right)$
+\end_inset
+
+ matrix, due to the nature of the 
+\begin_inset Formula $\boxminus$
+\end_inset
+
+ operator.
+\end_layout
+
+\begin_layout Section
+Dynamics
+\end_layout
+
+\begin_layout Standard
+Now that we have defined all the relevant parameterizations, we can define
+ the dynamics for our system.
+ We will use generic rigid-body dynamics mechanized by acceleration and
+ angular velocity inputs 
+\begin_inset Formula $\boldsymbol{y}_{a}$
+\end_inset
+
+ and 
+\begin_inset Formula $\boldsymbol{y}_{\omega}$
+\end_inset
+
+ respectively.
+\end_layout
+
+\begin_layout Subsection
+Classical Multirotor Dynamics
+\end_layout
+
+\begin_layout Standard
+Because terms like 
+\begin_inset Formula $\boldsymbol{\dot{q}}_{I}^{b}$
+\end_inset
+
+ do not truely exist in the same sense as the other vector objects in the
+ state, we will define our dynamics in a discretized manner.
+ Below are the dynamics of a multirotor using a linearized drag term.
+ No long derivation is necessary, because these dynamics are fairly well-develop
+ed
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\boldsymbol{p}_{I,t+1}^{b} & =\boldsymbol{p}_{I,t}^{b}+\left(\mathbf{R}^{\top}\left(\boldsymbol{q}_{I,t}^{b}\right)\boldsymbol{v}_{b,t}\right)dt\\
+\boldsymbol{v}_{b,t+1} & =\boldsymbol{v}_{b,t}+\left(\left\lfloor \boldsymbol{v}_{b,t}\right\rfloor \boldsymbol{\omega}_{t}+\mathbf{R}\left(\boldsymbol{q}_{I,t}^{b}\right)\boldsymbol{g}+\left(\boldsymbol{a}_{t}\boldsymbol{\cdot k}\right)\boldsymbol{k}-\mu_{t}\mathbf{M}\boldsymbol{v}_{b,t}+\boldsymbol{\eta}_{\boldsymbol{v}}\right)dt\\
+\boldsymbol{q}_{I,t+1}^{b} & =\boldsymbol{q}_{I,t}^{b}\boxplus\left(\boldsymbol{\omega}_{t}\right)dt\\
+\boldsymbol{\beta}_{a,t+1} & =\boldsymbol{\beta}_{a}+\left(\boldsymbol{\eta}_{\beta_{a}}\right)dt\\
+\boldsymbol{\beta}_{\boldsymbol{\omega},t+1} & =\boldsymbol{\beta}_{a}+\left(\boldsymbol{\eta}_{\beta_{\boldsymbol{\omega}}}\right)dt\\
+\mu_{t} & =\mu_{t}+\eta_{\mu}dt
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Bearing Vector Dynamics
+\end_layout
+
+\begin_layout Standard
+We will derive the feature dynamics relative to the camera.
+ The location of feature 
+\begin_inset Formula $i$
+\end_inset
+
+ can be defined in the inertial frame by
+\begin_inset Formula 
+\[
+\begin{aligned}\boldsymbol{p}_{I}^{i} & =\end{aligned}
+\boldsymbol{p}_{I}^{C}+\mathbf{R}\left(\boldsymbol{q}_{I}^{C}\right)\mathbf{R}\left(\boldsymbol{\zeta}_{C}^{i}\right)d\left(\rho_{i}\right)
+\]
+
+\end_inset
+
+Where
+\begin_inset Formula 
+\[
+d\left(\rho_{i}\right)=\frac{1}{\rho_{i}}
+\]
+
+\end_inset
+
+is the depth to feature 
+\begin_inset Formula $i$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Taking the time derivative of this equation, assuming that feature 
+\begin_inset Formula $i$
+\end_inset
+
+ is stationary, yields
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}0 & =\boldsymbol{v}_{I}^{C}+\frac{d}{dt}\left(\mathbf{R}\left(\boldsymbol{q}_{I}^{C}\right)\right)\mathbf{R}\left(\boldsymbol{\zeta}_{C}^{i}\right)d\left(\rho_{i}\right)+\mathbf{R}\left(\boldsymbol{q}_{I}^{C}\right)\frac{d}{dt}\left(\mathbf{R}\left(\boldsymbol{\zeta}_{C}^{i}\right)\right)d\left(\rho_{i}\right)+\mathbf{R}\left(\boldsymbol{q}_{I}^{C}\right)\mathbf{R}\left(\boldsymbol{\zeta}_{C}^{i}\right)\frac{d}{dt}\left(d\left(\rho_{i}\right)\right)\\
+ & =\boldsymbol{v}_{I}^{C}+\mathbf{R}\left(\boldsymbol{q}_{I}^{C}\right)\left\lfloor \boldsymbol{\omega}_{C}\right\rfloor \mathbf{R}\left(\boldsymbol{\zeta}_{C}^{i}\right)d\left(\rho_{i}\right)+\mathbf{R}\left(\boldsymbol{q}_{I}^{C}\right)\frac{d}{dt}\left(\mathbf{R}\left(\boldsymbol{\zeta}_{C}^{i}\right)\right)d\left(\rho_{i}\right)+\mathbf{R}\left(\boldsymbol{q}_{I}^{C}\right)\mathbf{R}\left(\boldsymbol{\zeta}_{C}^{i}\right)\frac{d}{dt}\left(d\left(\rho_{i}\right)\right)
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document

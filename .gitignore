@@ -1,0 +1,16 @@
+*.aux
+*.fdb_latexmk
+*.synctex.gz
+*.fls
+*.log
+*.pdf
+*.out
+*.bbl
+
+*.idea*
+*.creator
+*.user
+*.pyc
+*.lyx~
+*.swp
+*.ipynb_checkpoints/*

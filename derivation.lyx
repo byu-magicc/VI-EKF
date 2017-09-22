@@ -93,6 +93,28 @@ To derive an UKF which uses principles from both relative navigation and
 \end_layout
 
 \begin_layout Section
+Notation
+\end_layout
+
+\begin_layout Standard
+For this document, we will use the following notation for coordinate frames
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}q_{i}^{b} & \quad\textrm{Quaternion describing rotation from the inertial frame to the body frame}\\
+v_{b/i}^{b} & \quad\textrm{velocity of the body frame, with respect to the inertial frame, expressed in the body frame}\\
+p_{bi}^{i} & \quad\textrm{position of the body, with respect to the inertial frame, expressed in the inertial frame}
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
 \begin_inset Formula $\boxplus$
 \end_inset
 
@@ -289,7 +311,7 @@ m\neq n
 \end_layout
 
 \begin_layout Section
-Helpful Derivatives
+Helpful Derivatives/Identities
 \end_layout
 
 \begin_layout Standard
@@ -302,6 +324,73 @@ The derivative of the norm of a vector
 \begin{aligned}\frac{d}{dv}\left\Vert v\right\Vert  & =\frac{d}{dv}\sqrt{v^{\top}v}\\
  & =\frac{2v}{2\sqrt{v^{\top}v}}\\
  & =\frac{v}{\left\Vert v\right\Vert }
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The derivative of a rotated vector, with respect to the quaternion describing
+ the rotation
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{d}{dq_{a}^{b}}\left(R\left(q_{a}^{b}\right)v\right) & =-\left\lfloor R\left(q_{a}^{b}\right)v\right\rfloor \end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The time derivative of a rotation matrix between two arbitrary (possibly
+ time varying) frames
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{d}{dt}R\left(q_{a\left(t\right)}^{b\left(t\right)}\right) & =\left\lfloor \omega_{b\left(t\right)/a\left(t\right)}^{b\left(t\right)}\right\rfloor R\left(q_{a\left(t\right)}^{b\left(t\right)}\right)\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+If the rotation matrix is with respect to a fixed frame,
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{d}{dt}R\left(q_{a}^{b\left(t\right)}\right) & =\left\lfloor \omega_{b\left(t\right)/a}^{b\left(t\right)}\right\rfloor R\left(q_{a}^{b\left(t\right)}\right)\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+On the other hand, if the rotation matrix is defined with respect to a time-vary
+ing frame and describes the rotation to a fixed frame, (such as in the case
+ of body-fixed dynamics)
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{d}{dt}R\left(q_{b\left(t\right)}^{a}\right) & =\left\lfloor \omega_{a/b\left(t\right)}^{a}\right\rfloor R\left(q_{b\left(t\right)}^{a}\right)\\
+ & =\left\lfloor R\left(q_{b\left(t\right)}^{a}\right)^{\top}\omega_{a/b\left(t\right)}^{b\left(t\right)}\right\rfloor R\left(q_{b\left(t\right)}^{a}\right)\\
+ & =-\left\lfloor R\left(q_{b\left(t\right)}^{a}\right)^{\top}\omega_{b\left(t\right)/a}^{b\left(t\right)}\right\rfloor R\left(q_{b\left(t\right)}^{a}\right)
 \end{aligned}
 \]
 
@@ -455,7 +544,7 @@ To solve this next proof, we must first define some projections to extract
  the vector and scalar portions of the quaternion
 \end_layout
 
-\begin_layout Standard
+\begin_layout LyX-Code
 \begin_inset Formula 
 \[
 P_{w}=\left[\begin{array}{cc}
@@ -601,7 +690,7 @@ To derive the derivative of a quaternion, we must clarify the definition
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\boldsymbol{\omega}_{I}^{B} & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\boldsymbol{\delta}_{B\left(t\right)}^{B\left(t+\epsilon\right)}\right)\\
+\begin{aligned}\boldsymbol{\omega}_{b\left(t\right)/I}^{b\left(t\right)} & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\boldsymbol{\delta}_{b\left(t\right)}^{b\left(t+\epsilon\right)}\right)\\
  & =\frac{d}{dt}\left(\boldsymbol{\delta}\left(t\right)\right)
 \end{aligned}
 \]
@@ -653,16 +742,16 @@ The derivative of a quaternion representing a rotation between two rotating
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\dot{\boldsymbol{q}}_{A\left(t\right)}^{B\left(t\right)} & =\frac{d}{dt}\boldsymbol{q}_{A\left(t\right)}^{B\left(t\right)}\\
- & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\boldsymbol{q}_{A\left(t+\epsilon\right)}^{B\left(t+\epsilon\right)}\boxminus\boldsymbol{q}_{A\left(t\right)}^{B\left(t\right)}\right)\\
- & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\left(\boldsymbol{q}_{A\left(t\right)}^{B\left(t+\epsilon\right)}\otimes\boldsymbol{q}_{A\left(t+\epsilon\right)}^{A\left(t\right)}\right)\boxminus\boldsymbol{q}_{A\left(t\right)}^{B\left(t\right)}\right)\\
- & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\exp\left(\boldsymbol{\delta}_{B\left(t\right)}^{B\left(t+\epsilon\right)}\right)\otimes\boldsymbol{q}_{A\left(t\right)}^{B\left(t\right)}\otimes\exp\left(\boldsymbol{\delta}_{A\left(t+\epsilon\right)}^{A\left(t\right)}\right)\otimes\boldsymbol{q}_{A}^{-1\,B\left(t\right)}\right)\right)\\
- & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\exp\left(\boldsymbol{\delta}_{B\left(t\right)}^{B\left(t+\epsilon\right)}\right)\otimes\exp\left(\boldsymbol{\delta}_{A\left(t+\epsilon\right)}^{A\left(t\right)}\right)\right)\right)\\
- & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\exp\left(\boldsymbol{\delta}_{B\left(t\right)}^{B\left(t+\epsilon\right)}\right)\otimes\exp\left(\boldsymbol{\delta}_{A\left(t+\epsilon\right)}^{A\left(t\right)}\right)\right)\right)\\
- & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\exp\left(\epsilon\omega_{I}^{B(t)}\right)\otimes\exp\left(-\epsilon\omega_{I}^{A(t)}\right)\right)\right)\\
- & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\epsilon\left(\omega_{I}^{B\left(t\right)}-\omega_{I}^{A(t)}\right)\right)\\
- & =\omega_{I}^{B\left(t\right)}-\omega_{I}^{A(t)}\\
- & =\omega_{A(t)}^{B(t)}
+\begin{aligned}\dot{\boldsymbol{q}}_{a\left(t\right)}^{b\left(t\right)} & =\frac{d}{dt}\boldsymbol{q}_{a\left(t\right)}^{b\left(t\right)}\\
+ & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\boldsymbol{q}_{a\left(t+\epsilon\right)}^{b\left(t+\epsilon\right)}\boxminus\boldsymbol{q}_{a\left(t\right)}^{b\left(t\right)}\right)\\
+ & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\left(\boldsymbol{q}_{b\left(t\right)}^{b\left(t+\epsilon\right)}\otimes\boldsymbol{q}_{a\left(t\right)}^{b\left(t\right)}\otimes\boldsymbol{q}_{a\left(t+\epsilon\right)}^{a\left(t\right)}\right)\boxminus\boldsymbol{q}_{a\left(t\right)}^{b\left(t\right)}\right)\\
+ & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\exp\left(\boldsymbol{\delta}_{b\left(t\right)}^{b\left(t+\epsilon\right)}\right)\otimes\boldsymbol{q}_{a\left(t\right)}^{b\left(t\right)}\otimes\exp\left(\boldsymbol{\delta}_{a\left(t+\epsilon\right)}^{a\left(t\right)}\right)\otimes\boldsymbol{q}_{a}^{b\left(t\right)\,-1}\right)\right)\\
+ & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\exp\left(\boldsymbol{\delta}_{b\left(t\right)}^{b\left(t+\epsilon\right)}\right)\otimes\exp\left(\boldsymbol{\delta}_{a\left(t+\epsilon\right)}^{a\left(t\right)}\right)\right)\right)\\
+ & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\exp\left(\boldsymbol{\delta}_{b\left(t\right)}^{b\left(t+\epsilon\right)}\right)\otimes\exp\left(\boldsymbol{\delta}_{a\left(t+\epsilon\right)}^{a\left(t\right)}\right)\right)\right)\\
+ & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\exp\left(\epsilon\omega_{b\left(t\right)/I}^{b(t)}\right)\otimes\exp\left(-\epsilon\omega_{a\left(t\right)/I}^{a(t)}\right)\right)\right)\\
+ & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\epsilon\left(\omega_{b\left(t\right)/I}^{b\left(t\right)}-\omega_{a\left(t\right)/I}^{a(t)}\right)\right)\\
+ & =\omega_{b\left(t\right)/I}^{b\left(t\right)}-\omega_{a\left(t\right)/I}^{a(t)}\\
+ & =\omega_{a(t)}^{b(t)}
 \end{aligned}
 \]
 
@@ -679,14 +768,26 @@ If the quaternion is defined with respect to an inertial frame, then the
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\dot{\boldsymbol{q}}_{I}^{B\left(t\right)} & =\frac{d}{dt}\boldsymbol{q}_{I}^{B\left(t\right)}\\
- & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\boldsymbol{q}_{I\left(t\right)}^{B\left(t+\epsilon\right)}\boxminus\boldsymbol{q}_{I}^{B\left(t\right)}\right)\\
- & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\left(\boldsymbol{q}_{I}^{B\left(t\right)}\otimes\boldsymbol{q}_{B\left(t\right)}^{B\left(t+\epsilon\right)}\right)\boxminus\boldsymbol{q}_{I}^{B\left(t\right)}\right)\\
- & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\boldsymbol{q}_{I}^{B(t)}\otimes\exp\left(\boldsymbol{\delta}_{B\left(t\right)}^{B\left(t+\epsilon\right)}\right)\otimes\boldsymbol{q}_{I}^{-1\,B\left(t\right)}\right)\right)\\
- & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\exp\left(\boldsymbol{\delta}_{B\left(t\right)}^{B\left(t+\epsilon\right)}\right)\right)\right)\\
- & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\log\left(\exp\left(\epsilon\omega_{I}^{B(t)}\right)\right)\right)\\
- & =\lim_{\epsilon\to0}\frac{1}{\epsilon}\left(\epsilon\left(\omega_{I}^{B\left(t\right)}\right)\right)\\
- & =\omega_{I}^{B\left(t\right)}
+\begin{aligned}\dot{\boldsymbol{q}}_{I}^{b\left(t\right)} & =\omega_{b\left(t\right)/I}^{b\left(t\right)}\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+As a helpful identity, if the quaternion is with defined with respect to
+ a moving frame and describes the rotation to a fixed frame (such as in
+ body-fixed dynamics).
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\dot{\boldsymbol{q}}_{b(t)}^{I} & =\frac{d}{dt}\boldsymbol{q}_{b\left(t\right)}^{I}\\
+ & =\omega_{b\left(t\right)/I}^{I}\\
+ & =-R\left(\boldsymbol{q}_{b\left(t\right)}^{I}\right)\omega_{b\left(t\right)/I}^{b\left(t\right)}
 \end{aligned}
 \]
 
@@ -729,7 +830,11 @@ hairy ball theorem
 \end_layout
 
 \begin_layout Standard
-Instead, we will use rotations to define the represenation.
+Instead, we will use rotations in 
+\begin_inset Formula $SE(3)$
+\end_inset
+
+ to define the represenation.
  Let 
 \begin_inset Formula $\boldsymbol{\zeta}_{i}$
 \end_inset
@@ -838,7 +943,7 @@ As can be seen in the picture, there are only 2 degrees of freedom in this
 \begin_inset Formula 
 \[
 T_{\zeta}=R\left(q_{c}^{\zeta}\right)\left[\begin{array}{cc}
-\boldsymbol{e}_{x} & \boldsymbol{e_{y}}\end{array}\right]\in\mathbb{R}^{3\times2}
+\boldsymbol{e}_{x} & \boldsymbol{e}_{y}\end{array}\right]\in\mathbb{R}^{3\times2}
 \]
 
 \end_inset
@@ -862,9 +967,9 @@ Here are the definitions of the
 \begin_inset Formula 
 \begin{align}
 \boxplus & :SO\left(3\right)\times\mathbb{R}^{2}\rightarrow SO\left(3\right),\\
- & \boldsymbol{q}_{C}^{\zeta},\boldsymbol{u}\mapsto\exp(T_{\zeta}u)\otimes\boldsymbol{q}_{C}^{\zeta},\\
+ & \boldsymbol{q}_{c}^{\zeta},\boldsymbol{u}\mapsto\exp(T_{\zeta}u)\otimes\boldsymbol{q}_{c}^{\zeta},\\
 \boxminus & :SO\left(3\right)\times SO\left(3\right)\rightarrow\mathbb{R}^{2},\\
- & \boldsymbol{q}_{C}^{\zeta_{i}},\boldsymbol{q}_{C}^{\zeta_{j}}\mapsto T_{\zeta_{j}}^{\top}\boldsymbol{\theta}\left(\boldsymbol{q}_{C}^{\zeta_{i}},\:\boldsymbol{q}_{C}^{\zeta_{j}}\right),
+ & \boldsymbol{q}_{c}^{\zeta_{i}},\boldsymbol{q}_{c}^{\zeta_{j}}\mapsto T_{\zeta_{j}}^{\top}\boldsymbol{\theta}\left(\boldsymbol{q}_{c}^{\zeta_{i}},\:\boldsymbol{q}_{c}^{\zeta_{j}}\right),
 \end{align}
 
 \end_inset
@@ -882,19 +987,8 @@ where
 
 \begin_layout Standard
 \begin_inset Formula 
-\begin{equation}
-\boldsymbol{\theta}\left(n\left(\boldsymbol{p}\right),\:n\left(\boldsymbol{q}\right)\right):=\cos^{-1}\left(n\left(\boldsymbol{p}\right)^{\top}n\left(\boldsymbol{q}\right)\right)\dfrac{n\left(\boldsymbol{p}\right)\times n\left(\boldsymbol{q}\right)}{\lVert n\left(\boldsymbol{p}\right)\times n\left(\boldsymbol{q}\right)\rVert}
-\end{equation}
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
 \[
-\begin{aligned}\boldsymbol{\theta}\left(\boldsymbol{q}_{C}^{\zeta_{i}},\:\boldsymbol{q}_{C}^{\zeta_{j}}\right) & :=\end{aligned}
+\begin{aligned}\boldsymbol{\theta}\left(\boldsymbol{q}_{c}^{\zeta_{i}},\:\boldsymbol{q}_{c}^{\zeta_{j}}\right) & :=\end{aligned}
 \cos^{-1}\left(\zeta_{i}{}^{\top}\zeta_{j}\right)\dfrac{\zeta_{i}\times\zeta_{j}}{\lVert\zeta_{i}\times\zeta_{j}\rVert}
 \]
 
@@ -904,57 +998,19 @@ where
 \end_layout
 
 \begin_layout Standard
-and 
-\begin_inset Formula $n\left(\boldsymbol{q}\right)$
-\end_inset
-
- is the unit vector which results when rotating 
-\begin_inset Formula $\boldsymbol{e}_{z}$
-\end_inset
-
- by 
-\begin_inset Formula $\boldsymbol{q}$
-\end_inset
-
-.
- For example:
+Let us now define the time derivative of a unit bearing vector in a moving
+ frame
 \end_layout
 
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\end{aligned}
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\begin{equation}
-n(\boldsymbol{q}_{C}^{\zeta})=R\left(q_{c}^{\zeta}\right)\boldsymbol{e}_{z}\boldsymbol{\zeta}
-\end{equation}
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-Let us now define the derivative of the quaternion between the camera frame
- and a bearing vector with respect to a moving camera frame
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-\begin{aligned}\dot{q}_{C(t)}^{\zeta(t)} & =\frac{d}{dt}\dot{q}_{C\left(t\right)}^{\zeta\left(t\right)}\\
- & =\frac{d}{dq_{C}^{\zeta}}\frac{dq_{C}^{\zeta}}{dt}\left(\zeta\right)\\
- & =\frac{d}{dq_{C\left(t\right)}^{\zeta\left(t\right)}}\left(R\left(q_{c\left(t\right)}^{\zeta\left(t\right)}\right)\boldsymbol{e}_{z,C\left(t\right)}\right)\frac{dq_{C(t)}^{\zeta(t)}}{dt}\\
- & =-\bigl\lfloor R\left(q_{c\left(t\right)}^{\zeta\left(t\right)}\right)\boldsymbol{e}_{z,C\left(t\right)}\bigr\rfloor\frac{dq_{C(t)}^{\zeta(t)}}{dt}\\
- & =\bigl\lfloor\zeta_{C}\bigr\rfloor T_{\zeta}\dot{\zeta}
+\begin{aligned}\dot{\zeta}^{c\left(t\right)} & =\frac{d}{dt}R\left(q_{c\left(t\right)}^{\zeta}\right)\boldsymbol{e}_{z}\\
+ & =\frac{d}{dt}\left(R\left(q_{c\left(t\right)}^{\zeta}\right)\right)\boldsymbol{e}_{z}+R\left(q_{c\left(t\right)}^{\zeta}\right)\frac{d}{dt}\left(\boldsymbol{e}_{z}\right)\\
+ & =\left\lfloor \omega_{\zeta/c\left(t\right)}^{c\left(t\right)}\right\rfloor R\left(q_{c\left(t\right)}^{\zeta}\right)\boldsymbol{e}_{z}+0\\
+ & =-\left\lfloor R\left(q_{c\left(t\right)}^{\zeta}\right)^{\top}\omega_{c\left(t\right)/\zeta}^{c\left(t\right)}\right\rfloor \zeta^{c\left(t\right)}\\
+ & =\left\lfloor \zeta\right\rfloor R\left(q_{c\left(t\right)}^{\zeta}\right)^{\top}\omega_{c\left(t\right)/\zeta}^{c\left(t\right)}\\
+ & =\left\lfloor \zeta\right\rfloor R\left(q_{c\left(t\right)}^{\zeta}\right)^{\top}\dot{q}_{c\left(t\right)}^{\zeta}
 \end{aligned}
 \]
 
@@ -964,20 +1020,33 @@ Let us now define the derivative of the quaternion between the camera frame
 \end_layout
 
 \begin_layout Standard
-It is important to note that 
-\begin_inset Formula $\dot{\zeta}$
+Because 
+\begin_inset Formula $\dot{q}_{c\left(t\right)}^{\zeta}$
 \end_inset
 
- is the angular velocity in the camera frame of the frame with it's 
-\begin_inset Formula $z$
-\end_inset
-
- axis directed at the feature.
- As noted before, this exists in 
+ actually exists in 
 \begin_inset Formula $\mathbb{R}^{2}$
 \end_inset
 
+ we can actually rewrite the above as
+\end_layout
 
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\dot{\zeta}^{c\left(t\right)} & =\left\lfloor \zeta\right\rfloor T_{\zeta}\dot{q}_{c\left(t\right)}^{\zeta}\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\dot{q}_{c\left(t\right)}^{\zeta}$
+\end_inset
+
+will be defined later when we derive the dynamics of our system
 \end_layout
 
 \begin_layout Section
@@ -991,13 +1060,13 @@ I am going to derive the state as follows:
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\boldsymbol{p}_{I}^{b} & \quad\textrm{position of MAV body frame wrt inertial frame}\\
-\boldsymbol{v}_{b} & \quad\textrm{velocity of MAV in body frame}\\
-\boldsymbol{q}_{I}^{b} & \quad\textrm{rotation from inertial to body frame, expressed in the inertial frame as a unit quaternion}\\
-\boldsymbol{\beta}_{a} & \quad\textrm{accelerometer constant bias}\\
-\boldsymbol{\beta}_{\omega} & \quad\textrm{rate gyroscope constant bias}\\
+\begin{aligned}p_{bI}^{I} & \quad\textrm{position of MAV body frame wrt inertial frame}\\
+v_{b/I}^{b} & \quad\textrm{velocity of MAV in body frame}\\
+q_{I}^{b} & \quad\textrm{rotation from inertial to body frame, expressed in the inertial frame as a unit quaternion}\\
+\beta_{a} & \quad\textrm{accelerometer constant bias}\\
+\beta_{\omega} & \quad\textrm{rate gyroscope constant bias}\\
 \mu & \quad\textrm{constant linear drag term}\\
-\boldsymbol{q}_{C}^{\zeta_{i}} & \quad\textrm{rotation from the camera z axis to the unit bearing vector pointing at feature }i\textrm{ expressed in the camera frame as a unit quaternion}\\
+q_{c}^{\zeta_{i}} & \quad\textrm{rotation from the camera z axis to the unit bearing vector pointing at feature }i\textrm{ expressed in the camera frame as a unit quaternion}\\
 \rho_{i} & \quad\textrm{depth to feature }i\textrm{ parameterized in inverse depth}
 \end{aligned}
 \]
@@ -1010,7 +1079,7 @@ I am going to derive the state as follows:
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\boldsymbol{x}=\left[\boldsymbol{p}_{I},\boldsymbol{v}_{b},\boldsymbol{q}_{I}^{b},\boldsymbol{\beta}_{a},\boldsymbol{\beta}_{\omega},\mu,\boldsymbol{\zeta}_{0}\cdots\boldsymbol{\zeta}_{n},\rho_{0}\cdots\rho_{n}\right]^{\top}
+\boldsymbol{x}=\left[p_{bI}^{I},v_{b/I}^{b},q_{I}^{b},\beta_{a},\beta_{\omega},\mu,q_{c}^{\zeta_{0}}\cdots q_{c}^{\zeta_{n}},\rho_{0}\cdots\rho_{n}\right]^{\top}
 \]
 
 \end_inset
@@ -1055,7 +1124,11 @@ is a
 \begin_inset Formula $\boxminus$
 \end_inset
 
- operator.
+ operator and the underlying parameterization of 
+\begin_inset Formula $\boldsymbol{x}$
+\end_inset
+
+
 \end_layout
 
 \begin_layout Section
@@ -1082,26 +1155,20 @@ Classical Multirotor Dynamics
 \end_layout
 
 \begin_layout Standard
-Because terms like 
-\begin_inset Formula $\boldsymbol{\dot{q}}_{I}^{b}$
-\end_inset
-
- do not truely exist in the same sense as the other vector objects in the
- state, we will define our dynamics in a discretized manner.
- Below are the dynamics of a multirotor using a linearized drag term.
- No long derivation is necessary, because these dynamics are fairly well-develop
-ed
+Below are the dynamics of a multirotor using a linearized drag term.
+ No long derivation is necessary, because these dynamics are fairly commonplace
+ in literature.
 \end_layout
 
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\boldsymbol{p}_{I,t+1}^{b} & =\boldsymbol{p}_{I,t}^{b}+\left(\mathbf{R}^{\top}\left(\boldsymbol{q}_{I,t}^{b}\right)\boldsymbol{v}_{b,t}\right)dt\\
-\boldsymbol{v}_{b,t+1} & =\boldsymbol{v}_{b,t}+\left(\left\lfloor \boldsymbol{v}_{b,t}\right\rfloor \boldsymbol{\omega}_{t}+\mathbf{R}\left(\boldsymbol{q}_{I,t}^{b}\right)\boldsymbol{g}+\left(\boldsymbol{a}_{t}\boldsymbol{\cdot k}\right)\boldsymbol{k}-\mu_{t}\mathbf{M}\boldsymbol{v}_{b,t}+\boldsymbol{\eta}_{\boldsymbol{v}}\right)dt\\
-\boldsymbol{q}_{I,t+1}^{b} & =\boldsymbol{q}_{I,t}^{b}\boxplus\left(\boldsymbol{\omega}_{t}\right)dt\\
-\boldsymbol{\beta}_{a,t+1} & =\boldsymbol{\beta}_{a}+\left(\boldsymbol{\eta}_{\beta_{a}}\right)dt\\
-\boldsymbol{\beta}_{\boldsymbol{\omega},t+1} & =\boldsymbol{\beta}_{a}+\left(\boldsymbol{\eta}_{\beta_{\boldsymbol{\omega}}}\right)dt\\
-\mu_{t} & =\mu_{t}+\eta_{\mu}dt
+\begin{aligned}\dot{p}_{I}^{b} & =R^{\top}\left(q_{I}^{b}\right)v_{bI}^{b}\\
+\dot{v}_{b} & =\left\lfloor v_{bI}^{b}\right\rfloor \boldsymbol{\omega}_{bI}^{b}+R\left(q_{I}^{b}\right)g+\left(y_{acc}\cdot\hat{k}\right)\hat{k}-\mu_{t}Mv_{bI}^{b}+\eta_{v}\\
+\dot{q}_{I}^{b} & =\omega\\
+\dot{\beta}_{a} & =\eta_{\beta_{a}}\\
+\dot{\beta}_{\omega} & =\eta_{\beta_{\boldsymbol{\omega}}}\\
+\dot{\mu} & =\eta_{\mu}d
 \end{aligned}
 \]
 
@@ -1123,8 +1190,8 @@ We will derive the feature dynamics relative to the camera.
  can be defined in the inertial frame by
 \begin_inset Formula 
 \[
-\begin{aligned}\boldsymbol{p}_{I}^{i} & =\end{aligned}
-\boldsymbol{p}_{I}^{C}+\mathbf{R}\left(\boldsymbol{q}_{I}^{C}\right)\mathbf{R}\left(\boldsymbol{\zeta}_{C}^{i}\right)d\left(\rho_{i}\right)
+\begin{aligned}p_{iI}^{I} & =\end{aligned}
+p_{c\left(t\right)I}^{I}+R^{\top}\left(q_{I}^{c\left(t\right)}\right)\boldsymbol{\zeta}_{i}^{c\left(t\right)}d\left(\rho_{i}\right)
 \]
 
 \end_inset
@@ -1145,6 +1212,28 @@ is the depth to feature
 \end_layout
 
 \begin_layout Standard
+For the following derivation, we will need to know the derivative of 
+\begin_inset Formula $d\left(\rho\right)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{d}{dt}d\left(\rho\right) & =\frac{d}{dt}\frac{1}{\rho}\\
+ & =\frac{d}{d\rho}\left(\frac{1}{\rho}\right)\frac{d}{dt}\left(\rho\right)\\
+ & =-\frac{\dot{\rho}}{\rho^{2}}
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
 Taking the time derivative of this equation, assuming that feature 
 \begin_inset Formula $i$
 \end_inset
@@ -1154,9 +1243,242 @@ Taking the time derivative of this equation, assuming that feature
 
 \begin_layout Standard
 \begin_inset Formula 
+\begin{equation}
+\begin{aligned}\frac{d}{dt}p_{iI}^{I} & =\frac{d}{dt}p_{c\left(t\right)I}^{I}+\frac{d}{dt}\left(R^{\top}\left(q_{I}^{c\left(t\right)}\right)\zeta_{i}^{c\left(t\right)}d\left(\rho_{i}\right)\right)\\
+0 & =v_{c\left(t\right)/I}^{I}+\frac{d}{dt}\left(R^{\top}\left(q_{I}^{c\left(t\right)}\right)\right)\zeta_{i}^{c\left(t\right)}d\left(\rho_{i}\right)+R^{\top}\left(q_{I}^{c\left(t\right)}\right)\frac{d}{dt}\left(\zeta_{i}^{c\left(t\right)}\right)d\left(\rho_{i}\right)+R^{\top}\left(q_{I}^{c\left(t\right)}\right)\zeta_{i}^{c\left(t\right)}\frac{d}{dt}\left(d\left(\rho_{i}\right)\right)\\
+ & =v_{c\left(t\right)/I}^{I}+R^{\top}\left(q_{I}^{c\left(t\right)}\right)\left\lfloor \omega_{c\left(t\right)/I}^{c\left(t\right)}\right\rfloor \zeta_{i}^{c\left(t\right)}d\left(\rho_{i}\right)+R^{\top}\left(q_{I}^{c\left(t\right)}\right)\left\lfloor \zeta_{i}^{c\left(t\right)}\right\rfloor T_{\zeta}\dot{q}_{c\left(t\right)}^{\zeta}d\left(\rho_{i}\right)-R^{\top}\left(q_{I}^{c\left(t\right)}\right)\zeta_{i}^{c\left(t\right)}\frac{\dot{\rho}}{\rho^{2}}
+\end{aligned}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Rotating the above into the camera frame results simplifies things a bit
+ (and notationally dropping the explicit time dependence of the camera frame
+\begin_inset Formula 
 \[
-\begin{aligned}0 & =\boldsymbol{v}_{I}^{C}+\frac{d}{dt}\left(\mathbf{R}\left(\boldsymbol{q}_{I}^{C}\right)\right)\mathbf{R}\left(\boldsymbol{\zeta}_{C}^{i}\right)d\left(\rho_{i}\right)+\mathbf{R}\left(\boldsymbol{q}_{I}^{C}\right)\frac{d}{dt}\left(\mathbf{R}\left(\boldsymbol{\zeta}_{C}^{i}\right)\right)d\left(\rho_{i}\right)+\mathbf{R}\left(\boldsymbol{q}_{I}^{C}\right)\mathbf{R}\left(\boldsymbol{\zeta}_{C}^{i}\right)\frac{d}{dt}\left(d\left(\rho_{i}\right)\right)\\
- & =\boldsymbol{v}_{I}^{C}+\mathbf{R}\left(\boldsymbol{q}_{I}^{C}\right)\left\lfloor \boldsymbol{\omega}_{C}\right\rfloor \mathbf{R}\left(\boldsymbol{\zeta}_{C}^{i}\right)d\left(\rho_{i}\right)+\mathbf{R}\left(\boldsymbol{q}_{I}^{C}\right)\frac{d}{dt}\left(\mathbf{R}\left(\boldsymbol{\zeta}_{C}^{i}\right)\right)d\left(\rho_{i}\right)+\mathbf{R}\left(\boldsymbol{q}_{I}^{C}\right)\mathbf{R}\left(\boldsymbol{\zeta}_{C}^{i}\right)\frac{d}{dt}\left(d\left(\rho_{i}\right)\right)
+\begin{aligned}0 & =R\left(q_{I}^{c}\right)v_{c/I}^{I}+R^{\top}\left(q_{I}^{c}\right)R^{\top}\left(q_{I}^{c}\right)\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)+R^{\top}\left(q_{I}^{c}\right)R^{\top}\left(q_{I}^{c}\right)\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-R^{\top}\left(q_{I}^{c}\right)R^{\top}\left(q_{I}^{c}\right)\zeta_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}\\
+ & =v_{c/I}^{c}+\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)+\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-\boldsymbol{\zeta}_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Now, we need to isolate both 
+\begin_inset Formula $\dot{q}_{c}^{\zeta}$
+\end_inset
+
+ and 
+\begin_inset Formula $\dot{\rho}$
+\end_inset
+
+ for our dynamics equation.
+ First, multiply by 
+\begin_inset Formula $d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor $
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}0 & =\left(d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \right)v_{c/I}^{c}+\left(d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \right)\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)+\left(d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \right)\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-\left(d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \right)\zeta_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}\\
+ & =d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}-d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \omega_{c/I}^{c}d\left(\rho_{i}\right)+d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \zeta_{i}^{c}\frac{\dot{\rho}}{\rho}\\
+ & =d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}-T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \omega_{c/I}^{c}+T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Using the identity 
+\begin_inset Formula $T_{\zeta}^{\top}\left\lfloor \zeta^{c}\right\rfloor \left\lfloor \zeta^{c}\right\rfloor =-T_{\zeta}^{\top}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}0 & =d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}+T_{\zeta}^{\top}\omega_{c/I}^{c}-T_{\zeta}^{\top}T_{\zeta}\dot{q}_{c}^{\zeta}\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Then, remembering that 
+\begin_inset Formula $T_{\zeta}^{\top}T_{\zeta}=I\in\mathbb{R}^{2}$
+\end_inset
+
+ 
+\begin_inset Formula 
+\[
+\begin{aligned}0 & =d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}+T_{\zeta}^{\top}\omega_{c/I}^{c}-\dot{q}_{c}^{\zeta}\\
+\dot{q}_{c}^{\zeta} & =T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}+\omega_{c/I}^{c}\right)
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Now, to find the dynamics for the inverse depth 
+\begin_inset Formula $\dot{\rho}$
+\end_inset
+
+, starting with above and multiplying by 
+\begin_inset Formula $-\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}0 & =-\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}\left(v_{c/I}^{c}+\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)+\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-\zeta_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}\right)\\
+ & =-\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}v_{c/I}^{c}-\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)-\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)+\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}\zeta_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}\\
+ & =-\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}v_{c/I}^{c}+\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \omega_{c/I}^{c}d\left(\rho_{i}\right)-\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)+\dot{\rho}\\
+ & =-\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}v_{c/I}^{c}+\dot{\rho}\\
+\dot{\rho} & =\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}v_{c/I}^{c}
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Camera Dynamics
+\end_layout
+
+\begin_layout Standard
+Because our bearing and inverse depth dynamics are derived with respect
+ to the camera frame, we need to convert them into the body frame so we
+ can apply our inputs, which are with respect to the body frame
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}p_{ci}^{i} & =p_{bi}^{i}+R\left(q_{b}^{i}\right)p_{cb}^{b}\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Differentiating, and assuming that the camera is fixed to the body
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{d}{dt}p_{ci}^{i} & =\frac{d}{dt}p_{bi}^{i}+\frac{d}{dt}\left(R\left(q_{b}^{i}\right)p_{cb}^{b}\right)\\
+v_{c/i}^{i} & =v_{b/i}^{i}+R\left(q_{b}^{i}\right)\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Then rotating into the camera frame
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}R\left(q_{b}^{c}\right)R\left(q_{i}^{b}\right)v_{c/i}^{i} & =R\left(q_{b}^{c}\right)R\left(q_{i}^{b}\right)v_{b/i}^{i}+R\left(q_{b}^{c}\right)R\left(q_{i}^{b}\right)R\left(q_{b}^{i}\right)\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\\
+v_{c/i}^{c} & =R\left(q_{b}^{c}\right)v_{b/i}^{b}+R\left(q_{b}^{c}\right)\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\\
+v_{c/i}^{c} & =R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\right)
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The camera-fixed angular velocity of the camera 
+\begin_inset Formula $\omega_{c/i}^{c}$
+\end_inset
+
+ is just a rotated body rotation because we assume a fixed camera
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\omega_{c/I}^{c} & =R\left(q_{b}^{c}\right)\omega_{b/I}^{b}\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Dynamics - Summary
+\end_layout
+
+\begin_layout Standard
+In summary, the full state dynamics of the system 
+\begin_inset Formula $\dot{\boldsymbol{x}}$
+\end_inset
+
+ with respect to inputs 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\boldsymbol{u} & =\left[\begin{array}{c}
+y_{acc}\\
+\omega_{b/i}^{b}
+\end{array}\right]\end{aligned}
+\in\mathbb{R}^{4\times1}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\dot{p}_{I}^{b} & =R^{\top}\left(q_{I}^{b}\right)v_{bI}^{b}\\
+\dot{v}_{b} & =\left\lfloor v_{b/I}^{b}\right\rfloor \boldsymbol{\omega}_{b/I}^{b}+R\left(q_{I}^{b}\right)g+\left(y_{acc}\cdot\hat{k}\right)\hat{k}-\mu_{t}Mv_{b/I}^{b}+\eta_{v}\\
+\dot{q}_{I}^{b} & =\omega\\
+\dot{\beta}_{a} & =\eta_{\beta_{a}}\\
+\dot{\beta}_{\omega} & =\eta_{\beta_{\boldsymbol{\omega}}}\\
+\dot{\mu} & =\eta_{\mu}d\\
+\dot{q}_{c}^{\zeta} & =T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\omega_{b/I}^{b}\right)\\
+\dot{\rho} & =\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\right)
 \end{aligned}
 \]
 

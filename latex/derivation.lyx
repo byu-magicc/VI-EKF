@@ -1427,7 +1427,7 @@ The camera-fixed angular velocity of the camera
 \begin_inset Formula $\omega_{c/i}^{c}$
 \end_inset
 
- is just a rotated body rotation because we assume a fixed camera
+ is just a rotated body rotation because we assumed a fixed camera
 \end_layout
 
 \begin_layout Standard

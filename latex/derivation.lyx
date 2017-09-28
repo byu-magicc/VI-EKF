@@ -75,7 +75,7 @@
 \begin_body
 
 \begin_layout Title
-Visual-Inertial UKF
+.Visual-Inertial EKF
 \end_layout
 
 \begin_layout Author
@@ -410,7 +410,7 @@ We will use standard Hamiltonian Notation for quaternions:
 \begin_layout Standard
 \begin_inset Formula 
 \begin{equation}
-{\bf q}=q_{w}+q_{x}{\bf i}+q_{y}{\bf j}+q_{z}{\bf k}=\begin{bmatrix}\bar{{\bf q}}^{\top} & q_{w}\end{bmatrix}^{\top},
+{\bf q}=q_{w}+q_{x}{\bf i}+q_{y}{\bf j}+q_{z}{\bf k}=\begin{bmatrix}q_{w} & \bar{{\bf q}}^{\top}\end{bmatrix}^{\top},
 \end{equation}
 
 \end_inset
@@ -471,8 +471,8 @@ The exponential mapping used to define the
 \begin_layout Standard
 \begin_inset Formula 
 \begin{equation}
-\exp\left(\boldsymbol{\delta}\right)=\begin{bmatrix}\bar{\boldsymbol{q}}\\
-\boldsymbol{q}_{w}
+\exp\left(\boldsymbol{\delta}\right)=\begin{bmatrix}\boldsymbol{q}_{w}\\
+\bar{\boldsymbol{q}}
 \end{bmatrix}=\begin{bmatrix}\cos\left(\frac{\lVert\delta\rVert}{2}\right)\\
 \sin\left(\frac{\lVert\delta\rVert}{2}\right)\frac{\delta}{\lVert\delta\rVert}
 \end{bmatrix},
@@ -778,15 +778,16 @@ If the quaternion is defined with respect to an inertial frame, then the
 
 \begin_layout Standard
 As a helpful identity, if the quaternion is with defined with respect to
- a moving frame and describes the rotation to a fixed frame (such as in
- body-fixed dynamics).
+ a moving frame and describes the rotation to a fixed frame (such as is
+ the case in body-fixed dynamics).
 \end_layout
 
 \begin_layout Standard
 \begin_inset Formula 
 \[
 \begin{aligned}\dot{\boldsymbol{q}}_{b(t)}^{I} & =\frac{d}{dt}\boldsymbol{q}_{b\left(t\right)}^{I}\\
- & =\omega_{b\left(t\right)/I}^{I}\\
+ & =\omega_{I/b\left(t\right)}^{I}\\
+ & =R\left(\boldsymbol{q}_{b\left(t\right)}^{I}\right)\omega_{I/b\left(t\right)}^{b\left(t\right)}\\
  & =-R\left(\boldsymbol{q}_{b\left(t\right)}^{I}\right)\omega_{b\left(t\right)/I}^{b\left(t\right)}
 \end{aligned}
 \]
@@ -1163,8 +1164,8 @@ Below are the dynamics of a multirotor using a linearized drag term.
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\dot{p}_{I}^{b} & =R^{\top}\left(q_{I}^{b}\right)v_{bI}^{b}\\
-\dot{v}_{b} & =\left\lfloor v_{bI}^{b}\right\rfloor \boldsymbol{\omega}_{bI}^{b}+R\left(q_{I}^{b}\right)g+\left(y_{acc}\cdot\hat{k}\right)\hat{k}-\mu_{t}Mv_{bI}^{b}+\eta_{v}\\
+\begin{aligned}\dot{p}_{bI}^{I} & =R^{\top}\left(q_{I}^{b}\right)v_{b/I}^{b}\\
+\dot{v}_{b/I}^{b} & =\left\lfloor v_{b/I}^{b}\right\rfloor \boldsymbol{\omega}_{b/I}^{b}+R\left(q_{I}^{b}\right)g+\hat{k}\hat{k}^{\top}\left(y_{a}-\beta_{a}\right)-\mu_{t}v_{b/I}^{b}+\eta_{v}\\
 \dot{q}_{I}^{b} & =\omega\\
 \dot{\beta}_{a} & =\eta_{\beta_{a}}\\
 \dot{\beta}_{\omega} & =\eta_{\beta_{\boldsymbol{\omega}}}\\
@@ -1457,8 +1458,8 @@ In summary, the full state dynamics of the system
 \begin_inset Formula 
 \[
 \begin{aligned}\boldsymbol{u} & =\left[\begin{array}{c}
-y_{acc}\\
-\omega_{b/i}^{b}
+y_{a}\\
+y_{\omega}
 \end{array}\right]\end{aligned}
 \in\mathbb{R}^{4\times1}
 \]
@@ -1471,15 +1472,603 @@ y_{acc}\\
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\dot{p}_{I}^{b} & =R^{\top}\left(q_{I}^{b}\right)v_{bI}^{b}\\
-\dot{v}_{b} & =\left\lfloor v_{b/I}^{b}\right\rfloor \boldsymbol{\omega}_{b/I}^{b}+R\left(q_{I}^{b}\right)g+\left(y_{acc}\cdot\hat{k}\right)\hat{k}-\mu_{t}Mv_{b/I}^{b}+\eta_{v}\\
-\dot{q}_{I}^{b} & =\omega\\
+\begin{aligned}\dot{p}_{bI}^{I} & =R^{\top}\left(q_{I}^{b}\right)v_{bI}^{b}\\
+v_{b/I}^{b} & =\left\lfloor v_{b/I}^{b}\right\rfloor \left(y_{\omega}-\beta_{\omega}\right)+R\left(q_{I}^{b}\right)g+\hat{k}\hat{k}^{\top}\left(y_{a}-\beta_{a}\right)-\mu_{t}v_{b/I}^{b}+\eta_{v}\\
+\dot{q}_{I}^{b} & =y_{\omega}-\beta_{\omega}\\
 \dot{\beta}_{a} & =\eta_{\beta_{a}}\\
 \dot{\beta}_{\omega} & =\eta_{\beta_{\boldsymbol{\omega}}}\\
 \dot{\mu} & =\eta_{\mu}d\\
-\dot{q}_{c}^{\zeta_{i}} & =T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\omega_{b/I}^{b}\right)\\
-\dot{\rho_{i}} & =\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\right)
+\dot{q}_{c}^{\zeta_{i}} & =T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\\
+\dot{\rho_{i}} & =\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)
 \end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+State Jacobians
+\end_layout
+
+\begin_layout Standard
+We now want the derivative of the state propagation function with respect
+ to the state 
+\begin_inset Formula $F=\frac{\partial\dot{\boldsymbol{x}}}{\partial\boldsymbol{x}}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Position Jacobians
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial}{\partial v_{b/I}^{b}}\dot{p}_{bI}^{I} & =\frac{\partial}{\partial v_{b/I}^{b}}\left(R^{\top}\left(q_{I}^{b}\right)v_{bI}^{b}\right)\\
+ & =R^{\top}\left(q_{I}^{b}\right)
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial}{\partial q_{I}^{b}}\dot{p}_{bI}^{I} & =\frac{\partial}{\partial q_{I}^{b}}\left(R^{\top}\left(q_{I}^{b}\right)v_{bI}^{b}\right)\\
+ & =-\left\lfloor R\left(q_{a}^{b}\right)v_{bI}^{b}\right\rfloor 
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Velocity Jacobians
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial}{\partial v_{b/I}^{b}}v_{b/I}^{b} & =\frac{\partial}{\partial v_{b/I}^{b}}\left(\left\lfloor v_{b/I}^{b}\right\rfloor \left(y_{\omega}-\beta_{\omega}\right)+R\left(q_{I}^{b}\right)g+\hat{k}\hat{k}^{\top}\left(y_{a}-\beta_{a}\right)-\mu v_{b/I}^{b}+\eta_{v}\right)\\
+ & =-\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor -\mu I_{3\times3}
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial}{\partial q_{I}^{b}}v_{b/I}^{b} & =\frac{\partial}{\partial q_{I}^{b}}\left(\left\lfloor v_{b/I}^{b}\right\rfloor \left(y_{\omega}-\beta_{\omega}\right)+R\left(q_{I}^{b}\right)g+\hat{k}\hat{k}^{\top}\left(y_{a}-\beta_{a}\right)-\mu v_{b/I}^{b}+\eta_{v}\right)\\
+ & =-\left\lfloor R\left(q_{I}^{b}\right)g\right\rfloor 
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial}{\partial\beta_{a}}v_{b/I}^{b} & =\frac{\partial}{\partial\beta_{a}}\left(\left\lfloor v_{b/I}^{b}\right\rfloor \left(y_{\omega}-\beta_{\omega}\right)+R\left(q_{I}^{b}\right)g+\hat{k}\hat{k}^{\top}\left(y_{a}-\beta_{a}\right)-\mu v_{b/I}^{b}+\eta_{v}\right)\\
+ & =-\hat{k}\hat{k}^{\top}
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial}{\partial\beta_{\omega}}v_{b/I}^{b} & =\frac{\partial}{\partial\beta_{\omega}}\left(\left\lfloor v_{b/I}^{b}\right\rfloor \left(y_{\omega}-\beta_{\omega}\right)+R\left(q_{I}^{b}\right)g+\hat{k}\hat{k}^{\top}\left(y_{a}-\beta_{a}\right)-\mu v_{b/I}^{b}+\eta_{v}\right)\\
+ & =-\left\lfloor v_{b/I}^{b}\right\rfloor 
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial}{\partial\mu}v_{b/I}^{b} & =\frac{\partial}{\partial\beta_{\omega}}\left(\left\lfloor v_{b/I}^{b}\right\rfloor \left(y_{\omega}-\beta_{\omega}\right)+R\left(q_{I}^{b}\right)g+\hat{k}\hat{k}^{\top}\left(y_{a}-\beta_{a}\right)-\mu v_{b/I}^{b}+\eta_{v}\right)\\
+ & =v_{b/I}^{b}
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Orientation Jacobians
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial}{\partial\beta_{\omega}}\dot{q}_{I}^{b} & =\frac{\partial}{\partial\beta_{\omega}}\left(y_{\omega}-\beta_{\omega}\right)\\
+ & =-I_{3\times3}
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Bearing Quaternion Jacobians
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\dfrac{\partial}{\partial v_{b/I}^{b}}\dot{q}_{c}^{\zeta_{i}} & =\dfrac{\partial}{\partial v_{b/I}^{b}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\right)\\
+ & =\rho_{i}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor R\left(q_{b}^{c}\right)
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\dfrac{\partial}{\partial\beta_{\omega}}\dot{q}_{c}^{\zeta_{i}} & =\dfrac{\partial}{\partial\beta_{\omega}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\right)\\
+ & =-\rho_{i}T_{\zeta}^{\top}\left(\left\lfloor \zeta_{i}^{c}\right\rfloor R\left(q_{b}^{c}\right)p_{cb}^{b}+R\left(q_{b}^{c}\right)\right)
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\dfrac{\partial}{\partial q_{c}^{\zeta_{i}}}\dot{q}_{c}^{\zeta_{i}} & =\dfrac{\partial}{\partial q_{c}^{\zeta_{i}}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\right)\\
+ & =\dfrac{\partial}{\partial q_{c}^{\zeta_{i}}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor R\left(q_{c}^{\zeta_{i}}\right)\boldsymbol{e}_{z}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\right)\\
+ & =\dfrac{\partial}{\partial q_{c}^{\zeta_{i}}}\left(R\left(q_{c}^{\zeta}\right)\left[\begin{array}{cc}
+\boldsymbol{e}_{x} & \boldsymbol{e}_{y}\end{array}\right]\rho_{i}\left\lfloor R\left(q_{c}^{\zeta_{i}}\right)\boldsymbol{e}_{z}\right\rfloor R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)\\
+ & =
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\dfrac{\partial}{\partial\rho_{i}}\dot{q}_{c}^{\zeta_{i}} & =\dfrac{\partial}{\partial\rho_{i}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\right)\\
+ & =T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Inverse Depth Jacobians
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial}{\partial v_{b/i}^{i}}\dot{\rho_{i}} & =\frac{\partial}{\partial v_{b/i}^{i}}\left(\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)\\
+ & =\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial}{\partial\beta_{\omega}}\dot{\rho_{i}} & =\frac{\partial}{\partial\beta_{\omega}}\left(\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)\\
+ & =-\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)\left\lfloor p_{cb}^{b}\right\rfloor 
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial}{\partial q_{c}^{\zeta_{i}}}\dot{\rho_{i}} & =\frac{\partial}{\partial q_{c}^{\zeta_{i}}}\left(\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)\\
+ & =\frac{\partial}{\partial q_{c}^{\zeta_{i}}}\left(\rho_{i}^{2}\left(R\left(q_{c}^{\zeta_{i}}\right)\boldsymbol{e}_{z}\right)^{\top}R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)\\
+ & =-\rho_{i}^{2}\left\lfloor R\left(q_{c}^{\zeta_{i}}\right)\boldsymbol{e}_{z}^{\top}R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right\rfloor T_{\zeta_{i}}\\
+ & =-\rho_{i}^{2}\left\lfloor \zeta_{i}^{c}{}^{\top}R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right\rfloor T_{\zeta_{i}}
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial}{\partial\rho_{i}}\dot{\rho_{i}} & =\frac{\partial}{\partial\rho_{i}}\left(\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)\\
+ & =2\rho_{i}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Input Jacobians
+\end_layout
+
+\begin_layout Standard
+Now, we want the jacobian for mapping 
+\begin_inset Formula $G=\frac{\partial\dot{\boldsymbol{x}}}{\partial\boldsymbol{u}}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial}{\partial y_{\omega}}\dot{v}_{b/I}^{b} & =\frac{\partial}{\partial y_{\omega}}\left(\left\lfloor v_{b/I}^{b}\right\rfloor \left(y_{\omega}-\beta_{\omega}\right)+R\left(q_{I}^{b}\right)g+\hat{k}\hat{k}^{\top}\left(y_{a}-\beta_{a}\right)-\mu_{t}Mv+\eta_{v}\right)\\
+ & =\left\lfloor v_{b/I}^{b}\right\rfloor 
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial}{\partial y_{a}}\dot{v}_{b/I}^{b} & =\frac{\partial}{\partial y_{a}}\left(\left\lfloor v_{b/I}^{b}\right\rfloor \left(y_{\omega}-\beta_{\omega}\right)+R\left(q_{I}^{b}\right)g+\hat{k}\hat{k}^{\top}\left(y_{a}-\beta_{a}\right)-\mu_{t}v_{b/I}^{b}+\eta_{v}\right)\\
+ & =\hat{k}\hat{k}^{\top}
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\dfrac{\partial}{\partial y_{\omega}}\dot{q}_{c}^{\zeta_{i}} & =\dfrac{\partial}{\partial y_{\omega}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\right)\\
+ & =\rho_{i}T_{\zeta}^{\top}\left(-\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left\lfloor p_{cb}^{b}\right\rfloor \right)+R\left(q_{b}^{c}\right)\right)
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial}{\partial y_{\omega}}\dot{\rho_{i}} & =\frac{\partial}{\partial y_{\omega}}\left(\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)\\
+ & =\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)\left\lfloor p_{cb}^{b}\right\rfloor 
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Measurement Models
+\end_layout
+
+\begin_layout Subsection
+Accelerometer
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}h_{acc}\left(x,u,\eta_{a}\right) & =I_{2\times3}\left(\frac{1}{m}\sum F^{b}-R\left(q_{I}^{b}\right)g+\beta_{a}+\eta_{a}\right)\\
+ & =I_{2\times3}\left(\left(R\left(q_{I}^{b}\right)g-\mu v_{b/i}^{b}+\frac{T}{m}\hat{k}\right)-R\left(q_{I}^{b}\right)g+\beta_{a}+\eta_{a}\right)\\
+ & =I_{2\times3}\left(-\mu v_{b/i}^{b}+\beta_{a}+\eta_{a}\right)
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Because the thrust term 
+\begin_inset Formula $\frac{T}{m}$
+\end_inset
+
+ drops out because 
+\begin_inset Formula $I_{2\times3}\frac{T}{m}\hat{k}=0$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial h_{acc}}{\partial x} & =I_{2\times3}\left[\begin{array}{cccccccc}
+0 & -\mu & 0 & I & 0 & -v_{b/i}^{b} & 0\cdots0 & 0\cdots0\end{array}\right]\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Altimeter
+\end_layout
+
+\begin_layout Standard
+Assuming a flat earth, the altimeter directly measures altitude
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}h_{alt}(x, & u,\eta_{alt})\end{aligned}
+=-\hat{k}^{\top}p_{bI}^{I}+\eta_{alt}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial h_{alt}}{\partial x} & =\left[\begin{array}{cccccccc}
+-\hat{k}^{\top} & 0 & 0 & 0 & 0 & 0 & 0\cdots0 & 0\cdots0\end{array}\right]\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Feature Point
+\end_layout
+
+\begin_layout Standard
+We assume that we have a known camera calibration matrix of the following
+ form
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}K & =\left[\begin{array}{ccc}
+f_{x} & s & x_{0}\\
+0 & f_{y} & y_{0}\\
+0 & 0 & 1
+\end{array}\right]\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Which maps images pixels 
+\begin_inset Formula $\left[\begin{array}{ccc}
+u & v & 1\end{array}\right]^{\top}$
+\end_inset
+
+ to world units
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+w\left[\begin{array}{c}
+u\\
+v\\
+1
+\end{array}\right]=K\left[\begin{array}{c}
+X\\
+Y\\
+Z
+\end{array}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Without depth information, we ca
+\end_layout
+
+\begin_layout Standard
+n only find a vector directed at a feature 
+\begin_inset Formula $i$
+\end_inset
+
+ in the camera frame, by letting 
+\begin_inset Formula $w=1$
+\end_inset
+
+ and inverting the camera matrix
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+K^{-1}\left[\begin{array}{c}
+u\\
+v\\
+1
+\end{array}\right]=\left[\begin{array}{c}
+X\\
+Y\\
+Z
+\end{array}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+If we normalize 
+\begin_inset Formula $\left[\begin{array}{ccc}
+X & Y & Z\end{array}\right]^{\top}$
+\end_inset
+
+, then we get a direct measurement of 
+\begin_inset Formula $\zeta_{i}$
+\end_inset
+
+.
+ In summary
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+h_{\zeta_{i}}(x,u,\eta_{\zeta_{i}})=\zeta_{i}+\eta_{\zeta}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial h_{\zeta_{i}}}{\partial\boldsymbol{x}}=\left[\begin{array}{ccccccccc}
+0 & 0 & 0 & 0 & 0 & 0 & 0\cdots I\cdots & 0 & 0\cdots0\end{array}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Depth Measurement
+\end_layout
+
+\begin_layout Standard
+Assuming that we had a measurement of depth to a feature, we could employ
+ the following model:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+h_{\rho}(x,u,\eta_{\rho})=\frac{1}{\rho_{i}}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Remembering that 
+\begin_inset Formula $\rho_{i}$
+\end_inset
+
+ is the inverse depth to feature 
+\begin_inset Formula $i$
+\end_inset
+
+.
+ The Jacobian is then as follows:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial h_{\rho}}{\partial x}=\left[\begin{array}{cccccccc}
+0 & 0 & 0 & 0 & 0 & 0 & 0\cdots0 & 0\cdots\frac{-1}{\rho_{i}^{2}}\cdots0\end{array}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Velocity Measurement
+\end_layout
+
+\begin_layout Standard
+If we employ an optical flow measurement of body-fixed velocity, 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+h_{v}\left(x,u,\eta_{v}\right)=v_{b/I}^{b}+\eta_{v}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial h_{v}}{\partial x}=\left[\begin{array}{cccccccc}
+0 & I & 0 & 0 & 0 & 0 & 0\cdots0 & 0\cdots0\end{array}\right]
 \]
 
 \end_inset

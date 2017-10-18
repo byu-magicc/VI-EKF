@@ -1,0 +1,3 @@
+[submodule "python/pyquaternion"]
+	path = python/pyquaternion
+	url = https://github.com/KieranWynn/pyquaternion.git

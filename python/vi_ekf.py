@@ -1,5 +1,6 @@
 import numpy as np
 from quaternion import Quaternion
+import scipy.linalg
 
 # State: pos, vel, att, b_gyro, b_acc, mu
 class VI_EKF():
@@ -15,14 +16,21 @@ class VI_EKF():
 
         self.P = self.Q
 
-        self.gravity = np.array([[0, 0, 9.80665]]).T
+        self.gravity = np.array([[0, 0, 9.8]]).T
         self.khat = np.array([[0, 0, 1]]).T
 
     def boxplus(self, x, dx):
-        out = np.zeros((17,1))
+        out = np.zeros(17)
         out[0:6] = x[0:6] + dx[0:6]
         quat = Quaternion(x[6:10])
-        out[6:10] = np.atleast_2d(Quaternion.exp_map(quat, Quaternion(vector=dx[6:9])).elements).T
+
+        norm_delta = scipy.linalg.norm(dx[6:9])
+        if norm_delta > 1e-4:
+            dquat = Quaternion(scalar=np.cos(norm_delta/2.), vector=np.sin(norm_delta/2.)*dx[6:9]/norm_delta)
+            out[6:10] = (quat * dquat).elements
+        else:
+            dquat = Quaternion(scalar = 1., vector=dx[6:9]/2.)
+            out[6:10] = (quat * dquat).unit.elements
         out[10:] = x[10:] + dx[9:]
         return out
 
@@ -43,11 +51,11 @@ class VI_EKF():
         acc = y_acc - x[13:16]
         mu = x[16]
 
-        pdot = np.atleast_2d(q_I_b.inverse.rotate(vel)).T
-        vdot = np.cross(vel.T, omega.T).T + np.atleast_2d(q_I_b.rotate(self.gravity)).T + self.khat.dot(self.khat.T).dot(acc) - mu*vel
-        qdot = omega
+        pdot = np.atleast_2d(q_I_b.rotate(vel))
+        vdot = np.cross(vel, omega) + np.atleast_2d(acc) + np.atleast_2d(q_I_b.inverse.rotate(self.gravity))
+        qdot = np.array([omega])
 
-        return np.concatenate((pdot, vdot, qdot, np.zeros((7,1))))
+        return np.concatenate((pdot, vdot, qdot, np.zeros((1,7))), axis=1).flatten()
 
 if __name__ == '__main__':
     from data_loader import *

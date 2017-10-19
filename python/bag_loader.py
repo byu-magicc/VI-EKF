@@ -14,18 +14,18 @@ def read_bag(filename):
     bag = rosbag.Bag(filename)
 
     data = dict()
-    data['noisy_imu_data'] = dict()
-    data['noisy_imu_data']['t'] = []
-    data['noisy_imu_data']['acc'] = []
-    data['noisy_imu_data']['gyro'] = []
+    data['imu_data'] = dict()
+    data['imu_data']['t'] = []
+    data['imu_data']['acc'] = []
+    data['imu_data']['gyro'] = []
 
     data['perfect_imu_data'] = dict()
     data['perfect_imu_data']['t'] = []
     data['perfect_imu_data']['acc'] = []
     data['perfect_imu_data']['gyro'] = []
 
-    data['noisy_imu_acc_bias'] = {'t': [], 'v': []}
-    data['noisy_imu_gyro_bias'] = {'t': [], 'v': []}
+    data['imu_acc_bias'] = {'t': [], 'v': []}
+    data['imu_gyro_bias'] = {'t': [], 'v': []}
 
     data['truth_NED'] = dict()
     data['truth_NED']['t'] = []
@@ -41,33 +41,28 @@ def read_bag(filename):
     data['is_flying'] = {'t': [], 'dat': []}
 
 
-    for topic, msg, t in bag.read_messages(topics=['/multirotor/noisy/imu/data',
-                                                   '/multirotor/noisy/imu/acc_bias',
-                                                   '/multirotor/noisy/imu/gyro_bias',
-                                                   '/multirotor/perfect/imu/data',
+    for topic, msg, t in bag.read_messages(topics=['/multirotor/imu/data',
+                                                   '/multirotor/imu/acc_bias',
+                                                   '/multirotor/imu/gyro_bias',
+                                                   '/multirotor/imu/data',
                                                    '/multirotor/ground_truth/odometry/NED',
                                                    '/multirotor/baro/data',
                                                    '/multirotor/sonar/data',
                                                    '/multirotor/is_flying',
                                                    '/multirotor/gps/data',
                                                    '/multirotor/mag/data']):
-        if topic == '/multirotor/noisy/imu/data':
-            data['noisy_imu_data']['t'].append(msg.header.stamp.to_sec())
-            data['noisy_imu_data']['acc'].append(to_list(msg.linear_acceleration))
-            data['noisy_imu_data']['gyro'].append(to_list(msg.angular_velocity))
+        if topic == '/multirotor/imu/data':
+            data['imu_data']['t'].append(msg.header.stamp.to_sec())
+            data['imu_data']['acc'].append(to_list(msg.linear_acceleration))
+            data['imu_data']['gyro'].append(to_list(msg.angular_velocity))
 
-        if topic == '/multirotor/noisy/imu/acc_bias':
-            data['noisy_imu_acc_bias']['t'].append(msg.header.stamp.to_sec())
-            data['noisy_imu_acc_bias']['v'].append(to_list(msg.vector))
+        if topic == '/multirotor/imu/acc_bias':
+            data['imu_acc_bias']['t'].append(msg.header.stamp.to_sec())
+            data['imu_acc_bias']['v'].append(to_list(msg.vector))
 
-        if topic == '/multirotor/noisy/imu/gyro_bias':
-            data['noisy_imu_gyro_bias']['t'].append(msg.header.stamp.to_sec())
-            data['noisy_imu_gyro_bias']['v'].append(to_list(msg.vector))
-
-        if topic == '/multirotor/perfect/imu/data':
-            data['perfect_imu_data']['t'].append(msg.header.stamp.to_sec())
-            data['perfect_imu_data']['acc'].append(to_list(msg.linear_acceleration))
-            data['perfect_imu_data']['gyro'].append(to_list(msg.angular_velocity))
+        if topic == '/multirotor/imu/gyro_bias':
+            data['imu_gyro_bias']['t'].append(msg.header.stamp.to_sec())
+            data['imu_gyro_bias']['v'].append(to_list(msg.vector))
 
         if topic == '/multirotor/ground_truth/odometry/NED':
             data['truth_NED']['t'].append(msg.header.stamp.to_sec())

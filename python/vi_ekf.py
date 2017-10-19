@@ -16,7 +16,7 @@ class VI_EKF():
 
         self.P = self.Q
 
-        self.gravity = np.array([[0, 0, 9.8]]).T
+        self.gravity = np.array([[0, 0, 9.80665]]).T
         self.khat = np.array([[0, 0, 1]]).T
 
     def boxplus(self, x, dx):

@@ -101,6 +101,6 @@ def load_data(folder, show_image=False, start=0, end=-1):
 
 
 if __name__ == '__main__':
-    data = load_data('data/mav0', show_image=False)
+    data = load_data('data/mav0', show_image=True)
     save_to_file('data/mav0/data.npy', data)
     print "done"

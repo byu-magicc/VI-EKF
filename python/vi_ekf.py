@@ -91,7 +91,7 @@ if __name__ == '__main__':
         return cam0_undistort(image)
 
     cam0_undistort = make_undistort_funtion(intrinsics=data['cam0_sensor']['intrinsics'], resolution=data['cam0_sensor']['resolution'], distortion_coefficients=data['cam0_sensor']['distortion_coefficients'])
-    cam1_undistort = make_undistort_funtion(intrinsics=data['cam0_sensor']['intrinsics'], resolution=data['cam0_sensor']['resolution'], distortion_coefficients=data['cam0_sensor']['distortion_coefficients'])
+    cam1_undistort = make_undistort_funtion(intrinsics=data['cam1_sensor']['intrinsics'], resolution=data['cam1_sensor']['resolution'], distortion_coefficients=data['cam1_sensor']['distortion_coefficients'])
 
     truth = data['truth']
 
@@ -101,8 +101,6 @@ if __name__ == '__main__':
 
     estimate = []
     measurement_index = 1 # skip the first image so that diffs are always possible
-    hsv = np.zeros((480, 752, 3), dtype=np.float32)
-    hsv[..., 1] = 255
 
     for i, (t, dt) in enumerate(tqdm.tqdm(zip(imu_t, np.diff(np.concatenate([[0], imu_t]))))):
 

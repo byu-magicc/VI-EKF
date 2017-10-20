@@ -24,12 +24,7 @@ def save_to_file(filename, data):
 
 def make_undistort_funtion(intrinsics, resolution, distortion_coefficients):
     A = np.array([[float(intrinsics[0]), 0., float(intrinsics[2])], [0., float(intrinsics[1]), float(intrinsics[3])], [0., 0., 1.]])
-
-    print(distortion_coefficients, distortion_coefficients.dtype)
-
     Ap, _ = cv2.getOptimalNewCameraMatrix(A, distortion_coefficients, (resolution[0], resolution[1]), 1.0)
-
-    print(Ap)
 
     def undistort(image):
         return cv2.undistort(image, A, distortion_coefficients, None, Ap)

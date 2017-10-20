@@ -73,14 +73,22 @@ if __name__ == '__main__':
     import tqdm
 
     # Load Data
-    data = load_data('/mnt/pccfs/not_backed_up/eurocmav/mav0', show_image=False, start=16, end=30)
-    save_to_file('/mnt/pccfs/not_backed_up/eurocmav/mav0/data.npy', data)
-    # data = load_from_file('/mnt/pccfs/not_backed_up/eurocmav/mav0/data.npy')
+    #data = load_data('/mnt/pccfs/not_backed_up/eurocmav/mav0', show_image=False, start=16, end=30)
+    #save_to_file('/mnt/pccfs/not_backed_up/eurocmav/mav0/data.npy', data)
+    data = load_from_file('/mnt/pccfs/not_backed_up/eurocmav/mav0/data.npy')
 
     imu_t = data['imu'][:, 0]
     gyro = data['imu'][:, 1:4]
     acc = data['imu'][:, 4:7]
     cam_time = data['cam_time']
+
+    def load_cam0(filename):
+        image = cv2.imread(filename, 0)
+        return cam0_undistort(image)
+
+    def load_cam1(filename):
+        image = cv2.imread(filename, 0)
+        return cam0_undistort(image)
 
     cam0_undistort = make_undistort_funtion(intrinsics=data['cam0_sensor']['intrinsics'], resolution=data['cam0_sensor']['resolution'], distortion_coefficients=data['cam0_sensor']['distortion_coefficients'])
     cam1_undistort = make_undistort_funtion(intrinsics=data['cam0_sensor']['intrinsics'], resolution=data['cam0_sensor']['resolution'], distortion_coefficients=data['cam0_sensor']['distortion_coefficients'])
@@ -92,14 +100,18 @@ if __name__ == '__main__':
     ekf = VI_EKF(x0)
 
     estimate = []
-    measurement_index = 0
+    measurement_index = 1 # skip the first image so that diffs are always possible
+    hsv = np.zeros((480, 752, 3), dtype=np.float32)
+    hsv[..., 1] = 255
 
     for i, (t, dt) in enumerate(tqdm.tqdm(zip(imu_t, np.diff(np.concatenate([[0], imu_t]))))):
 
         if measurement_index < cam_time.shape[0] and t > cam_time[measurement_index]:
-            print(data['cam0_frame_filenames'][measurement_index])
-            image = cv2.imread(data['cam0_frame_filenames'][measurement_index])
-            image_undistort = cam0_undistort(image)
+            left = load_cam0(data['cam0_frame_filenames'][measurement_index])
+            left_previous = load_cam0(data['cam0_frame_filenames'][measurement_index - 1])
+
+            # very slow dense flow calculation
+            # dense_flow = cv2.calcOpticalFlowFarneback(left_previous, left, 0.5, 3, 15, 3, 5, 1.2, 0)
 
             measurement_index += 1
 
@@ -109,11 +121,9 @@ if __name__ == '__main__':
 
         estimate.append(x[:, 0])
 
-    print(measurement_index, cam_time.shape[0])
-
     estimate = np.array(estimate)
 
-    truth_t = truth[:,0]
+    truth_t = truth[:, 0]
 
     fig = plt.figure(0)
     ax = fig.add_subplot(111, projection='3d')

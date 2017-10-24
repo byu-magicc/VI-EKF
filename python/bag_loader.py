@@ -1,6 +1,7 @@
 import rosbag
 import rospy
 import numpy as np
+from add_landmark import add_landmark
 
 import cPickle
 
@@ -40,6 +41,7 @@ def read_bag(filename):
     data['mag'] = {'t': [], 'vec': []}
     data['is_flying'] = {'t': [], 'dat': []}
 
+    data['features'] = {'t': [], 'zeta': [], 'depth': []}
 
     for topic, msg, t in bag.read_messages(topics=['/multirotor/imu/data',
                                                    '/multirotor/imu/acc_bias',
@@ -98,7 +100,15 @@ def read_bag(filename):
         for key2, item in data[key].iteritems():
             data[key][key2] = np.array(item)
 
+    # Simulate landmarks in the bag
+    landmarks = np.array([[0, 0, 0]])
+    data['features']['t'] = data['truth_NED']['t']
+    data['features']['zeta'], data['features']['depth'] = add_landmark(data['truth_NED']['pos'], data['truth_NED']['att'], landmarks)
+    data['landmarks'] = landmarks
+
     cPickle.dump(data, open(filename.split('/')[-1].split('.')[0] + '.pkl', 'wb'))
+
+
 
 if __name__ == '__main__':
     read_bag('/home/superjax/simulated_waypoints.bag')

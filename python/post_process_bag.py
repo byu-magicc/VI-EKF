@@ -2,6 +2,7 @@ import cPickle
 from vi_ekf import *
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from add_landmark import add_landmark
 
 
 data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
@@ -13,11 +14,18 @@ x0 = np.concatenate([data['truth_NED']['pos'][0,:,None],
                      np.zeros((3,1)),
                      np.zeros((3,1)),
                      0.2*np.ones((1,1))], axis=0)
+
+
+
 ekf = VI_EKF(x0)
+
+ekf.init_feature(data['features']['zeta'][0][0,:,None], data['features']['depth'][0,0])
 
 prev_time = 0
 estimate = []
-end = 1000.
+est_zeta = []
+est_depth = []
+end = 3.
 for i, t in tqdm(enumerate(data['imu_data']['t'])):
     if prev_time == 0:
         prev_time = t
@@ -31,26 +39,31 @@ for i, t in tqdm(enumerate(data['imu_data']['t'])):
     # Propagation step
     xhat = ekf.propagate(data['imu_data']['acc'][i,:, None], data['imu_data']['gyro'][i,:, None], dt)
     estimate.append(xhat)
+    est_zeta.append(ekf.get_zeta())
+    est_depth.append(ekf.get_depth())
 
 # convert lists to np arrays
 estimate = np.array(estimate)
+est_zeta = np.array(est_zeta)
+est_depth = np.array(est_depth)
 
-est_t = data['imu_data']['t'][:estimate.shape[0]]
-
-gyro = data['imu_data']['gyro'][est_t < end]
-acc = data['imu_data']['acc'][est_t < end]
+imu_t = data['imu_data']['t']
+est_t = data['imu_data']['t'][imu_t < end]
+gyro = data['imu_data']['gyro'][imu_t < end]
+acc = data['imu_data']['acc'][imu_t < end]
 b_acc = [data['imu_acc_bias']['t'][data['imu_acc_bias']['t'] < end], data['imu_acc_bias']['v'][data['imu_acc_bias']['t'] < end]]
 b_gyro = [data['imu_gyro_bias']['t'][data['imu_gyro_bias']['t'] < end], data['imu_gyro_bias']['v'][data['imu_gyro_bias']['t'] < end]]
 
-truth_pos = data['truth_NED']['pos']
-truth_vel = data['truth_NED']['vel']
-truth_att = data['truth_NED']['att']
 truth_t = data['truth_NED']['t']
-
+truth_pos = data['truth_NED']['pos'][truth_t < end]
+truth_vel = data['truth_NED']['vel'][truth_t < end]
+truth_att = data['truth_NED']['att'][truth_t < end]
 truth_t = truth_t[truth_t < end]
-truth_pos = truth_pos[truth_t < end]
-truth_vel = truth_vel[truth_t < end]
 
+truth_feature_t = data['features']['t']
+truth_zeta = data['features']['zeta'][:,truth_feature_t < end]
+truth_depth = data['features']['depth'][:,truth_feature_t < end]
+truth_feature_t = truth_feature_t[truth_feature_t < end]
 
 # Plot
 plt.figure(1)
@@ -116,7 +129,20 @@ plt.subplot(414)
 plt.plot(est_t, estimate[:,9], label='zhat')
 plt.plot(truth_t, truth_att[:,3], label='z')
 
-
+plt.figure(7)
+plt.subplot(411)
+plt.title('zeta')
+plt.plot(est_t, est_zeta[:,0,0], label='xhat')
+plt.plot(truth_feature_t, truth_zeta[0,:,0], label="x")
+plt.subplot(412)
+plt.plot(est_t, est_zeta[:,0,1], label='yhat')
+plt.plot(truth_feature_t, truth_zeta[0,:,1], label="y")
+plt.subplot(413)
+plt.plot(est_t, est_zeta[:,0,2], label='zhat')
+plt.plot(truth_feature_t, truth_zeta[0,:,2], label="z")
+plt.subplot(414)
+plt.plot(est_t, est_depth[:,0,0], label='1/\rho hat')
+plt.plot(truth_feature_t, truth_depth[0,:], label="1/\rho")
 
 
 plt.show()
@@ -124,5 +150,8 @@ plt.show()
 
 
 debug = 1
+
+
+
 
 

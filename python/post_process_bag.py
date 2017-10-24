@@ -7,12 +7,12 @@ from tqdm import tqdm
 data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
 
 # State: pos, vel, att, b_gyro, b_acc, mu
-x0 = np.concatenate([data['truth_NED']['pos'][0,:],
-                     data['truth_NED']['vel'][0,:],
-                     data['truth_NED']['att'][0,:],
-                     np.zeros(3),
-                     np.zeros(3),
-                     0.2*np.ones(1)], axis=0)
+x0 = np.concatenate([data['truth_NED']['pos'][0,:,None],
+                     data['truth_NED']['vel'][0,:,None],
+                     data['truth_NED']['att'][0,:,None],
+                     np.zeros((3,1)),
+                     np.zeros((3,1)),
+                     0.2*np.ones((1,1))], axis=0)
 ekf = VI_EKF(x0)
 
 prev_time = 0
@@ -29,7 +29,7 @@ for i, t in tqdm(enumerate(data['imu_data']['t'])):
     prev_time = t
 
     # Propagation step
-    xhat = ekf.propagate(data['imu_data']['acc'][i,:], data['imu_data']['gyro'][i,:], dt)
+    xhat = ekf.propagate(data['imu_data']['acc'][i,:, None], data['imu_data']['gyro'][i,:, None], dt)
     estimate.append(xhat)
 
 # convert lists to np arrays

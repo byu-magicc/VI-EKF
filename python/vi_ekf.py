@@ -3,11 +3,15 @@ from quaternion import Quaternion
 import scipy.linalg
 import cv2
 
-# State: pos, vel, att, b_gyro, b_acc, mu
 class VI_EKF():
     def __init__(self, x0):
+        assert x0.shape == (17, 1)
+
+        # 17 main states
+        # pos, vel, att, b_gyro, b_acc, mu
         self.x = x0
 
+        # Process noise matrix for the 16 main delta states
         self.Q = np.diag([0.001, 0.001, 0.001,
                           0.01, 0.01, 0.01,
                           0.001, 0.001, 0.001,
@@ -15,11 +19,53 @@ class VI_EKF():
                           0.0001, 0.0001, 0.0001,
                           0.001])
 
+        # process noise matrix for the features (assumed all the same) 3x3
+        self.Q_feat = np.diag([0.001, 0.001, 0.01]) # x, y, and depth
+
+        # State covariances.  Size is (16 + 3N) x (16 + 3N) where N is the number of
+        # features currently being tracked
         self.P = self.Q
 
+        # gravity vector
         self.gravity = np.array([[0, 0, 9.80665]]).T
+
+        # Unit vectors in the x, y, and z directions (used a lot for projection functions)
+        self.ihat = np.array([[0, 0, 1]]).T
+        self.jhat = np.array([[0, 0, 1]]).T
         self.khat = np.array([[0, 0, 1]]).T
 
+        # The number of features currently being tracked
+        self.len_features = 0
+
+        # The next feature id to be assigned to a feature
+        self.next_feature_id = 0
+
+        # A map which corresponds to which feature id is occupying which index in the self.features
+        # np array
+        self.feature_ids = []
+
+        # A numpy array holding 5N items for each feature, indexed according to the
+        # feature_ids list
+        self.features = np.zeros((0, 1))  # qw, qx, qy, qz, rho
+
+
+    # Creates 3x2 projection matrix onto the plane perpendicular to zeta
+    def T_zeta(self, q_zeta):
+        assert q_zeta.shape == (4,1)
+
+        quat_zeta = Quaternion(q_zeta)
+        return np.array([quat_zeta.rotate(np.array([1, 0, 0])), quat_zeta.rotate(np.array([0, 1, 0]))])
+
+    # Determines the quaternion which describes the rotation from the camera z-axis to the
+    # unit bearing vector zeta
+    def quat_from_zeta(self, zeta):
+        assert zeta.shape == (3,1)
+        assert (1.0 - scipy.linalg.norm(zeta)) < 0.00001
+
+        quat_unnorm = np.concatenate((np.array([[self.khat.dot(zeta)]]),  np.cross(self.khat, zeta)), axis=0)
+        return scipy.linalg.normalize(quat_unnorm)
+
+    # Adds the state with the delta state on the manifold
     def boxplus(self, x, dx):
         assert x.shape == (17, 1) and dx.shape == (16, 1)
 
@@ -38,6 +84,7 @@ class VI_EKF():
         out[10:] = x[10:] + dx[9:]
         return out
 
+    # propagates all states, features and covariances
     def propagate(self, y_acc, y_gyro, dt):
         assert y_acc.shape == (3, 1) and y_gyro.shape == (3, 1)
 
@@ -46,10 +93,38 @@ class VI_EKF():
 
         return self.x.copy()
 
+    # Used for overriding imu biases, Not to be used in real life
     def set_imu_bias(self, b_g, b_a):
+        assert b_g.shape == (3,1) and b_a.shape(3,1)
         self.x[10:13] = b_g
         self.x[13:16] = b_a
 
+    # Used to initialize a new feature.  Returns the feature id associated with this feature
+    def init_feature(self, zeta, depth):
+        assert zeta.shape == (3, 1)
+
+        self.len_features += 1
+        self.feature_ids.append(self.next_feature_id)
+        self.next_feature_id += 1
+        quat_0 = self.quat_from_zeta(zeta)
+        self.features = np.concatenate((self.features, quat_0, np.array([[depth]])), axis=0)
+        return self.next_feature_id - 1
+
+    # Used to remove a feature from the EKF.  Removes the feature from the features array and
+    # Clears the associated rows and columns from the covariance.  The covariance matrix will
+    # now be 3x3 smaller than before and the feature array will be 5 smaller
+    def clear_feature(self, id):
+        feature_index = self.feature_ids.index(id)
+        mask = np.ones(len(self.features), dtype=bool)
+        mask[[feature_index+i for i in range(5)]] = False
+        self.features = self.features[mask,...]
+        self.P = self.P[mask, mask]
+        del self.feature_ids[feature_index]
+        self.len_features -= 1
+
+    # Determines the derivative of state x given inputs y_acc and y_gyro
+    # the returned value of f is a delta state, and therefore is a different
+    # size than the state
     def f(self, x, y_acc, y_gyro):
         assert x.shape == (17, 1) and y_acc.shape == (3,1) and y_gyro.shape == (3,1)
 

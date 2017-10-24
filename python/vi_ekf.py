@@ -48,6 +48,10 @@ class VI_EKF():
         # feature_ids list
         self.features = np.zeros((0, 1))  # qw, qx, qy, qz, rho
 
+        # Body-to-Camera transform
+        self.q_b_c = Quaternion([1, 0, 0, 0]) # Rotation from body to camera
+        self.t_b_c = np.array([[0, 0, 0]]).T # translation from body to camera (in body frame)
+
 
     # Creates 3x2 projection matrix onto the plane perpendicular to zeta
     def T_zeta(self, q_zeta):
@@ -65,23 +69,44 @@ class VI_EKF():
         quat_unnorm = np.concatenate((np.array([[self.khat.dot(zeta)]]),  np.cross(self.khat, zeta)), axis=0)
         return scipy.linalg.normalize(quat_unnorm)
 
+    def q_boxplus(self, q, dq):
+        assert q.shape == (4,1) and dq.shape == (3,1)
+        q_new = np.zeros((4,1))
+        quat = Quaternion(q)
+        norm_delta = scipy.linalg.norm(dq)
+        if norm_delta > 1e-4:
+            dquat = Quaternion(scalar=np.cos(norm_delta/2.), vector=np.sin(norm_delta/2.)*dq/norm_delta)
+            q_new[:, 0] = (quat * dquat).elements
+        else:
+            dquat = Quaternion(scalar=1., vector=dq/2.)
+            q_new[:, 0] = (quat * dquat).unit.elements
+        return q_new
+
     # Adds the state with the delta state on the manifold
     def boxplus(self, x, dx):
-        assert x.shape == (17, 1) and dx.shape == (16, 1)
+        assert x.shape == (17+5*self.len_features, 1) and dx.shape == (16+3*self.len_features, 1)
 
-        out = np.zeros((17, 1))
+        out = np.zeros((17+5*self.len_features, 1))
+
+        # Add position and velocity vector states
         out[0:6] = x[0:6] + dx[0:6]
-        quat = Quaternion(x[6:10])
-        norm_delta = scipy.linalg.norm(dx[6:9])
 
-        if norm_delta > 1e-4:
-            dquat = Quaternion(scalar=np.cos(norm_delta/2.), vector=np.sin(norm_delta/2.)*dx[6:9]/norm_delta)
-            out[6:10, 0] = (quat * dquat).elements
-        else:
-            dquat = Quaternion(scalar=1., vector=dx[6:9]/2.)
-            out[6:10, 0] = (quat * dquat).unit.elements
+        # Add attitude quaternion state on the manifold
+        out[6:10] = self.q_boxplus(x[6:10], dx[6:9])
 
-        out[10:] = x[10:] + dx[9:]
+        # add bias and drag term vector states
+        out[10:17] = x[10:17] + dx[9:16]
+
+        # add Feature quaternion states
+        for i in range(self.len_features):
+            dqzeta = dx[16+3*i:16+3*i+2,:, None]  # 2-vector which is the derivative of qzeta
+            qzeta = x[17+5*i:17+5*i+4,:,None] # 4-vector quaternion
+            zeta = Quaternion(qzeta).rotate(self.khat) # 3-vector pointed at the feature in the camera frame
+            out[17+i*5:17+5*i+4,:] = self.q_boxplus(qzeta, self.T_zeta(zeta).dot(dqzeta)) # Increment the quaternion feature state with boxplus
+
+            # add vector inverse depth state
+            out[17+i*5+4,:] = x[10+i*5+4] + dx[16*3*i+2]
+
         return out
 
     # propagates all states, features and covariances
@@ -113,8 +138,8 @@ class VI_EKF():
     # Used to remove a feature from the EKF.  Removes the feature from the features array and
     # Clears the associated rows and columns from the covariance.  The covariance matrix will
     # now be 3x3 smaller than before and the feature array will be 5 smaller
-    def clear_feature(self, id):
-        feature_index = self.feature_ids.index(id)
+    def clear_feature(self, feature_id):
+        feature_index = self.feature_ids.index(feature_id)
         mask = np.ones(len(self.features), dtype=bool)
         mask[[feature_index+i for i in range(5)]] = False
         self.features = self.features[mask,...]
@@ -123,10 +148,10 @@ class VI_EKF():
         self.len_features -= 1
 
     # Determines the derivative of state x given inputs y_acc and y_gyro
-    # the returned value of f is a delta state, and therefore is a different
-    # size than the state
-    def f(self, x, y_acc, y_gyro):
-        assert x.shape == (17, 1) and y_acc.shape == (3,1) and y_gyro.shape == (3,1)
+    # the returned value of f is a delta state, delta features, and therefore is a different
+    # size than the state and features and needs to be applied with boxplus
+    def f(self, x, y_acc, y_gyro, ):
+        assert x.shape == (17+5*self.len_features, 1) and y_acc.shape == (3,1) and y_gyro.shape == (3,1)
 
         vel = x[3:6]
         q_I_b = Quaternion(x[6:10])
@@ -139,7 +164,15 @@ class VI_EKF():
         qdot = omega
         pdot = q_I_b.rotate(vel)[:, None]
 
-        return np.vstack((pdot, vdot, qdot, np.zeros((7, 1))))
+        feat_dot = np.zeros((3*self.len_features, 1))
+        for i in range(self.len_features):
+            q_zeta = x[i*5+17:i*5+4+17,:,None]
+            rho = x[i*5+4+17,:]
+            zeta = Quaternion(q_zeta).rotate(self.khat)
+            feat_dot[i*3:i*3+2,:] = self.T_zeta(zeta).dot(rho*(np.cross(zeta, self.q_b_c.rotate(vel + np.cross(omega, self.t_b_c)))) + self.q_b_c.rotate(omega))
+            feat_dot[i*3+2,:] = rho*rho*zeta.T.dot(self.q_b_c.rotate(vel + np.cross(omega, self.t_b_c)))
+
+        return np.vstack((pdot, vdot, qdot, np.zeros((7, 1)), feat_dot))
 
 if __name__ == '__main__':
     from data_loader import *
@@ -176,6 +209,8 @@ if __name__ == '__main__':
 
     estimate = []
     measurement_index = 1 # skip the first image so that diffs are always possible
+
+
 
     for i, (t, dt) in enumerate(tqdm.tqdm(zip(imu_t, np.diff(np.concatenate([[0], imu_t]))))):
 

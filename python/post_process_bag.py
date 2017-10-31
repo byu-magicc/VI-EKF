@@ -20,7 +20,7 @@ x0 = np.concatenate([data['truth_NED']['pos'][0,:,None],
 
  
 
-ekf = VI_EKF(x0)
+ekf = VI_EKF(x0, debug=False)
 
 ekf.init_feature(data['features']['zeta'][0,0,:,None], data['features']['depth'][0,0])
 ekf.init_feature(data['features']['zeta'][0,1,:,None], data['features']['depth'][0,1])

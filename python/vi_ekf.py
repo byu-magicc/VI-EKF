@@ -4,8 +4,10 @@ import scipy.linalg
 import cv2
 
 class VI_EKF():
-    def __init__(self, x0):
-        assert x0.shape == (17, 1)
+    def __init__(self, x0, debug=False):
+        self.debug = debug
+        if self.debug:
+            assert x0.shape == (17, 1)
 
         # 17 main states
         # pos, vel, att, b_gyro, b_acc, mu, q_feat, rho_feat, q_feat, rho_feat ...
@@ -50,7 +52,8 @@ class VI_EKF():
 
     # Creates 3x2 projection matrix onto the plane perpendicular to zeta
     def T_zeta(self, q_zeta):
-        assert q_zeta.shape == (4,1)
+        if self.debug:
+            assert q_zeta.shape == (4,1)
 
         quat_zeta = Quaternion(q_zeta)
         return np.array([quat_zeta.rotate(np.array([1, 0, 0])), quat_zeta.rotate(np.array([0, 1, 0]))])
@@ -71,8 +74,9 @@ class VI_EKF():
     # Determines the quaternion which describes the rotation from the camera z-axis to the
     # unit bearing vector zeta
     def quat_from_zeta(self, zeta):
-        assert zeta.shape == (3,1)
-        assert (1.0 - scipy.linalg.norm(zeta)) < 0.00001
+        if self.debug:
+            assert zeta.shape == (3,1)
+            assert (1.0 - scipy.linalg.norm(zeta)) < 0.00001
 
         d = zeta.T.dot(self.khat).squeeze()
         if d >= 1.0:
@@ -83,7 +87,8 @@ class VI_EKF():
             return np.array([[0.5/invs, xyz[0], xyz[1], xyz[2]]]).T
 
     def q_boxplus(self, q, dq):
-        assert q.shape == (4,1) and dq.shape == (3,1)
+        if self.debug:
+            assert q.shape == (4,1) and dq.shape == (3,1)
         q_new = np.zeros((4,1))
         quat = Quaternion(q)
         norm_delta = scipy.linalg.norm(dq)
@@ -97,7 +102,8 @@ class VI_EKF():
 
     # Adds the state with the delta state on the manifold
     def boxplus(self, x, dx):
-        assert x.shape == (17+5*self.len_features, 1) and dx.shape == (16+3*self.len_features, 1)
+        if self.debug:
+            assert x.shape == (17+5*self.len_features, 1) and dx.shape == (16+3*self.len_features, 1)
 
         out = np.zeros((17+5*self.len_features, 1))
 
@@ -124,7 +130,8 @@ class VI_EKF():
 
     # propagates all states, features and covariances
     def propagate(self, y_acc, y_gyro, dt):
-        assert y_acc.shape == (3, 1) and y_gyro.shape == (3, 1)
+        if self.debug:
+            assert y_acc.shape == (3, 1) and y_gyro.shape == (3, 1)
 
         xdot = self.f(self.x, y_acc, y_gyro)
         self.x = self.boxplus(self.x, xdot*dt)
@@ -133,13 +140,15 @@ class VI_EKF():
 
     # Used for overriding imu biases, Not to be used in real life
     def set_imu_bias(self, b_g, b_a):
-        assert b_g.shape == (3,1) and b_a.shape(3,1)
+        if self.debug:
+            assert b_g.shape == (3,1) and b_a.shape(3,1)
         self.x[10:13] = b_g
         self.x[13:16] = b_a
 
     # Used to initialize a new feature.  Returns the feature id associated with this feature
     def init_feature(self, zeta, depth):
-        assert zeta.shape == (3, 1)
+        if self.debug:
+            assert zeta.shape == (3, 1)
 
         self.len_features += 1
         self.feature_ids.append(self.next_feature_id)
@@ -164,7 +173,8 @@ class VI_EKF():
     # the returned value of f is a delta state, delta features, and therefore is a different
     # size than the state and features and needs to be applied with boxplus
     def f(self, x, y_acc, y_gyro, ):
-        assert x.shape == (17+5*self.len_features, 1) and y_acc.shape == (3,1) and y_gyro.shape == (3,1)
+        if self.debug:
+            assert x.shape == (17+5*self.len_features, 1) and y_acc.shape == (3,1) and y_gyro.shape == (3,1)
 
         vel = x[3:6]
         q_I_b = Quaternion(x[6:10])

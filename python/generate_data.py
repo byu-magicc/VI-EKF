@@ -8,18 +8,6 @@ import cPickle
 
 # This file just rotates the body around all randomly, so I can check rotations
 
-def q_boxplus(q, dq):
-    q_new = np.zeros((4,1))
-    quat = Quaternion(q)
-    norm_delta = scipy.linalg.norm(dq)
-    if norm_delta > 1e-4:
-        dquat = Quaternion(scalar=np.cos(norm_delta/2.), vector=np.sin(norm_delta/2.)*dq/norm_delta)
-        q_new[:, 0] = (quat * dquat).elements
-    else:
-        dquat = Quaternion(scalar=1., vector=dq/2.)
-        q_new[:, 0] = (quat * dquat).unit.elements
-    return q_new
-
 def generate_data():
     dt = 0.001
     t = np.arange(0.0, 15.01, dt)
@@ -39,10 +27,11 @@ def generate_data():
     for i in tqdm(range(len(t))):
         if i == 0.0:
             continue
+        quat = Quaternion(q[i-1,:,None])
 
-        q[i,:,None] = q_boxplus(q[i-1,:,None], omega[:,i]*dt)
+        q[i,:,None] = (quat + omega[:,i,None]*dt).elements
 
-        acc[:,i] = -Quaternion(q[i,:]).inverse.rotate(g)
+        acc[:,i,None] = -quat.inverse.rotate(g)
 
     data = dict()
     data['truth_NED'] = dict()

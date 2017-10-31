@@ -1298,7 +1298,7 @@ Rotating the above into the camera frame results simplifies things a bit
 \begin_inset Formula 
 \[
 \begin{aligned}0 & =R\left(q_{I}^{c}\right)v_{c/I}^{I}+R\left(q_{I}^{c}\right)R\left(q_{c}^{I}\right)\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)+R\left(q_{I}^{c}\right)R\left(q_{c}^{I}\right)\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-R\left(q_{I}^{c}\right)R\left(q_{c}^{I}\right)\zeta_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}\\
- & =v_{c/I}^{c}-\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)+\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-\boldsymbol{\zeta}_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}
+ & =v_{c/I}^{c}+\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)+\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-\boldsymbol{\zeta}_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}
 \end{aligned}
 \]
 
@@ -1516,8 +1516,8 @@ v_{b/I}^{b} & =\left\lfloor v_{b/I}^{b}\right\rfloor \left(y_{\omega}-\beta_{\om
 \dot{\beta}_{a} & =\eta_{\beta_{a}}\\
 \dot{\beta}_{\omega} & =\eta_{\beta_{\boldsymbol{\omega}}}\\
 \dot{\mu} & =\eta_{\mu}d\\
-\dot{q}_{c}^{\zeta_{i}} & =T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\\
-\dot{\rho_{i}} & =\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)
+\dot{q}_{c}^{\zeta_{i}} & =T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\omega_{c/I}^{I}\right)\\
+\dot{\rho_{i}} & =\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}v_{c/I}^{c}
 \end{aligned}
 \label{eq:full_dynamics}
 \end{equation}

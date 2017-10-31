@@ -64,7 +64,8 @@ class VI_EKF():
         zetas = np.zeros((self.len_features, 3))
         for i in range(self.len_features):
             qzeta = self.x[17 + 5 * i:17 + 5 * i + 4, :]  # 4-vector quaternion
-            zetas[i,:] = Quaternion(qzeta).rotate(self.khat)  # 3-vector pointed at the feature in the camera frame
+            zetas[i,None] = Quaternion(qzeta).rotation_matrix.dot(self.khat).T  # 3-vector pointed at the feature in the camera frame
+            assert abs(1.0 - scipy.linalg.norm(zetas[i,None])) < 0.001
         return zetas
 
     # Determines the quaternion which describes the rotation from the camera z-axis to the
@@ -73,8 +74,13 @@ class VI_EKF():
         assert zeta.shape == (3,1)
         assert (1.0 - scipy.linalg.norm(zeta)) < 0.00001
 
-        quat_unnorm = np.concatenate((self.khat.T.dot(zeta),  np.cross(self.khat, zeta, axis=0)), axis=0)
-        return quat_unnorm/scipy.linalg.norm(quat_unnorm)
+        d = zeta.T.dot(self.khat).squeeze()
+        if d >= 1.0:
+            return np.array([[1, 0, 0, 0]]).T
+        else:
+            invs = (2.0*(1.0 + d))**-0.5
+            xyz = (np.cross(self.khat, zeta, axis=0)*invs).squeeze()
+            return np.array([[0.5/invs, xyz[0], xyz[1], xyz[2]]]).T
 
     def q_boxplus(self, q, dq):
         assert q.shape == (4,1) and dq.shape == (3,1)
@@ -112,7 +118,7 @@ class VI_EKF():
             out[17+i*5:17+5*i+4,:] = self.q_boxplus(qzeta, self.T_zeta(qzeta).T.dot(dqzeta)) # Increment the quaternion feature state with boxplus
 
             # add vector inverse depth state
-            out[17+i*5+4,:] = x[10+i*5+4] + dx[16*3*i+2]
+            out[17+i*5+4,:] = x[17+i*5+4] + dx[16+3*i+2]
 
         return out
 
@@ -139,7 +145,7 @@ class VI_EKF():
         self.feature_ids.append(self.next_feature_id)
         self.next_feature_id += 1
         quat_0 = self.quat_from_zeta(zeta)
-        self.x = np.concatenate((self.x, quat_0, np.array([[depth]])), axis=0) # add 5 states to the state vector
+        self.x = np.concatenate((self.x, quat_0, np.array([[1./depth]])), axis=0) # add 5 states to the state vector
         return self.next_feature_id - 1
 
     # Used to remove a feature from the EKF.  Removes the feature from the features array and
@@ -176,101 +182,103 @@ class VI_EKF():
             q_zeta = x[i*5+17:i*5+4+17,:]
             rho = x[i*5+4+17,0]
             zeta = Quaternion(q_zeta).rotate(self.khat)[:,None]
-            feat_dot[i*3:i*3+2,:] = self.T_zeta(q_zeta).dot(rho*(np.cross(zeta, self.q_b_c.rotate(vel + np.cross(omega, self.t_b_c, axis=0))[:,None], axis=0)) + self.q_b_c.rotate(omega)[:,None])
-            feat_dot[i*3+2,:] = rho*rho*zeta.T.dot(self.q_b_c.rotate(vel + np.cross(omega, self.t_b_c, axis=0))[:,None])
+            vel_c_i = self.q_b_c.rotation_matrix.dot(vel + np.cross(omega, self.t_b_c, axis=0))
+            omega_c_i = self.q_b_c.rotation_matrix.dot(omega)
+            feat_dot[i*3:i*3+2,:] = -self.T_zeta(q_zeta).dot(rho*np.cross(zeta, vel_c_i, axis=0) + omega_c_i)
+            feat_dot[i*3+2,:] = rho*rho*zeta.T.dot(vel_c_i)
 
         return np.vstack((pdot, vdot, qdot, np.zeros((7, 1)), feat_dot))
 
-if __name__ == '__main__':
-    from data_loader import *
-    from mpl_toolkits.mplot3d import Axes3D
-    import matplotlib.pyplot as plt
-    import tqdm
-
-    # Load Data
-    #data = load_data('/mnt/pccfs/not_backed_up/eurocmav/mav0', show_image=False, start=16, end=30)
-    #save_to_file('/mnt/pccfs/not_backed_up/eurocmav/mav0/data.npy', data)
-    data = load_from_file('/mnt/pccfs/not_backed_up/eurocmav/mav0/data.npy')
-
-    imu_t = data['imu'][:, 0]
-    gyro = data['imu'][:, 1:4]
-    acc = data['imu'][:, 4:7]
-    cam_time = data['cam_time']
-
-    def load_cam0(filename):
-        image = cv2.imread(filename, 0)
-        return cam0_undistort(image)
-
-    def load_cam1(filename):
-        image = cv2.imread(filename, 0)
-        return cam0_undistort(image)
-
-    cam0_undistort = make_undistort_funtion(intrinsics=data['cam0_sensor']['intrinsics'], resolution=data['cam0_sensor']['resolution'], distortion_coefficients=data['cam0_sensor']['distortion_coefficients'])
-    cam1_undistort = make_undistort_funtion(intrinsics=data['cam1_sensor']['intrinsics'], resolution=data['cam1_sensor']['resolution'], distortion_coefficients=data['cam1_sensor']['distortion_coefficients'])
-
-    truth = data['truth']
-
-    x0 = np.vstack([truth[0, 1:4, None], truth[0, 8:11, None], truth[0, 4:8, None], np.zeros((7, 1))])
-
-    ekf = VI_EKF(x0)
-
-    estimate = []
-    measurement_index = 1 # skip the first image so that diffs are always possible
-
-
-
-    for i, (t, dt) in enumerate(tqdm.tqdm(zip(imu_t, np.diff(np.concatenate([[0], imu_t]))))):
-
-        if measurement_index < cam_time.shape[0] and t > cam_time[measurement_index]:
-            left = load_cam0(data['cam0_frame_filenames'][measurement_index])
-            left_previous = load_cam0(data['cam0_frame_filenames'][measurement_index - 1])
-
-            # very slow dense flow calculation
-            # dense_flow = cv2.calcOpticalFlowFarneback(left_previous, left, 0.5, 3, 15, 3, 5, 1.2, 0)
-
-            measurement_index += 1
-
-        #while truth[truth_index,0] < t and truth[truth_index,0] > prev_time:
-        #    ekf.set_imu_bias(truth[i, 11:14, None], truth[i, 14:17, None])
-        x = ekf.propagate(acc[i, :, None], gyro[i, :, None], dt)
-
-        estimate.append(x[:, 0])
-
-    estimate = np.array(estimate)
-
-    truth_t = truth[:, 0]
-
-    fig = plt.figure(0)
-    ax = fig.add_subplot(111, projection='3d')
-    plt.plot(truth[:,1], truth[:,2], truth[:,3], '-c', label='truth')
-    plt.plot(estimate[:, 0], estimate[:, 1], estimate[:, 2], '-m', label='estimate')
-
-    # Plot coordinate frame at origin
-    origin = np.tile(truth[0, 1:4], (3, 1))
-    axes = np.array([origin, origin + np.eye(3)])
-    plt.plot(axes[:,0,0], axes[:, 0, 1], axes[:, 0, 2], '-r', label="x")
-    plt.plot(axes[:,1,0], axes[:, 1, 1], axes[:, 1, 2], '-g', label="y")
-    plt.plot(axes[:,2,0], axes[:, 2, 1], axes[:, 2, 2], '-b', label="z")
-    plt.axis('equal')
-
-    # plot position states
-    plt.figure(1)
-    for i in xrange(3):
-        plt.subplot(3,1,i+1)
-        plt.plot(truth[:,0], truth[:,i+1])
-        plt.plot(imu_t, estimate[:, i])
-
-    # plot acc and gyro biases
-    plt.figure(2)
-    for i in xrange(3):
-        plt.subplot(3,2,2*i+1)
-        plt.plot(truth[:,0], truth[:,i+11])
-        plt.plot(imu_t, estimate[:, i+10])
-        plt.subplot(3, 2, 2*i + 2)
-        plt.plot(truth[:, 0], truth[:, i + 14])
-        plt.plot(imu_t, estimate[:, i + 13])
-
-
-    plt.show()
-
-    debug = 1
+# if __name__ == '__main__':
+#     from data_loader import *
+#     from mpl_toolkits.mplot3d import Axes3D
+#     import matplotlib.pyplot as plt
+#     import tqdm
+#
+#     # Load Data
+#     #data = load_data('/mnt/pccfs/not_backed_up/eurocmav/mav0', show_image=False, start=16, end=30)
+#     #save_to_file('/mnt/pccfs/not_backed_up/eurocmav/mav0/data.npy', data)
+#     data = load_from_file('/mnt/pccfs/not_backed_up/eurocmav/mav0/data.npy')
+#
+#     imu_t = data['imu'][:, 0]
+#     gyro = data['imu'][:, 1:4]
+#     acc = data['imu'][:, 4:7]
+#     cam_time = data['cam_time']
+#
+#     def load_cam0(filename):
+#         image = cv2.imread(filename, 0)
+#         return cam0_undistort(image)
+#
+#     def load_cam1(filename):
+#         image = cv2.imread(filename, 0)
+#         return cam0_undistort(image)
+#
+#     cam0_undistort = make_undistort_funtion(intrinsics=data['cam0_sensor']['intrinsics'], resolution=data['cam0_sensor']['resolution'], distortion_coefficients=data['cam0_sensor']['distortion_coefficients'])
+#     cam1_undistort = make_undistort_funtion(intrinsics=data['cam1_sensor']['intrinsics'], resolution=data['cam1_sensor']['resolution'], distortion_coefficients=data['cam1_sensor']['distortion_coefficients'])
+#
+#     truth = data['truth']
+#
+#     x0 = np.vstack([truth[0, 1:4, None], truth[0, 8:11, None], truth[0, 4:8, None], np.zeros((7, 1))])
+#
+#     ekf = VI_EKF(x0)
+#
+#     estimate = []
+#     measurement_index = 1 # skip the first image so that diffs are always possible
+#
+#
+#
+#     for i, (t, dt) in enumerate(tqdm.tqdm(zip(imu_t, np.diff(np.concatenate([[0], imu_t]))))):
+#
+#         if measurement_index < cam_time.shape[0] and t > cam_time[measurement_index]:
+#             left = load_cam0(data['cam0_frame_filenames'][measurement_index])
+#             left_previous = load_cam0(data['cam0_frame_filenames'][measurement_index - 1])
+#
+#             # very slow dense flow calculation
+#             # dense_flow = cv2.calcOpticalFlowFarneback(left_previous, left, 0.5, 3, 15, 3, 5, 1.2, 0)
+#
+#             measurement_index += 1
+#
+#         #while truth[truth_index,0] < t and truth[truth_index,0] > prev_time:
+#         #    ekf.set_imu_bias(truth[i, 11:14, None], truth[i, 14:17, None])
+#         x = ekf.propagate(acc[i, :, None], gyro[i, :, None], dt)
+#
+#         estimate.append(x[:, 0])
+#
+#     estimate = np.array(estimate)
+#
+#     truth_t = truth[:, 0]
+#
+#     fig = plt.figure(0)
+#     ax = fig.add_subplot(111, projection='3d')
+#     plt.plot(truth[:,1], truth[:,2], truth[:,3], '-c', label='truth')
+#     plt.plot(estimate[:, 0], estimate[:, 1], estimate[:, 2], '-m', label='estimate')
+#
+#     # Plot coordinate frame at origin
+#     origin = np.tile(truth[0, 1:4], (3, 1))
+#     axes = np.array([origin, origin + np.eye(3)])
+#     plt.plot(axes[:,0,0], axes[:, 0, 1], axes[:, 0, 2], '-r', label="x")
+#     plt.plot(axes[:,1,0], axes[:, 1, 1], axes[:, 1, 2], '-g', label="y")
+#     plt.plot(axes[:,2,0], axes[:, 2, 1], axes[:, 2, 2], '-b', label="z")
+#     plt.axis('equal')
+#
+#     # plot position states
+#     plt.figure(1)
+#     for i in xrange(3):
+#         plt.subplot(3,1,i+1)
+#         plt.plot(truth[:,0], truth[:,i+1])
+#         plt.plot(imu_t, estimate[:, i])
+#
+#     # plot acc and gyro biases
+#     plt.figure(2)
+#     for i in xrange(3):
+#         plt.subplot(3,2,2*i+1)
+#         plt.plot(truth[:,0], truth[:,i+11])
+#         plt.plot(imu_t, estimate[:, i+10])
+#         plt.subplot(3, 2, 2*i + 2)
+#         plt.plot(truth[:, 0], truth[:, i + 14])
+#         plt.plot(imu_t, estimate[:, i + 13])
+#
+#
+#     plt.show()
+#
+#     debug = 1

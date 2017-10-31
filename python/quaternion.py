@@ -8,7 +8,7 @@ class Quaternion():
         else:
             arr = args[0]
             assert arr.shape == (4,1)
-            self.arr = arr
+            self.arr = arr.copy()
 
     def __str__(self):
         return str(self.arr[0,0]) + ", " + str(self.arr[1,0]) + "i, " \

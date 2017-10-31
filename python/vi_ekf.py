@@ -9,25 +9,38 @@ class VI_EKF():
         if self.debug:
             assert x0.shape == (17, 1)
 
-        # 17 main states
+        # 17 main states + 5N feature states
         # pos, vel, att, b_gyro, b_acc, mu, q_feat, rho_feat, q_feat, rho_feat ...
         self.x = x0
 
         # Process noise matrix for the 16 main delta states
-        self.Q = np.diag([0.001, 0.001, 0.001,
-                          0.01, 0.01, 0.01,
-                          0.001, 0.001, 0.001,
-                          0.0001, 0.0001, 0.0001,
-                          0.0001, 0.0001, 0.0001,
-                          0.001])
+        self.Qx = np.diag([0.000, 0.000, 0.000,     # pos
+                           0.01, 0.01, 0.01,        # vel
+                           0.000, 0.000, 0.000,     # att
+                           0.0001, 0.0001, 0.0001,  # b_acc
+                           0.0001, 0.0001, 0.0001,  # b_omega
+                           0.001])                  # mu
 
         # process noise matrix for the features (assumed all the same) 3x3
-        self.Q_feat = np.diag([0.001, 0.001, 0.01]) # x, y, and depth
+        self.Qx_feat = np.diag([0.000, 0.000, 0.00]) # x, y, and 1/depth
+
+        # Process noise assumed from inputs (mechanized sensors)
+        self.Qu = np.diag([0.01,                    # y_acc
+                           0.001, 0.001, 0.001])    # y_omega
+
+
 
         # State covariances.  Size is (16 + 3N) x (16 + 3N) where N is the number of
         # features currently being tracked
-        self.P = self.Q
-        self.P0_feat = self.Q_feat
+        self.P = np.diag([0.001, 0.001, 0.001,      # pos
+                           0.001, 0.001, 0.001,        # vel
+                           0.001, 0.001, 0.001,     # att
+                           0.0001, 0.0001, 0.0001,  # b_acc
+                           0.0001, 0.0001, 0.0001,  # b_omega
+                           0.01])                  # mu
+
+        # Initial Covariance estimate for new features
+        self.P0_feat = np.diag([0.01, 0.01, 0.1]) # x, y, and 1/depth
 
         # gravity vector
         self.gravity = np.array([[0, 0, 9.80665]]).T
@@ -104,6 +117,9 @@ class VI_EKF():
             # add vector inverse depth state
             out[17+i*5+4,:] = x[17+i*5+4] + dx[16+3*i+2]
 
+            if dx[16 + 3 * i + 2] > 0.001 or out[17+i*5+4,:] > 0.001:
+                debug = 1
+
         return out
 
     # propagates all states, features and covariances
@@ -116,11 +132,12 @@ class VI_EKF():
         self.x = self.boxplus(self.x, xdot*dt)
 
         # Propagate Uncertainty
-        A = self.dfdx(self.x, y_acc, y_gyro)
+        # A = self.dfdx(self.x, y_acc, y_gyro)
+        # G = self.dfdu(self.x)
 
         ## TOTO: Convert to proper noise introduction (instead of additive noise on all states)
-        Pdot = A.dot(self.P) + self.P.dot(A.T) + self.Q
-        self.P += Pdot*dt
+        # Pdot = A.dot(self.P) + self.P.dot(A.T) + G.dot(self.Qu).dot(G.T) + self.Qx
+        # self.P += Pdot*dt
 
         return self.x.copy()
 
@@ -143,7 +160,7 @@ class VI_EKF():
         self.x = np.concatenate((self.x, quat_0, np.array([[1./depth]])), axis=0) # add 5 states to the state vector
 
         # Add three states to the process noise matrix
-        self.Q = scipy.linalg.block_diag(self.Q, self.Q_feat)
+        self.Qx = scipy.linalg.block_diag(self.Qx, self.Qx_feat)
         self.P = scipy.linalg.block_diag(self.P, self.P0_feat)
 
         return self.next_feature_id - 1
@@ -183,12 +200,17 @@ class VI_EKF():
             q_zeta = x[i*5+17:i*5+4+17,:]
             rho = x[i*5+4+17,0]
             zeta = Quaternion(q_zeta).rotate(self.khat)
-            vel_c_i = self.q_b_c.rotate(vel + np.cross(omega, self.t_b_c, axis=0))
+            vel_c_i = self.q_b_c.rotate(vel + self.skew(omega).dot(self.t_b_c))
             omega_c_i = self.q_b_c.rotate(omega)
-            feat_dot[i*3:i*3+2,:] = self.T_zeta(q_zeta).T.dot(rho*np.cross(zeta, vel_c_i, axis=0) + omega_c_i)
+            feat_dot[i*3:i*3+2,:] = self.T_zeta(q_zeta).T.dot(rho*self.skew(zeta).dot(vel_c_i) + omega_c_i)
             feat_dot[i*3+2,:] = rho*rho*zeta.T.dot(vel_c_i)
 
-        return  np.vstack((pdot, vdot, qdot, np.zeros((7, 1)), feat_dot))
+        xdot = np.vstack((pdot, vdot, qdot, np.zeros((7, 1)), feat_dot))
+
+
+        if not np.isfinite(xdot).all():
+            debug = 1
+        return xdot
 
     # Calculates the jacobian of the state dynamics with respect to the state.
     # this is used in propagating the state, and will return a matrix of size 16+3N x 16+3N
@@ -210,10 +232,6 @@ class VI_EKF():
         omega = y_gyro - x[10:13]
         acc = y_acc - x[13:16]
         mu = x[16, None]
-
-        vdot = acc + q_I_b.inverse.rotate(self.gravity)
-        qdot = omega
-        pdot = q_I_b.rotate(vel)
 
         A = np.zeros((16+3*self.len_features, 16+3*self.len_features))
 
@@ -240,7 +258,7 @@ class VI_EKF():
             q_zeta = x[i * 5 + 17:i * 5 + 4 + 17, :]
             rho = x[i * 5 + 4 + 17, 0]
             zeta = Quaternion(q_zeta).rotate(self.khat)
-            vel_c_i = self.q_b_c.rotate(vel + np.cross(omega, self.t_b_c, axis=0))
+            vel_c_i = self.q_b_c.rotate(vel + self.skew(omega).dot(self.t_b_c))
             omega_c_i = self.q_b_c.rotate(omega)
             ZETA_i = Z+i*3
             RHO_i = Z+i*3+2
@@ -262,97 +280,50 @@ class VI_EKF():
 
         return A
 
+    # Calculates the jacobian of the state dynamics with respect to the input noise.
+    # this is used in propagating the state, and will return a matrix of size 16+3N x 4
+    def dfdu(self, x):
+        if self.debug:
+            assert x.shape == (17+5*self.len_features, 1)
 
-# if __name__ == '__main__':
-#     from data_loader import *
-#     from mpl_toolkits.mplot3d import Axes3D
-#     import matplotlib.pyplot as plt
-#     import tqdm
-#
-#     # Load Data
-#     #data = load_data('/mnt/pccfs/not_backed_up/eurocmav/mav0', show_image=False, start=16, end=30)
-#     #save_to_file('/mnt/pccfs/not_backed_up/eurocmav/mav0/data.npy', data)
-#     data = load_from_file('/mnt/pccfs/not_backed_up/eurocmav/mav0/data.npy')
-#
-#     imu_t = data['imu'][:, 0]
-#     gyro = data['imu'][:, 1:4]
-#     acc = data['imu'][:, 4:7]
-#     cam_time = data['cam_time']
-#
-#     def load_cam0(filename):
-#         image = cv2.imread(filename, 0)
-#         return cam0_undistort(image)
-#
-#     def load_cam1(filename):
-#         image = cv2.imread(filename, 0)
-#         return cam0_undistort(image)
-#
-#     cam0_undistort = make_undistort_funtion(intrinsics=data['cam0_sensor']['intrinsics'], resolution=data['cam0_sensor']['resolution'], distortion_coefficients=data['cam0_sensor']['distortion_coefficients'])
-#     cam1_undistort = make_undistort_funtion(intrinsics=data['cam1_sensor']['intrinsics'], resolution=data['cam1_sensor']['resolution'], distortion_coefficients=data['cam1_sensor']['distortion_coefficients'])
-#
-#     truth = data['truth']
-#
-#     x0 = np.vstack([truth[0, 1:4, None], truth[0, 8:11, None], truth[0, 4:8, None], np.zeros((7, 1))])
-#
-#     ekf = VI_EKF(x0)
-#
-#     estimate = []
-#     measurement_index = 1 # skip the first image so that diffs are always possible
-#
-#
-#
-#     for i, (t, dt) in enumerate(tqdm.tqdm(zip(imu_t, np.diff(np.concatenate([[0], imu_t]))))):
-#
-#         if measurement_index < cam_time.shape[0] and t > cam_time[measurement_index]:
-#             left = load_cam0(data['cam0_frame_filenames'][measurement_index])
-#             left_previous = load_cam0(data['cam0_frame_filenames'][measurement_index - 1])
-#
-#             # very slow dense flow calculation
-#             # dense_flow = cv2.calcOpticalFlowFarneback(left_previous, left, 0.5, 3, 15, 3, 5, 1.2, 0)
-#
-#             measurement_index += 1
-#
-#         #while truth[truth_index,0] < t and truth[truth_index,0] > prev_time:
-#         #    ekf.set_imu_bias(truth[i, 11:14, None], truth[i, 14:17, None])
-#         x = ekf.propagate(acc[i, :, None], gyro[i, :, None], dt)
-#
-#         estimate.append(x[:, 0])
-#
-#     estimate = np.array(estimate)
-#
-#     truth_t = truth[:, 0]
-#
-#     fig = plt.figure(0)
-#     ax = fig.add_subplot(111, projection='3d')
-#     plt.plot(truth[:,1], truth[:,2], truth[:,3], '-c', label='truth')
-#     plt.plot(estimate[:, 0], estimate[:, 1], estimate[:, 2], '-m', label='estimate')
-#
-#     # Plot coordinate frame at origin
-#     origin = np.tile(truth[0, 1:4], (3, 1))
-#     axes = np.array([origin, origin + np.eye(3)])
-#     plt.plot(axes[:,0,0], axes[:, 0, 1], axes[:, 0, 2], '-r', label="x")
-#     plt.plot(axes[:,1,0], axes[:, 1, 1], axes[:, 1, 2], '-g', label="y")
-#     plt.plot(axes[:,2,0], axes[:, 2, 1], axes[:, 2, 2], '-b', label="z")
-#     plt.axis('equal')
-#
-#     # plot position states
-#     plt.figure(1)
-#     for i in xrange(3):
-#         plt.subplot(3,1,i+1)
-#         plt.plot(truth[:,0], truth[:,i+1])
-#         plt.plot(imu_t, estimate[:, i])
-#
-#     # plot acc and gyro biases
-#     plt.figure(2)
-#     for i in xrange(3):
-#         plt.subplot(3,2,2*i+1)
-#         plt.plot(truth[:,0], truth[:,i+11])
-#         plt.plot(imu_t, estimate[:, i+10])
-#         plt.subplot(3, 2, 2*i + 2)
-#         plt.plot(truth[:, 0], truth[:, i + 14])
-#         plt.plot(imu_t, estimate[:, i + 13])
-#
-#
-#     plt.show()
-#
-#     debug = 1
+        # State indexes to make code easier to read
+        POS = 0
+        VEL = 3
+        ATT = 6
+        B_A = 9
+        B_G = 12
+        MU = 15
+        Z = 16
+
+        # Input indexes to make code easier to read
+        Y_A = 0
+        Y_W = 1
+
+        G = np.zeros((16+3*self.len_features, 4))
+
+        vel = x[3:6]
+        q_I_b = Quaternion(x[6:10])
+
+        # State partials
+        G[VEL:ATT, Y_A,None] = self.khat
+        G[VEL:ATT, Y_W:] = self.skew(vel)
+
+        # Feature Partials
+        for i in range(self.len_features):
+            q_zeta = x[i * 5 + 17:i * 5 + 4 + 17, :]
+            rho = x[i * 5 + 4 + 17, 0]
+            zeta = Quaternion(q_zeta).rotate(self.khat)
+            ZETA_i = Z+i*3
+            RHO_i = Z+i*3+2
+            skew_zeta = self.skew(zeta)
+            R_b_c = self.q_b_c.R
+            skew_t_b_c = self.skew(self.t_b_c)
+
+            G[ZETA_i:RHO_i, Y_W:] = rho*self.T_zeta(q_zeta).T.dot(-skew_zeta.dot(R_b_c).dot(skew_t_b_c) + R_b_c)
+            G[RHO_i, Y_W:] = rho*rho*zeta.T.dot(R_b_c).dot(skew_t_b_c)
+
+        return G
+
+
+
+

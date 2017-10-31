@@ -18,7 +18,7 @@ def generate_data():
     q[0,0] = 1.0
 
     frequencies = np.array([[1., 0.5, 1.1]]).T
-    amplitudes = np.array([[0.0, 0.0, 0.0]]).T
+    amplitudes = np.array([[0.1, 0.3, 0.0]]).T
 
     omega = amplitudes*np.sin(frequencies*t)
 
@@ -31,7 +31,7 @@ def generate_data():
 
         q[i,:,None] = (quat + omega[:,i,None]*dt).elements
 
-        acc[:,i,None] = -quat.rotate(g)
+        acc[:,i,None] = -quat.inverse.rotate(g)
 
     data = dict()
     data['truth_NED'] = dict()

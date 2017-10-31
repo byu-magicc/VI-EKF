@@ -24,12 +24,13 @@ ekf = VI_EKF(x0)
 
 ekf.init_feature(data['features']['zeta'][0,0,:,None], data['features']['depth'][0,0])
 ekf.init_feature(data['features']['zeta'][0,1,:,None], data['features']['depth'][0,1])
+ekf.init_feature(data['features']['zeta'][0,2,:,None], data['features']['depth'][0,2])
 
 prev_time = 0
 estimate = []
 est_zeta = []
 est_depth = []
-end = 3.
+end = 15.
 estimate.append(ekf.x)
 est_zeta.append(ekf.get_zeta())
 est_depth.append(ekf.get_depth())
@@ -137,36 +138,37 @@ truth_feature_t = truth_feature_t[truth_feature_t < end]
 # plt.plot(truth_t, truth_att[:,3], label='z')
 
 plt.figure(7)
-plt.subplot(411)
-plt.title('zeta')
-plt.plot(est_t, est_zeta[:,0,0], label='xhat')
-plt.plot(truth_feature_t, truth_zeta[:,0,0], label="x")
-plt.legend()
-plt.subplot(412)
-plt.plot(est_t, est_zeta[:,0,1], label='yhat')
-plt.plot(truth_feature_t, truth_zeta[:,0,1], label="y")
-plt.subplot(413)
-plt.plot(est_t, est_zeta[:,0,2], label='zhat')
-plt.plot(truth_feature_t, truth_zeta[:,0,2], label="z")
-plt.subplot(414)
-plt.plot(est_t, est_depth[:,0], label='1/\rho hat')
-plt.plot(truth_feature_t, truth_depth[:,0], label="1/\rho")
+for i in range(3):
+    plt.subplot(4,3,i+1)
+    plt.title('zeta')
+    plt.plot(est_t, est_zeta[:,i,0], label='xhat')
+    plt.plot(truth_feature_t, truth_zeta[:,i,0], label="x")
+    plt.legend()
+    plt.subplot(4,3,3+i+1)
+    plt.plot(est_t, est_zeta[:,i,1], label='yhat')
+    plt.plot(truth_feature_t, truth_zeta[:,i,1], label="y")
+    plt.subplot(4,3,6+i+1)
+    plt.plot(est_t, est_zeta[:,i,2], label='zhat')
+    plt.plot(truth_feature_t, truth_zeta[:,i,2], label="z")
+    plt.subplot(4,3,9+i+1)
+    plt.plot(est_t, est_depth[:,i], label='1/\rho hat')
+    plt.plot(truth_feature_t, truth_depth[:,i], label="1/\rho")
 
-plt.figure(8)
-plt.subplot(411)
-plt.title('zeta')
-plt.plot(est_t, est_zeta[:,1,0], label='xhat')
-plt.plot(truth_feature_t, truth_zeta[:,1,0], label="x")
-plt.legend()
-plt.subplot(412)
-plt.plot(est_t, est_zeta[:,1,1], label='yhat')
-plt.plot(truth_feature_t, truth_zeta[:,1,1], label="y")
-plt.subplot(413)
-plt.plot(est_t, est_zeta[:,1,2], label='zhat')
-plt.plot(truth_feature_t, truth_zeta[:,1,2], label="z")
-plt.subplot(414)
-plt.plot(est_t, est_depth[:,1], label='1/\rho hat')
-plt.plot(truth_feature_t, truth_depth[:,1], label="1/\rho")
+# plt.figure(8)
+# plt.subplot(411)
+# plt.title('zeta')
+# plt.plot(est_t, est_zeta[:,1,0], label='xhat')
+# plt.plot(truth_feature_t, truth_zeta[:,1,0], label="x")
+# plt.legend()
+# plt.subplot(412)
+# plt.plot(est_t, est_zeta[:,1,1], label='yhat')
+# plt.plot(truth_feature_t, truth_zeta[:,1,1], label="y")
+# plt.subplot(413)
+# plt.plot(est_t, est_zeta[:,1,2], label='zhat')
+# plt.plot(truth_feature_t, truth_zeta[:,1,2], label="z")
+# plt.subplot(414)
+# plt.plot(est_t, est_depth[:,1], label='1/\rho hat')
+# plt.plot(truth_feature_t, truth_depth[:,1], label="1/\rho")
 
 
 plt.show()
@@ -174,6 +176,7 @@ plt.show()
 
 
 debug = 1
+
 
 
 

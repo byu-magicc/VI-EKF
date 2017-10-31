@@ -184,7 +184,7 @@ class VI_EKF():
             zeta = Quaternion(q_zeta).rotate(self.khat)[:,None]
             vel_c_i = self.q_b_c.rotation_matrix.dot(vel + np.cross(omega, self.t_b_c, axis=0))
             omega_c_i = self.q_b_c.rotation_matrix.dot(omega)
-            feat_dot[i*3:i*3+2,:] = -self.T_zeta(q_zeta).dot(rho*np.cross(zeta, vel_c_i, axis=0) + omega_c_i)
+            feat_dot[i*3:i*3+2,:] = self.T_zeta(q_zeta).dot(rho*np.cross(zeta, vel_c_i, axis=0) + omega_c_i)
             feat_dot[i*3+2,:] = rho*rho*zeta.T.dot(vel_c_i)
 
         return np.vstack((pdot, vdot, qdot, np.zeros((7, 1)), feat_dot))

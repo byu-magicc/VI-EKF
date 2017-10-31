@@ -22,7 +22,7 @@ def q_boxplus(q, dq):
 
 def generate_data():
     dt = 0.001
-    t = np.arange(0.0, 3.01, dt)
+    t = np.arange(0.0, 15.01, dt)
 
     g = np.array([[0, 0, 9.80665]]).T
 
@@ -57,7 +57,8 @@ def generate_data():
     data['imu_data']['gyro'] = omega.T
 
     landmarks = np.array([[0.1, 0, 1],
-                          [0, 0.1, 1]])
+                          [0, 0.1, 1],
+                          [2, 3, 5]])
 
     data['features'] = dict()
     data['features']['t'] = data['truth_NED']['t']

@@ -1487,7 +1487,9 @@ In summary, the full state dynamics of the system
 \begin_inset Formula $\dot{\boldsymbol{x}}$
 \end_inset
 
- with respect to inputs 
+ with respect to inputs (There is something wrong with the derivation of
+ the feature dynamics, I had to add a negative sign to make it work in implement
+ation)
 \end_layout
 
 \begin_layout Standard
@@ -1514,7 +1516,7 @@ v_{b/I}^{b} & =\left\lfloor v_{b/I}^{b}\right\rfloor \left(y_{\omega}-\beta_{\om
 \dot{\beta}_{a} & =\eta_{\beta_{a}}\\
 \dot{\beta}_{\omega} & =\eta_{\beta_{\boldsymbol{\omega}}}\\
 \dot{\mu} & =\eta_{\mu}d\\
-\dot{q}_{c}^{\zeta_{i}} & =T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\\
+\dot{q}_{c}^{\zeta_{i}} & =-T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\\
 \dot{\rho_{i}} & =\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)
 \end{aligned}
 \label{eq:full_dynamics}

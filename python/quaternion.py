@@ -40,6 +40,13 @@ class Quaternion():
     def elements(self):
         return self.arr
 
+    @property
+    def R(self):
+        return np.array([[[1. - 2.*self.y*self.y - 2.*self.z*self.z], [2.*self.x*self.y - 2.*self.z*self.w], [2.*self.x*self.z + 2.*self.y*self.w]],
+                         [[2.*self.x*self.y + 2.*self.z*self.w], [1. - 2.*self.x*self.x - 2.*self.z*self.z], [2.*self.y*self.z - 2.*self.x*self.w]],
+                         [[2.*self.x*self.z - 2.*self.y*self.w], [2.*self.y*self.z + 2.*self.x*self.w], [1. - 2.*self.x*self.x - 2.*self.y*self.y]]]).squeeze()
+
+
     def normalize(self):
         self.arr /= scipy.linalg.norm(self.arr)
 

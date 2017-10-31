@@ -10,7 +10,7 @@ import cPickle
 
 def generate_data():
     dt = 0.001
-    t = np.arange(0.0, 15.01, dt)
+    t = np.arange(0.0, 3.01, dt)
 
     g = np.array([[0, 0, 9.80665]]).T
 
@@ -18,7 +18,7 @@ def generate_data():
     q[0,0] = 1.0
 
     frequencies = np.array([[1., 0.5, 1.1]]).T
-    amplitudes = np.array([[0.1, 0.3, 0.0]]).T
+    amplitudes = np.array([[0.0, 0.0, 0.0]]).T
 
     omega = amplitudes*np.sin(frequencies*t)
 
@@ -31,7 +31,7 @@ def generate_data():
 
         q[i,:,None] = (quat + omega[:,i,None]*dt).elements
 
-        acc[:,i,None] = -quat.inverse.rotate(g)
+        acc[:,i,None] = -quat.rotate(g)
 
     data = dict()
     data['truth_NED'] = dict()
@@ -46,7 +46,6 @@ def generate_data():
     data['imu_data']['gyro'] = omega.T
 
     landmarks = np.array([[0.1, 0, 1],
-                          [0, 0.1, 1],
                           [2, 3, 5]])
 
     data['features'] = dict()

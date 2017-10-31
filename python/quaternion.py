@@ -2,9 +2,13 @@ import numpy as np
 import scipy.linalg
 
 class Quaternion():
-    def __init__(self, arr):
-        assert arr.shape == (4,1)
-        self.arr = arr
+    def __init__(self, *args):
+        if len(args) == 0:
+            self.arr = np.array([[1, 0, 0, 0]]).T
+        else:
+            arr = args[0]
+            assert arr.shape == (4,1)
+            self.arr = arr
 
     def __str__(self):
         return str(self.arr[0,0]) + ", " + str(self.arr[1,0]) + "i, " \
@@ -63,14 +67,15 @@ class Quaternion():
     def from_two_unit_vectors(self, u, v):
         assert u.shape == (3,1)
         assert v.shape == (3,1)
-        d = u.dot(v).squeeze()
+        d = u.T.dot(v).squeeze()
         if d >= 1.0:
             self.arr = np.array([[1, 0, 0, 0]]).T
         else:
-            invs = 2.0*(1.0+d)**-0.5
-            xyz = np.cross(u, v, axis=0)*invs.squeeze()
-            arr = np.array([[0.5/invs, xyz[0], xyz[1], xyz[2]]]).T
+            invs = (2.0*(1.0+d))**-0.5
+            xyz = np.cross(v, u, axis=0)*invs.squeeze()
+            self.arr = np.array([[0.5/invs, xyz[0], xyz[1], xyz[2]]]).T
             self.normalize()
+        return self
 
     def otimes(self, q):
         assert isinstance(q, Quaternion)

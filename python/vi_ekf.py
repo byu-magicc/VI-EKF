@@ -32,8 +32,8 @@ class VI_EKF():
         self.gravity = np.array([[0, 0, 9.80665]]).T
 
         # Unit vectors in the x, y, and z directions (used a lot for projection functions)
-        self.ihat = np.array([[0, 0, 1]]).T
-        self.jhat = np.array([[0, 0, 1]]).T
+        self.ihat = np.array([[1, 0, 0]]).T
+        self.jhat = np.array([[0, 1, 0]]).T
         self.khat = np.array([[0, 0, 1]]).T
 
         # The number of features currently being tracked
@@ -46,7 +46,7 @@ class VI_EKF():
         self.feature_ids = []
 
         # Body-to-Camera transform
-        self.q_b_c = Quaternion([1, 0, 0, 0]) # Rotation from body to camera
+        self.q_b_c = Quaternion(np.array([[1, 0, 0, 0]]).T) # Rotation from body to camera
         self.t_b_c = np.array([[0, 0, 0]]).T # translation from body to camera (in body frame)
 
 
@@ -56,7 +56,7 @@ class VI_EKF():
             assert q_zeta.shape == (4,1)
 
         quat_zeta = Quaternion(q_zeta)
-        return np.array([quat_zeta.rotate(np.array([1, 0, 0])), quat_zeta.rotate(np.array([0, 1, 0]))])
+        return np.concatenate([quat_zeta.rotate(self.ihat), quat_zeta.rotate(self.jhat)], axis=1)
 
     # Returns the depth to all features
     def get_depth(self):
@@ -67,38 +67,9 @@ class VI_EKF():
         zetas = np.zeros((self.len_features, 3))
         for i in range(self.len_features):
             qzeta = self.x[17 + 5 * i:17 + 5 * i + 4, :]  # 4-vector quaternion
-            zetas[i,None] = Quaternion(qzeta).rotation_matrix.dot(self.khat).T  # 3-vector pointed at the feature in the camera frame
+            zetas[i,None] = (Quaternion(qzeta).rotate(self.khat)).T  # 3-vector pointed at the feature in the camera frame
             assert abs(1.0 - scipy.linalg.norm(zetas[i,None])) < 0.001
         return zetas
-
-    # Determines the quaternion which describes the rotation from the camera z-axis to the
-    # unit bearing vector zeta
-    def quat_from_zeta(self, zeta):
-        if self.debug:
-            assert zeta.shape == (3,1)
-            assert (1.0 - scipy.linalg.norm(zeta)) < 0.00001
-
-        d = zeta.T.dot(self.khat).squeeze()
-        if d >= 1.0:
-            return np.array([[1, 0, 0, 0]]).T
-        else:
-            invs = (2.0*(1.0 + d))**-0.5
-            xyz = (np.cross(self.khat, zeta, axis=0)*invs).squeeze()
-            return np.array([[0.5/invs, xyz[0], xyz[1], xyz[2]]]).T
-
-    def q_boxplus(self, q, dq):
-        if self.debug:
-            assert q.shape == (4,1) and dq.shape == (3,1)
-        q_new = np.zeros((4,1))
-        quat = Quaternion(q)
-        norm_delta = scipy.linalg.norm(dq)
-        if norm_delta > 1e-4:
-            dquat = Quaternion(scalar=np.cos(norm_delta/2.), vector=np.sin(norm_delta/2.)*dq/norm_delta)
-            q_new[:, 0] = (quat * dquat).elements
-        else:
-            dquat = Quaternion(scalar=1., vector=dq/2.)
-            q_new[:, 0] = (quat * dquat).unit.elements
-        return q_new
 
     # Adds the state with the delta state on the manifold
     def boxplus(self, x, dx):
@@ -111,7 +82,7 @@ class VI_EKF():
         out[0:6] = x[0:6] + dx[0:6]
 
         # Add attitude quaternion state on the manifold
-        out[6:10] = self.q_boxplus(x[6:10], dx[6:9])
+        out[6:10] = (Quaternion(x[6:10]) + dx[6:9]).elements
 
         # add bias and drag term vector states
         out[10:17] = x[10:17] + dx[9:16]
@@ -120,8 +91,7 @@ class VI_EKF():
         for i in range(self.len_features):
             dqzeta = dx[16+3*i:16+3*i+2,:]  # 2-vector which is the derivative of qzeta
             qzeta = x[17+5*i:17+5*i+4,:] # 4-vector quaternion
-            zeta = Quaternion(qzeta).rotate(self.khat) # 3-vector pointed at the feature in the camera frame
-            out[17+i*5:17+5*i+4,:] = self.q_boxplus(qzeta, self.T_zeta(qzeta).T.dot(dqzeta)) # Increment the quaternion feature state with boxplus
+            out[17+i*5:17+5*i+4,:] = (Quaternion(qzeta) + self.T_zeta(qzeta).dot(dqzeta)).elements # Increment the quaternion feature state with boxplus
 
             # add vector inverse depth state
             out[17+i*5+4,:] = x[17+i*5+4] + dx[16+3*i+2]
@@ -153,7 +123,7 @@ class VI_EKF():
         self.len_features += 1
         self.feature_ids.append(self.next_feature_id)
         self.next_feature_id += 1
-        quat_0 = self.quat_from_zeta(zeta)
+        quat_0 = Quaternion().from_two_unit_vectors(self.khat, zeta).elements
         self.x = np.concatenate((self.x, quat_0, np.array([[1./depth]])), axis=0) # add 5 states to the state vector
         return self.next_feature_id - 1
 
@@ -183,21 +153,25 @@ class VI_EKF():
         acc = y_acc - x[13:16]
         mu = x[16, None]
 
-        vdot = np.cross(vel, omega, axis=0) + acc + q_I_b.inverse.rotate(self.gravity)[:, None]
+        vdot = acc + q_I_b.inverse.rotate(self.gravity)
         qdot = omega
-        pdot = q_I_b.rotate(vel)[:, None]
+        pdot = q_I_b.rotate(vel)
 
         feat_dot = np.zeros((3*self.len_features, 1))
         for i in range(self.len_features):
             q_zeta = x[i*5+17:i*5+4+17,:]
             rho = x[i*5+4+17,0]
-            zeta = Quaternion(q_zeta).rotate(self.khat)[:,None]
-            vel_c_i = self.q_b_c.rotation_matrix.dot(vel + np.cross(omega, self.t_b_c, axis=0))
-            omega_c_i = self.q_b_c.rotation_matrix.dot(omega)
-            feat_dot[i*3:i*3+2,:] = self.T_zeta(q_zeta).dot(rho*np.cross(zeta, vel_c_i, axis=0) + omega_c_i)
+            zeta = Quaternion(q_zeta).rotate(self.khat)
+            vel_c_i = self.q_b_c.rotate(vel + np.cross(omega, self.t_b_c, axis=0))
+            omega_c_i = self.q_b_c.rotate(omega)
+            feat_dot[i*3:i*3+2,:] = self.T_zeta(q_zeta).T.dot(rho*np.cross(zeta, vel_c_i, axis=0) + omega_c_i)
             feat_dot[i*3+2,:] = rho*rho*zeta.T.dot(vel_c_i)
 
-        return np.vstack((pdot, vdot, qdot, np.zeros((7, 1)), feat_dot))
+        out =  np.vstack((pdot, vdot, qdot, np.zeros((7, 1)), feat_dot))
+
+        if not np.isfinite(out).all():
+            debug = 1
+        return out
 
 # if __name__ == '__main__':
 #     from data_loader import *

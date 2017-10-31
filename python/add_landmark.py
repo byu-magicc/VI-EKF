@@ -13,9 +13,11 @@ def add_landmark(truth_pos, truth_att, landmarks):
     for i in tqdm(range(len(truth_pos))):
         delta_pose = landmarks - truth_pos[i]
         dist = scipy.linalg.norm(delta_pose, axis=1)
+        q = Quaternion(truth_att[i,:,None])
+        if q.w < 0.9:
+            debug = 1
         for l in range(len(landmarks)):
-            bearing[i, l, :,None] = Quaternion(truth_att[i,:,None]).rotate(delta_pose[l,None].T/dist[l])
-            assert abs(1.0 - scipy.linalg.norm(bearing[i,l,:])) < 0.001
+            bearing[i, l, :,None] = q.rotate(delta_pose[l,None].T/dist[l])
         depth[i,:] = dist
 
 

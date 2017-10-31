@@ -9,8 +9,8 @@ import cPickle
 # This file just rotates the body around all randomly, so I can check rotations
 
 def generate_data():
-    dt = 0.001
-    t = np.arange(0.0, 3.01, dt)
+    dt = 0.0033
+    t = np.arange(dt, 15.1, dt)
 
     g = np.array([[0, 0, 9.80665]]).T
 
@@ -18,7 +18,7 @@ def generate_data():
     q[0,0] = 1.0
 
     frequencies = np.array([[1., 0.5, 1.1]]).T
-    amplitudes = np.array([[0.1, 0.3, 0.0]]).T
+    amplitudes = np.array([[0.0, 0.0, 0.5]]).T
 
     omega = amplitudes*np.sin(frequencies*t)
 
@@ -45,7 +45,12 @@ def generate_data():
     data['imu_data']['acc'] = acc.T
     data['imu_data']['gyro'] = omega.T
 
-    landmarks = np.array([[0.1, 0, 1],
+    landmarks = np.array([[1, 0, 0],
+                          [500, 0, 0],
+                          [0, 0, 2],
+                          [-5, -8, -6],
+                          [0.1, 0, 1],
+                          [0, 9, 1],
                           [2, 3, 5]])
 
     data['features'] = dict()

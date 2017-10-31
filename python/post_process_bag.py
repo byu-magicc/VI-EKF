@@ -22,15 +22,14 @@ x0 = np.concatenate([data['truth_NED']['pos'][0,:,None],
 
 ekf = VI_EKF(x0, debug=False)
 
-ekf.init_feature(data['features']['zeta'][0,0,:,None], data['features']['depth'][0,0])
-# ekf.init_feature(data['features']['zeta'][0,1,:,None], data['features']['depth'][0,1])
-# ekf.init_feature(data['features']['zeta'][0,2,:,None], data['features']['depth'][0,2])
+for i in range(2):
+    ekf.init_feature(data['features']['zeta'][0,i,:,None], data['features']['depth'][0,i])
 
 prev_time = 0
 estimate = []
 est_zeta = []
 est_depth = []
-end = 3.0
+end = 15.0
 estimate.append(ekf.x)
 est_zeta.append(ekf.get_zeta())
 est_depth.append(ekf.get_depth())
@@ -45,7 +44,7 @@ for i, t in tqdm(enumerate(data['imu_data']['t'])):
     prev_time = t
 
     # Propagation step
-    xhat = ekf.propagate(data['imu_data']['acc'][i,:, None], data['imu_data']['gyro'][i,:, None], dt)
+    xhat = ekf.propagate(data['imu_data']['acc'][i,:, None], data['imu_data']['gyro'][i,:, None], dt, data['truth_NED']['att'][i,:,None])
     estimate.append(xhat)
     est_zeta.append(ekf.get_zeta())
     est_depth.append(ekf.get_depth())

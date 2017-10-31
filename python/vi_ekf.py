@@ -123,12 +123,12 @@ class VI_EKF():
         return out
 
     # propagates all states, features and covariances
-    def propagate(self, y_acc, y_gyro, dt):
+    def propagate(self, y_acc, y_gyro, dt, truth):
         if self.debug:
             assert y_acc.shape == (3, 1) and y_gyro.shape == (3, 1)
 
         # Propagate State
-        xdot = self.f(self.x, y_acc, y_gyro)
+        xdot = self.f(self.x, y_acc, y_gyro, truth)
         self.x = self.boxplus(self.x, xdot*dt)
 
         # Propagate Uncertainty
@@ -180,12 +180,14 @@ class VI_EKF():
     # Determines the derivative of state x given inputs y_acc and y_gyro
     # the returned value of f is a delta state, delta features, and therefore is a different
     # size than the state and features and needs to be applied with boxplus
-    def f(self, x, y_acc, y_gyro, ):
+    def f(self, x, y_acc, y_gyro, truth):
         if self.debug:
             assert x.shape == (17+5*self.len_features, 1) and y_acc.shape == (3,1) and y_gyro.shape == (3,1)
 
         vel = x[3:6]
-        q_I_b = Quaternion(x[6:10])
+        # q_I_b = Quaternion(x[6:10])
+
+        q_I_b = Quaternion(truth)
 
         omega = y_gyro - x[10:13]
         acc = y_acc - x[13:16]
@@ -202,14 +204,12 @@ class VI_EKF():
             zeta = Quaternion(q_zeta).rotate(self.khat)
             vel_c_i = self.q_b_c.rotate(vel + self.skew(omega).dot(self.t_b_c))
             omega_c_i = self.q_b_c.rotate(omega)
-            feat_dot[i*3:i*3+2,:] = self.T_zeta(q_zeta).T.dot(rho*self.skew(zeta).dot(vel_c_i) + omega_c_i)
+            # feat_dot[i*3:i*3+2,:] = self.T_zeta(q_zeta).T.dot(rho*self.skew(zeta).dot(vel_c_i) + omega_c_i)
+            feat_dot[i*3:i*3+2, :] = self.T_zeta(q_zeta).T.dot(omega_c_i)
             feat_dot[i*3+2,:] = rho*rho*zeta.T.dot(vel_c_i)
 
         xdot = np.vstack((pdot, vdot, qdot, np.zeros((7, 1)), feat_dot))
 
-
-        if not np.isfinite(xdot).all():
-            debug = 1
         return xdot
 
     # Calculates the jacobian of the state dynamics with respect to the state.

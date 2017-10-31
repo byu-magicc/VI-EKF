@@ -11,8 +11,8 @@ class Quaternion():
             self.arr = arr.copy()
 
     def __str__(self):
-        return str(self.arr[0,0]) + ", " + str(self.arr[1,0]) + "i, " \
-               + str(self.arr[2,0]) + "j, " + str(self.arr[3,0]) + "k"
+        return "[ " + str(self.arr[0,0]) + ", " + str(self.arr[1,0]) + "i, " \
+               + str(self.arr[2,0]) + "j, " + str(self.arr[3,0]) + "k ]"
 
     def __mul__(self, other):
         return self.otimes(other)
@@ -38,7 +38,7 @@ class Quaternion():
 
     @property
     def elements(self):
-        return self.arr
+        return self.arr.copy()
 
     @property
     def R(self):
@@ -67,7 +67,7 @@ class Quaternion():
 
     @property
     def inverse(self):
-        inverted = self.arr
+        inverted = self.arr.copy()
         inverted[1:] *= -1.0
         return Quaternion(inverted)
 

@@ -34,7 +34,7 @@ def generate_data():
 
         q[i,:,None] = (quat + omega[:,i,None]*dt).elements
 
-        acc[:,i,None] = -quat.inverse.rotate(g)
+        acc[:,i,None] = -quat.invrot(g)
 
     data = dict()
     data['truth_NED'] = dict()

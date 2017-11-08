@@ -46,9 +46,14 @@ class Quaternion():
 
     @property
     def R(self):
-        return np.array([[[1. - 2.*self.y*self.y - 2.*self.z*self.z], [2.*self.x*self.y - 2.*self.z*self.w], [2.*self.x*self.z + 2.*self.y*self.w]],
-                         [[2.*self.x*self.y + 2.*self.z*self.w], [1. - 2.*self.x*self.x - 2.*self.z*self.z], [2.*self.y*self.z - 2.*self.x*self.w]],
-                         [[2.*self.x*self.z - 2.*self.y*self.w], [2.*self.y*self.z + 2.*self.x*self.w], [1. - 2.*self.x*self.x - 2.*self.y*self.y]]]).squeeze()
+        w = self.arr[0,0]
+        x = self.arr[1,0]
+        y = self.arr[2,0]
+        z = self.arr[3,0]
+
+        return np.array([[[1. - 2.*y*y - 2.*z*z], [2.*x*y - 2.*z*w], [2.*x*z + 2.*y*w]],
+                         [[2.*x*y + 2.*z*w], [1. - 2.*x*x - 2.*z*z], [2.*y*z - 2.*x*w]],
+                         [[2.*x*z - 2.*y*w], [2.*y*z + 2.*x*w], [1. - 2.*x*x - 2.*y*y]]]).squeeze()
 
     @staticmethod
     def qexp(v):
@@ -73,7 +78,7 @@ class Quaternion():
     def normalize(self):
         self.arr /= scipy.linalg.norm(self.arr)
 
-    def rotate(self, v):
+    def rot(self, v):
         assert v.shape == (3,1)
         v = v.copy()
 
@@ -81,6 +86,19 @@ class Quaternion():
         x = self.arr[1,0]
         y = self.arr[2,0]
         z = self.arr[3,0]
+
+        return np.array([[(1.0 - 2.0*y*y - 2.0*z*z) * v[0,0] + (2.0*(x*y + w*z))*v[1,0] + 2.0*(x*z - w*y)*v[2,0]],
+                         [(2.0*(x*y - w*z)) * v[0,0] + (1.0 - 2.0*x*x - 2.0*z*z) * v[1,0] + 2.0*(y*z + w*x)*v[2,0]],
+                         [(2.0*(x*z + w*y)) * v[0,0] + 2.0*(y*z - w*x)*v[1,0] + (1.0 - 2.0*x*x - 2.0*y*y)*v[2,0]]])
+
+    def invrot(self, v):
+        assert v.shape == (3,1)
+        v = v.copy()
+
+        w = self.arr[0,0]
+        x = -self.arr[1,0]
+        y = -self.arr[2,0]
+        z = -self.arr[3,0]
 
         return np.array([[(1.0 - 2.0*y*y - 2.0*z*z) * v[0,0] + (2.0*(x*y + w*z))*v[1,0] + 2.0*(x*z - w*y)*v[2,0]],
                          [(2.0*(x*y - w*z)) * v[0,0] + (1.0 - 2.0*x*x - 2.0*z*z) * v[1,0] + 2.0*(y*z + w*x)*v[2,0]],

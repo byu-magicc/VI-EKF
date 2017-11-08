@@ -8,7 +8,7 @@ from generate_data import generate_data
 
 # data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
 
-generate_data()
+# generate_data()
 data = cPickle.load(open('generated_data.pkl', 'rb'))
 
 # State: pos, vel, att, b_gyro, b_acc, mu
@@ -165,8 +165,8 @@ for i in range(ekf.len_features):
         plt.legend()
 
 
-plt.show()
-debug = 1
+# plt.show()
+# debug = 1
 
 
 

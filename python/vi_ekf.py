@@ -205,9 +205,9 @@ class VI_EKF():
         acc = y_acc - x[13:16]
         mu = x[16, None]
 
-        vdot = np.zeros((3,1)) #acc + q_I_b.R.dot(self.gravity)
+        vdot = np.zeros((3,1)) #acc + q_I_b.invrot(self.gravity)
         qdot = omega
-        pdot = q_I_b.R.dot(vel)
+        pdot = q_I_b.invrot(vel)
 
         feat_dot = np.zeros((3*self.len_features, 1))
         for i in range(self.len_features):
@@ -218,8 +218,8 @@ class VI_EKF():
 
             q_zeta = x[xZETA_i:xRHO_i,:]
             rho = x[xRHO_i,0]
-            zeta = Quaternion(q_zeta).R.T.dot(self.khat)
-            vel_c_i = self.q_b_c.R.dot(vel + self.skew(omega).dot(self.t_b_c))
+            zeta = Quaternion(q_zeta).rot(self.khat)
+            vel_c_i = self.q_b_c.invrot(vel + self.skew(omega).dot(self.t_b_c))
             omega_c_i = omega
 
             # feature bearing vector dynamics
@@ -257,11 +257,11 @@ class VI_EKF():
 
         # Position Partials
         A[POS:VEL, VEL:ATT] = q_I_b.R.T
-        A[POS:VEL, ATT:B_A] = -self.skew(q_I_b.R.dot(vel))
+        A[POS:VEL, ATT:B_A] = -self.skew(q_I_b.invrot(vel))
 
         # Velocity Partials
         A[VEL:ATT, VEL:ATT] = -self.skew(omega) # - mu * np.eye(3)
-        A[VEL:ATT, ATT:B_A] = -self.skew(q_I_b.R.dot(self.gravity))
+        A[VEL:ATT, ATT:B_A] = -self.skew(q_I_b.invrot(self.gravity))
         A[VEL:ATT, B_A:B_G] = -self.khat.dot(self.khat.T)
         A[VEL:ATT, B_G:MU] = -self.skew(vel)
         A[VEL:ATT, MU, None] = vel
@@ -277,9 +277,9 @@ class VI_EKF():
         for i in range(self.len_features):
             q_zeta = x[i * 5 + 17:i * 5 + 4 + 17, :]
             rho = x[i * 5 + 4 + 17, 0]
-            zeta = Quaternion(q_zeta).R.dot(self.khat)
-            vel_c_i = self.q_b_c.R.dot(vel + self.skew(omega).dot(self.t_b_c))
-            omega_c_i = self.q_b_c.R.dot(omega)
+            zeta = Quaternion(q_zeta).invrot(self.khat)
+            vel_c_i = self.q_b_c.invrot(vel + self.skew(omega).dot(self.t_b_c))
+            omega_c_i = self.q_b_c.invrot(omega)
             ZETA_i = Z+i*3
             RHO_i = Z+i*3+2
             T_z = self.T_zeta(q_zeta)
@@ -332,7 +332,7 @@ class VI_EKF():
         for i in range(self.len_features):
             q_zeta = x[i * 5 + 17:i * 5 + 4 + 17, :]
             rho = x[i * 5 + 4 + 17, 0]
-            zeta = Quaternion(q_zeta).R.T.dot(self.khat)
+            zeta = Quaternion(q_zeta).rot(self.khat)
             ZETA_i = Z+i*3
             RHO_i = Z+i*3+2
             skew_zeta = self.skew(zeta)

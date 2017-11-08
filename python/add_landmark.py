@@ -17,7 +17,8 @@ def add_landmark(truth_pos, truth_att, landmarks):
         if q.w < 0.9:
             debug = 1
         for l in range(len(landmarks)):
-            bearing[i, l, :,None] = q.rotate(delta_pose[l,None].T/dist[l])
+            bearing[i, l, :,None] = q.R.dot(delta_pose[l,None].T/dist[l])
+
         depth[i,:] = dist
 
 

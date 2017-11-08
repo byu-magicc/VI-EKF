@@ -2,8 +2,9 @@ import cPickle
 from vi_ekf import *
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from add_landmark import add_landmark
+from plot_helper import plot_cube
 from generate_data import generate_data
+
 
 # data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
 
@@ -22,17 +23,19 @@ x0 = np.concatenate([data['truth_NED']['pos'][0,:,None],
 
 ekf = VI_EKF(x0, debug=False)
 
-for i in range(2):
+for i in range(25):
     ekf.init_feature(data['features']['zeta'][0,i,:,None], data['features']['depth'][0,i])
 
 prev_time = 0
 estimate = []
 est_zeta = []
+est_qzeta = []
 est_depth = []
-end = 15.0
+end = 5.0
 estimate.append(ekf.x)
 est_zeta.append(ekf.get_zeta())
 est_depth.append(ekf.get_depth())
+est_qzeta.append(ekf.get_qzeta())
 for i, t in tqdm(enumerate(data['imu_data']['t'])):
     if prev_time == 0:
         prev_time = t
@@ -48,11 +51,17 @@ for i, t in tqdm(enumerate(data['imu_data']['t'])):
     estimate.append(xhat)
     est_zeta.append(ekf.get_zeta())
     est_depth.append(ekf.get_depth())
+    est_qzeta.append(ekf.get_qzeta())
+
+    # if i % 30 == 0 and True:
+    #     q_I_b = Quaternion(xhat[6:10])
+    #     plot_cube(q_I_b, est_zeta[-1], data['features']['zeta'][i])
 
 # convert lists to np arrays
 estimate = np.array(estimate)
 est_zeta = np.array(est_zeta)
 est_depth = np.array(est_depth)
+est_qzeta = np.array(est_qzeta)
 
 imu_t = data['imu_data']['t']
 est_t = data['imu_data']['t'][imu_t < end]
@@ -139,28 +148,24 @@ plt.subplot(414)
 plt.plot(est_t, estimate[:,9], label='zhat')
 plt.plot(truth_t, truth_att[:,3], label='z')
 
-plt.figure(7, figsize=(20,10))
+plt.figure(7, figsize=(20,13))
 for i in range(ekf.len_features):
-    plt.subplot(4,ekf.len_features,i+1)
-    plt.title('zeta')
-    plt.plot(est_t, est_zeta[:,i,0], label='xhat')
-    plt.plot(truth_feature_t, truth_zeta[:,i,0], label="x")
-    plt.legend()
-    plt.subplot(4,ekf.len_features,ekf.len_features+i+1)
-    plt.plot(est_t, est_zeta[:,i,1], label='yhat')
-    plt.plot(truth_feature_t, truth_zeta[:,i,1], label="y")
-    plt.subplot(4,ekf.len_features,2*ekf.len_features+i+1)
-    plt.plot(est_t, est_zeta[:,i,2], label='zhat')
-    plt.plot(truth_feature_t, truth_zeta[:,i,2], label="z")
+    for j in range(3):
+        plt.subplot(4,ekf.len_features,j*ekf.len_features+i+1)
+        plt.plot(est_t, est_zeta[:,i,0], label='xhat')
+        plt.plot(truth_feature_t, truth_zeta[:,i,0], label="x")
+    if i == 0 and j == 0:
+        plt.title('zeta')
+        plt.legend()
     plt.subplot(4,ekf.len_features,3*ekf.len_features+i+1)
-    plt.plot(est_t, est_depth[:,i], label='1/\rho hat')
-    plt.plot(truth_feature_t, truth_depth[:,i], label="1/\rho")
+    plt.title('depth')
+    plt.plot(est_t, est_depth[:,i], label='1/rho hat')
+    plt.plot(truth_feature_t, truth_depth[:,i], label="1/rho")
+    if i == 0:
+        plt.legend()
 
 
 plt.show()
-
-
-
 debug = 1
 
 

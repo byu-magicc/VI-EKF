@@ -10,15 +10,18 @@ import cPickle
 
 def generate_data():
     dt = 0.0033
-    t = np.arange(dt, 15.1, dt)
+    t = np.arange(dt, 5.1, dt)
 
     g = np.array([[0, 0, 9.80665]]).T
 
-    q = np.zeros((len(t), 4))
-    q[0,0] = 1.0
+    q0 = Quaternion(np.array([[1, 0.0, 0, 0]]).T)
+    q0.normalize()
 
-    frequencies = np.array([[1., 0.5, 1.1]]).T
-    amplitudes = np.array([[0.0, 0.0, 0.5]]).T
+    q = np.zeros((len(t), 4))
+    q[0,:,None] = q0.elements
+
+    frequencies = np.array([[1.0, 1.5, -1.0]]).T
+    amplitudes = np.array([[1.0, 1.0, 1.0]]).T
 
     omega = amplitudes*np.sin(frequencies*t)
 
@@ -45,13 +48,15 @@ def generate_data():
     data['imu_data']['acc'] = acc.T
     data['imu_data']['gyro'] = omega.T
 
-    landmarks = np.array([[1, 0, 0],
-                          [500, 0, 0],
-                          [0, 0, 2],
-                          [-5, -8, -6],
-                          [0.1, 0, 1],
-                          [0, 9, 1],
-                          [2, 3, 5]])
+    landmarks = np.array([[0, 0, 1],
+                          [0, 0, 1],
+                          [1, 0, 1],
+                          [1, 1, 1]])
+
+    landmarks = np.random.uniform(-25, 25, (25, 3))
+                          #[0, 9, 1],
+                          #[2, 3, 5]
+
 
     data['features'] = dict()
     data['features']['t'] = data['truth_NED']['t']

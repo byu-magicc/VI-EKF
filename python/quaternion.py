@@ -7,6 +7,7 @@ class Quaternion():
             self.arr = np.array([[1, 0, 0, 0]]).T
         else:
             arr = args[0]
+            assert isinstance(arr, np.ndarray)
             assert arr.shape == (4,1)
             self.arr = arr.copy()
 
@@ -19,6 +20,9 @@ class Quaternion():
 
     def __add__(self, other):
         return self.boxplus(other)
+
+    def __float__(self):
+        return self.arr
 
     @property
     def w(self):
@@ -46,12 +50,32 @@ class Quaternion():
                          [[2.*self.x*self.y + 2.*self.z*self.w], [1. - 2.*self.x*self.x - 2.*self.z*self.z], [2.*self.y*self.z - 2.*self.x*self.w]],
                          [[2.*self.x*self.z - 2.*self.y*self.w], [2.*self.y*self.z + 2.*self.x*self.w], [1. - 2.*self.x*self.x - 2.*self.y*self.y]]]).squeeze()
 
+    @staticmethod
+    def qexp(v):
+        assert v.shape == (3,1)
+        v = v.copy()
+
+        norm_v = scipy.linalg.norm(v)
+        # If we aren't going to run into numerical issues
+        if norm_v > 1e-4:
+            v = np.sin(norm_v / 2.) * v / norm_v
+            exp_quat = Quaternion(np.array([[np.cos(norm_v / 2.0), v[0, 0], v[1, 0], v[2, 0]]]).T)
+        else:
+            v = v / 2.0
+            exp_quat = Quaternion(np.array([[1.0, v[0, 0], v[1, 0], v[2, 0]]]).T)
+            exp_quat.normalize()
+        return exp_quat
+
+    def copy(self):
+        q_copy = Quaternion(self.arr.copy())
+        return q_copy
 
     def normalize(self):
         self.arr /= scipy.linalg.norm(self.arr)
 
     def rotate(self, v):
         assert v.shape == (3,1)
+        v = v.copy()
 
         w = self.arr[0,0]
         x = self.arr[1,0]
@@ -74,23 +98,27 @@ class Quaternion():
     def from_two_unit_vectors(self, u, v):
         assert u.shape == (3,1)
         assert v.shape == (3,1)
+        u = u.copy()
+        v = v.copy()
+
         d = u.T.dot(v).squeeze()
         if d >= 1.0:
             self.arr = np.array([[1, 0, 0, 0]]).T
         else:
             invs = (2.0*(1.0+d))**-0.5
-            xyz = np.cross(v, u, axis=0)*invs.squeeze()
+            xyz = np.cross(u, v, axis=0)*invs.squeeze()
             self.arr = np.array([[0.5/invs, xyz[0], xyz[1], xyz[2]]]).T
             self.normalize()
         return self
 
     def otimes(self, q):
         assert isinstance(q, Quaternion)
+        q = q.copy()
 
-        w = self.arr[0,0]
-        x = self.arr[1,0]
-        y = self.arr[2,0]
-        z = self.arr[3,0]
+        w = self.arr[0,0].copy()
+        x = self.arr[1,0].copy()
+        y = self.arr[2,0].copy()
+        z = self.arr[3,0].copy()
         return Quaternion(np.array([[w * q.w - x * q.x - y * q.y - z * q.z],
                                     [w * q.x + x * q.w - y * q.z + z * q.y],
                                     [w * q.y + x * q.z + y * q.w - z * q.x],
@@ -98,27 +126,21 @@ class Quaternion():
 
     def boxplus(self, delta):
         assert delta.shape == (3,1)
+        delta = delta.copy()
 
         norm_delta = scipy.linalg.norm(delta)
 
         # If we aren't going to run into numerical issues
         if norm_delta > 1e-4:
-            v = np.sin(norm_delta / 2.) * delta / norm_delta
+            v = np.sin(norm_delta / 2.) * (delta / norm_delta)
             dquat = Quaternion(np.array([[np.cos(norm_delta/2.0), v[0,0], v[1,0], v[2,0]]]).T)
             self.arr = (self * dquat).elements
         else:
-            v = delta / 2.0
+            v = (delta / 2.0)
             dquat = Quaternion(np.array([[1.0, v[0,0], v[1,0], v[2,0]]]).T)
             self.arr = (self * dquat).elements
             self.normalize()
         return self
-
-
-
-
-
-
-
 
 if __name__ == '__main__':
     q = Quaternion(np.array([[1, 0, 0, 0]]).T)

@@ -4,10 +4,8 @@ import scipy.linalg
 import cv2
 
 class VI_EKF():
-    def __init__(self, x0, debug=False):
-        self.debug = debug
-        if self.debug:
-            assert x0.shape == (17, 1)
+    def __init__(self, x0):
+        assert x0.shape == (17, 1)
 
         # 17 main states + 5N feature states
         # pos, vel, att, b_gyro, b_acc, mu, q_feat, rho_feat, q_feat, rho_feat ...
@@ -65,16 +63,14 @@ class VI_EKF():
 
     # Creates the skew-symmetric matrix from v
     def skew(self, v):
-        if self.debug:
-            assert v.shape == (3,1)
+        assert v.shape == (3,1)
         return np.array([[0, -v[2,0], v[1,0]],
                          [v[2,0], 0, -v[0,0]],
                          [-v[2,0], v[0,0], 0]])
 
     # Creates 3x2 projection matrix onto the plane perpendicular to zeta
     def T_zeta(self, q_zeta):
-        if self.debug:
-            assert q_zeta.shape == (4,1)
+        # assert q_zeta.shape == (4,1)
 
         quat_zeta = Quaternion(q_zeta)
         return quat_zeta.R.T[:,0:2]
@@ -100,8 +96,7 @@ class VI_EKF():
 
     # Adds the state with the delta state on the manifold
     def boxplus(self, x, dx):
-        if self.debug:
-            assert x.shape == (17+5*self.len_features, 1) and dx.shape == (16+3*self.len_features, 1)
+        # assert x.shape == (17+5*self.len_features, 1) and dx.shape == (16+3*self.len_features, 1)
 
         out = np.zeros((17+5*self.len_features, 1))
 
@@ -123,7 +118,7 @@ class VI_EKF():
             dqzeta = dx[dxFEAT:dxRHO,:]  # 2-vector which is the derivative of qzeta
             qzeta = x[xFEAT:xRHO,:] # 4-vector quaternion
 
-            # Feature Quaternion States
+            # Feature Quaternion States (use manifold)
             out[xFEAT:xRHO,:] = (Quaternion(qzeta).inverse + self.T_zeta(qzeta).dot(dqzeta)).inverse.elements
 
             # Inverse Depth State
@@ -133,12 +128,11 @@ class VI_EKF():
         return out
 
     # propagates all states, features and covariances
-    def propagate(self, y_acc, y_gyro, dt, truth):
-        if self.debug:
-            assert y_acc.shape == (3, 1) and y_gyro.shape == (3, 1)
+    def propagate(self, y_acc, y_gyro, dt):
+        # assert y_acc.shape == (3, 1) and y_gyro.shape == (3, 1)
 
         # Propagate State
-        xdot = self.f(self.x, y_acc, y_gyro, truth)
+        xdot = self.f(self.x, y_acc, y_gyro)
         self.x = self.boxplus(self.x, xdot*dt)
 
         # Propagate Uncertainty
@@ -153,15 +147,13 @@ class VI_EKF():
 
     # Used for overriding imu biases, Not to be used in real life
     def set_imu_bias(self, b_g, b_a):
-        if self.debug:
-            assert b_g.shape == (3,1) and b_a.shape(3,1)
+        # assert b_g.shape == (3,1) and b_a.shape(3,1)
         self.x[10:13] = b_g
         self.x[13:16] = b_a
 
     # Used to initialize a new feature.  Returns the feature id associated with this feature
     def init_feature(self, zeta, depth):
-        if self.debug:
-            assert zeta.shape == (3, 1)
+        # assert zeta.shape == (3, 1)
 
         self.len_features += 1
         self.feature_ids.append(self.next_feature_id)
@@ -192,14 +184,11 @@ class VI_EKF():
     # Determines the derivative of state x given inputs y_acc and y_gyro
     # the returned value of f is a delta state, delta features, and therefore is a different
     # size than the state and features and needs to be applied with boxplus
-    def f(self, x, y_acc, y_gyro, truth):
-        if self.debug:
-            assert x.shape == (17+5*self.len_features, 1) and y_acc.shape == (3,1) and y_gyro.shape == (3,1)
+    def f(self, x, y_acc, y_gyro):
+        # assert x.shape == (17+5*self.len_features, 1) and y_acc.shape == (3,1) and y_gyro.shape == (3,1)
 
         vel = x[3:6]
         q_I_b = Quaternion(x[6:10])
-
-        # q_I_b = Quaternion(truth)
 
         omega = y_gyro - x[10:13]
         acc = y_acc - x[13:16]
@@ -235,8 +224,7 @@ class VI_EKF():
     # Calculates the jacobian of the state dynamics with respect to the state.
     # this is used in propagating the state, and will return a matrix of size 16+3N x 16+3N
     def dfdx(self, x, y_acc, y_gyro):
-        if self.debug:
-            assert x.shape == (17+5*self.len_features, 1) and y_acc.shape == (3,1) and y_gyro.shape == (3,1)
+        # assert x.shape == (17+5*self.len_features, 1) and y_acc.shape == (3,1) and y_gyro.shape == (3,1)
 
         POS = 0
         VEL = 3
@@ -303,8 +291,7 @@ class VI_EKF():
     # Calculates the jacobian of the state dynamics with respect to the input noise.
     # this is used in propagating the state, and will return a matrix of size 16+3N x 4
     def dfdu(self, x):
-        if self.debug:
-            assert x.shape == (17+5*self.len_features, 1)
+        # assert x.shape == (17+5*self.len_features, 1)
 
         # State indexes to make code easier to read
         POS = 0

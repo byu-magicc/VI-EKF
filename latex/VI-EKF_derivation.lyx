@@ -932,7 +932,7 @@ Here are the definitions of the
 \begin_inset Formula 
 \begin{align}
 \boxplus & :SO\left(3\right)\times\mathbb{R}^{2}\rightarrow SO\left(3\right),\\
- & \boldsymbol{q}_{c}^{\zeta},\boldsymbol{u}\mapsto\boldsymbol{q}_{c}^{\zeta},\otimes\exp(-T_{\zeta}\boldsymbol{u})\\
+ & \boldsymbol{q}_{c}^{\zeta},\boldsymbol{u}\mapsto\exp(T_{\zeta}\boldsymbol{u})\otimes\boldsymbol{q}_{c}^{\zeta},\\
 \boxminus & :SO\left(3\right)\times SO\left(3\right)\rightarrow\mathbb{R}^{2},\\
  & \boldsymbol{q}_{c}^{\zeta_{i}},\boldsymbol{q}_{c}^{\zeta_{j}}\mapsto T_{\zeta_{j}}^{\top}\boldsymbol{\theta}\left(\boldsymbol{q}_{c}^{\zeta_{i}},\:\boldsymbol{q}_{c}^{\zeta_{j}}\right),
 \end{align}

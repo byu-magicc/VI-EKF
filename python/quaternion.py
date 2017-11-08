@@ -4,12 +4,12 @@ import scipy.linalg
 class Quaternion():
     def __init__(self, *args):
         if len(args) == 0:
-            self.arr = np.array([[1, 0, 0, 0]]).T
-        else:
-            arr = args[0]
-            assert isinstance(arr, np.ndarray)
-            assert arr.shape == (4,1)
-            self.arr = arr.copy()
+            self.arr = np.array([[1., 0., 0., 0.]]).T
+        elif isinstance(args[0], np.ndarray):
+            assert args[0].shape == (4,1)
+            self.arr = args[0].copy()
+        elif len(args[0]) == 4:
+            self.arr = np.array([args[0]]).T
 
     def __str__(self):
         return "[ " + str(self.arr[0,0]) + ", " + str(self.arr[1,0]) + "i, " \
@@ -57,17 +57,17 @@ class Quaternion():
 
     @staticmethod
     def qexp(v):
-        assert v.shape == (3,1)
+        # assert v.shape == (3,1)
         v = v.copy()
 
         norm_v = scipy.linalg.norm(v)
         # If we aren't going to run into numerical issues
         if norm_v > 1e-4:
             v = np.sin(norm_v / 2.) * v / norm_v
-            exp_quat = Quaternion(np.array([[np.cos(norm_v / 2.0), v[0, 0], v[1, 0], v[2, 0]]]).T)
+            exp_quat = Quaternion([np.cos(norm_v / 2.0), v[0, 0], v[1, 0], v[2, 0]])
         else:
             v = v / 2.0
-            exp_quat = Quaternion(np.array([[1.0, v[0, 0], v[1, 0], v[2, 0]]]).T)
+            exp_quat = Quaternion([1.0, v[0, 0], v[1, 0], v[2, 0]])
             exp_quat.normalize()
         return exp_quat
 
@@ -79,7 +79,7 @@ class Quaternion():
         self.arr /= scipy.linalg.norm(self.arr)
 
     def rot(self, v):
-        assert v.shape == (3,1)
+        # assert v.shape == (3,1)
         v = v.copy()
 
         w = self.arr[0,0]
@@ -92,7 +92,7 @@ class Quaternion():
                          [(2.0*(x*z + w*y)) * v[0,0] + 2.0*(y*z - w*x)*v[1,0] + (1.0 - 2.0*x*x - 2.0*y*y)*v[2,0]]])
 
     def invrot(self, v):
-        assert v.shape == (3,1)
+        # assert v.shape == (3,1)
         v = v.copy()
 
         w = self.arr[0,0]
@@ -114,36 +114,37 @@ class Quaternion():
         return Quaternion(inverted)
 
     def from_two_unit_vectors(self, u, v):
-        assert u.shape == (3,1)
-        assert v.shape == (3,1)
+        # assert u.shape == (3,1)
+        # assert v.shape == (3,1)
         u = u.copy()
         v = v.copy()
 
         d = u.T.dot(v).squeeze()
         if d >= 1.0:
-            self.arr = np.array([[1, 0, 0, 0]]).T
+            self.arr = np.array([[1., 0., 0., 0.]]).T
         else:
             invs = (2.0*(1.0+d))**-0.5
             xyz = np.cross(u, v, axis=0)*invs.squeeze()
-            self.arr = np.array([[0.5/invs, xyz[0], xyz[1], xyz[2]]]).T
+            self.arr[0,0]=0.5/invs
+            self.arr[1:,:] = xyz
             self.normalize()
         return self
 
     def otimes(self, q):
-        assert isinstance(q, Quaternion)
-        q = q.copy()
+        # assert isinstance(q, Quaternion)
+        # q = q.copy()
 
-        w = self.arr[0,0].copy()
-        x = self.arr[1,0].copy()
-        y = self.arr[2,0].copy()
-        z = self.arr[3,0].copy()
-        return Quaternion(np.array([[w * q.w - x * q.x - y * q.y - z * q.z],
-                                    [w * q.x + x * q.w - y * q.z + z * q.y],
-                                    [w * q.y + x * q.z + y * q.w - z * q.x],
-                                    [w * q.z - x * q.y + y * q.x + z * q.w]]))
+        w = self.arr[0,0]
+        x = self.arr[1,0]
+        y = self.arr[2,0]
+        z = self.arr[3,0]
+        return Quaternion([w * q.w - x * q.x - y * q.y - z * q.z,
+                           w * q.x + x * q.w - y * q.z + z * q.y,
+                           w * q.y + x * q.z + y * q.w - z * q.x,
+                           w * q.z - x * q.y + y * q.x + z * q.w])
 
     def boxplus(self, delta):
-        assert delta.shape == (3,1)
+        # assert delta.shape == (3,1)
         delta = delta.copy()
 
         norm_delta = scipy.linalg.norm(delta)
@@ -151,11 +152,11 @@ class Quaternion():
         # If we aren't going to run into numerical issues
         if norm_delta > 1e-4:
             v = np.sin(norm_delta / 2.) * (delta / norm_delta)
-            dquat = Quaternion(np.array([[np.cos(norm_delta/2.0), v[0,0], v[1,0], v[2,0]]]).T)
+            dquat = Quaternion([np.cos(norm_delta/2.0), v[0,0], v[1,0], v[2,0]])
             self.arr = (self * dquat).elements
         else:
             v = (delta / 2.0)
-            dquat = Quaternion(np.array([[1.0, v[0,0], v[1,0], v[2,0]]]).T)
+            dquat = Quaternion([1.0, v[0,0], v[1,0], v[2,0]])
             self.arr = (self * dquat).elements
             self.normalize()
         return self

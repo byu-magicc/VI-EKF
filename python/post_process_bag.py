@@ -4,8 +4,9 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from plot_helper import plot_cube
 from generate_data import generate_data
+from bag_loader import read_bag
 
-
+read_bag('data/simulated_waypoints.bag')
 data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
 
 # generate_data()
@@ -57,7 +58,7 @@ for i, t in tqdm(enumerate(data['imu_data']['t'])):
     if i % 30 == 0 and True:
         q_I_b = Quaternion(xhat[6:10])
         plot_cube(q_I_b, est_zeta[-1], data['features']['zeta'][i])
-g
+
 # convert lists to np arrays
 estimate = np.array(estimate)
 est_zeta = np.array(est_zeta)

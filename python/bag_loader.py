@@ -115,4 +115,4 @@ def read_bag(filename):
 
 
 if __name__ == '__main__':
-    read_bag('/home/superjax/simulated_waypoints.bag')
+    read_bag('data/simulated_waypoints.bag')

@@ -101,6 +101,42 @@ To derive an UKF which uses principles from both relative navigation and
 
 \end_layout
 
+\begin_layout Standard
+\begin_inset FormulaMacro
+\newcommand{\xhat}{\mathbf{\hat{\mathbf{x}}}}
+{\hat{\mathbf{x}}}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset FormulaMacro
+\newcommand{\dxhat}{\hat{\dot{\mathbf{x}}}}
+{\mathbf{\dot{\mathbf{x}}}}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset FormulaMacro
+\newcommand{\x}{\mathbf{x}}
+{\mathbf{x}}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset FormulaMacro
+\newcommand{\u}{\mathbf{u}}
+{\mathbf{u}}
+\end_inset
+
+
+\end_layout
+
 \begin_layout Section
 Notation
 \end_layout
@@ -1143,6 +1179,52 @@ ing frame and describes the rotation to a fixed frame, (such as in the case
 \end{aligned}
 \label{eq:body_fixed_rotation_dynamics}
 \end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section*
+Continuous-Discrete EKF Equations
+\end_layout
+
+\begin_layout Subsection
+Prediction
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\dxhat & =f\left(\xhat,\mathbf{\u}\right)\\
+A & =\left.\frac{\partial f}{\partial\x}\right|_{\x=\xhat}\\
+G & =\left.\frac{\partial f}{\partial\u}\right|_{\x=\xhat}\\
+\dot{P} & =AP+PA^{\top}+GQ_{\u}G+Q_{\x}
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Update for Measurement 
+\begin_inset Formula $y$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}H_{y} & =\frac{\partial h_{y}}{\partial\x}\\
+K & =PH_{y}^{\top}\left(R_{y}+HPH^{\top}\right)^{-1}\\
+P^{+} & =(I-KH_{y})P^{-}\\
+\hat{\x}^{+} & =\hat{\x}+K\left(\mathbf{z}_{y}-h_{y}\left(\hat{\x}\right)\right)
+\end{aligned}
+\]
 
 \end_inset
 

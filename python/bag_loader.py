@@ -101,9 +101,13 @@ def read_bag(filename):
             data[key][key2] = np.array(item)
 
     # Simulate landmarks in the bag
-    landmarks = np.array([[0, 0, 0]])
+    landmarks = np.array([[0, 0, 1],
+                          [0, 0, 1],
+                          [1, 0, 1],
+                          [1, 1, 1]])
     data['features']['t'] = data['truth_NED']['t']
-    data['features']['zeta'], data['features']['depth'] = add_landmark(data['truth_NED']['pos'], data['truth_NED']['att'], landmarks)
+    data['features']['zeta'], data['features']['depth'] = add_landmark(data['truth_NED']['pos'],
+                                                                       data['truth_NED']['att'], landmarks)
     data['landmarks'] = landmarks
 
     cPickle.dump(data, open(filename.split('/')[-1].split('.')[0] + '.pkl', 'wb'))

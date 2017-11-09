@@ -6,10 +6,10 @@ from plot_helper import plot_cube
 from generate_data import generate_data
 
 
-# data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
+data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
 
 # generate_data()
-data = cPickle.load(open('generated_data.pkl', 'rb'))
+# data = cPickle.load(open('generated_data.pkl', 'rb'))
 
 # State: pos, vel, att, b_gyro, b_acc, mu
 x0 = np.concatenate([data['truth_NED']['pos'][0,:,None],
@@ -23,7 +23,7 @@ x0 = np.concatenate([data['truth_NED']['pos'][0,:,None],
 
 ekf = VI_EKF(x0)
 
-for i in range(25):
+for i in range(4):
     ekf.init_feature(data['features']['zeta'][0,i,:,None], data['features']['depth'][0,i])
 
 prev_time = 0
@@ -31,11 +31,12 @@ estimate = []
 est_zeta = []
 est_qzeta = []
 est_depth = []
-end = 5.0
-estimate.append(ekf.x)
-est_zeta.append(ekf.get_zeta())
-est_depth.append(ekf.get_depth())
-est_qzeta.append(ekf.get_qzeta())
+end = 3.0
+if data['imu_data']['t'][0] == 0:
+    estimate.append(ekf.x)
+    est_zeta.append(ekf.get_zeta())
+    est_depth.append(ekf.get_depth())
+    est_qzeta.append(ekf.get_qzeta())
 for i, t in tqdm(enumerate(data['imu_data']['t'])):
     if prev_time == 0:
         prev_time = t
@@ -53,10 +54,10 @@ for i, t in tqdm(enumerate(data['imu_data']['t'])):
     est_depth.append(ekf.get_depth())
     est_qzeta.append(ekf.get_qzeta())
 
-    # if i % 30 == 0 and True:
-    #     q_I_b = Quaternion(xhat[6:10])
-    #     plot_cube(q_I_b, est_zeta[-1], data['features']['zeta'][i])
-
+    if i % 30 == 0 and True:
+        q_I_b = Quaternion(xhat[6:10])
+        plot_cube(q_I_b, est_zeta[-1], data['features']['zeta'][i])
+g
 # convert lists to np arrays
 estimate = np.array(estimate)
 est_zeta = np.array(est_zeta)
@@ -82,18 +83,18 @@ truth_depth = data['features']['depth'][truth_feature_t < end, :]
 truth_feature_t = truth_feature_t[truth_feature_t < end]
 
 # Plot
-# plt.figure(1)
-# plt.subplot(311)
-# plt.title('pos')
-# plt.plot(est_t, estimate[:,0], label='xhat')
-# plt.plot(truth_t, truth_pos[:,0], label='x')
-# plt.legend()
-# plt.subplot(312)
-# plt.plot(est_t, estimate[:,1], label='yhat')
-# plt.plot(truth_t, truth_pos[:,1], label='y')
-# plt.subplot(313)
-# plt.plot(est_t, estimate[:,2], label='zhat')
-# plt.plot(truth_t, truth_pos[:,2], label='z')
+plt.figure(1)
+plt.subplot(311)
+plt.title('pos')
+plt.plot(est_t, estimate[:,0], label='xhat')
+plt.plot(truth_t, truth_pos[:,0], label='x')
+plt.legend()
+plt.subplot(312)
+plt.plot(est_t, estimate[:,1], label='yhat')
+plt.plot(truth_t, truth_pos[:,1], label='y')
+plt.subplot(313)
+plt.plot(est_t, estimate[:,2], label='zhat')
+plt.plot(truth_t, truth_pos[:,2], label='z')
 
 # plt.figure(2)
 # plt.title('acc')

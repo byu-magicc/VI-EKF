@@ -139,7 +139,7 @@ class VI_EKF():
         # A = self.dfdx(self.x, y_acc, y_gyro)
         # G = self.dfdu(self.x)
 
-        ## TOTO: Convert to proper noise introduction (instead of additive noise on all states)
+        ## TODO: Convert to proper noise introduction (instead of additive noise on all states)
         # Pdot = A.dot(self.P) + self.P.dot(A.T) + G.dot(self.Qu).dot(G.T) + self.Qx
         # self.P += Pdot*dt
 
@@ -194,9 +194,9 @@ class VI_EKF():
         acc = y_acc - x[13:16]
         mu = x[16, None]
 
-        vdot = np.zeros((3,1)) #acc + q_I_b.invrot(self.gravity)
+        vdot = acc + q_I_b.rot(self.gravity)
         qdot = omega
-        pdot = q_I_b.invrot(vel)
+        pdot = q_I_b.rot(vel)
 
         feat_dot = np.zeros((3*self.len_features, 1))
         for i in range(self.len_features):
@@ -330,8 +330,3 @@ class VI_EKF():
             G[RHO_i, Y_W:] = rho*rho*zeta.T.dot(R_b_c).dot(skew_t_b_c)
 
         return G
-
-
-
-
-

@@ -216,7 +216,7 @@ class VI_EKF():
         acc = u[uA] - x[xB_A:xB_A+3]
         mu = x[xMU, None]
 
-        vdot = acc + q_I_b.rot(self.gravity)
+        vdot = skew(vel).dot(omega) + q_I_b.rot(self.gravity) + self.khat.dot(self.khat.T).dot(acc) - mu*vel
         qdot = omega
         pdot = q_I_b.rot(vel)
 

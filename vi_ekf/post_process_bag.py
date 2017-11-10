@@ -7,10 +7,10 @@ from generate_data import generate_data
 #from bag_loader import read_bag
 
 # read_bag('data/simulated_waypoints.bag')
-# data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
+data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
 
-generate_data()
-data = cPickle.load(open('generated_data.pkl', 'rb'))
+# generate_data()
+# data = cPickle.load(open('generated_data.pkl', 'rb'))
 
 # Find the true data closest to the first imu message
 # t0 = data['imu_data']['t'][0]
@@ -30,7 +30,7 @@ x0 = np.concatenate([data['truth_NED']['pos'][truth_start_index,:,None],
 
 ekf = VI_EKF(x0)
 
-for i in range(4):
+for i in range(0):
     ekf.init_feature(data['features']['zeta'][truth_start_index,i,:,None], data['features']['depth'][truth_start_index,i])
 
 prev_time = 0
@@ -40,10 +40,10 @@ est_qzeta = []
 est_depth = []
 end = 10.0
 
-estimate.append(ekf.x)
-est_zeta.append(ekf.get_zeta())
-est_depth.append(ekf.get_depth())
-est_qzeta.append(ekf.get_qzeta())
+# estimate.append(ekf.x)
+# est_zeta.append(ekf.get_zeta())
+# est_depth.append(ekf.get_depth())
+# est_qzeta.append(ekf.get_qzeta())
 for i, t in enumerate(tqdm(data['imu_data']['t'])):
     if prev_time == 0:
         prev_time = t

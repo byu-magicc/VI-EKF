@@ -4,12 +4,12 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from plot_helper import plot_cube
 from generate_data import generate_data
-from bag_loader import read_bag
+#from bag_loader import read_bag
 
 # read_bag('data/simulated_waypoints.bag')
 # data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
 
-# generate_data()
+generate_data()
 data = cPickle.load(open('generated_data.pkl', 'rb'))
 
 # Find the true data closest to the first imu message

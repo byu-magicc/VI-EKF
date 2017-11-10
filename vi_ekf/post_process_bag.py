@@ -38,13 +38,13 @@ estimate = []
 est_zeta = []
 est_qzeta = []
 est_depth = []
-end = 120.0
+end = 10.0
 
 estimate.append(ekf.x)
 est_zeta.append(ekf.get_zeta())
 est_depth.append(ekf.get_depth())
 est_qzeta.append(ekf.get_qzeta())
-for i, t in tqdm(enumerate(data['imu_data']['t'])):
+for i, t in enumerate(tqdm(data['imu_data']['t'])):
     if prev_time == 0:
         prev_time = t
         continue

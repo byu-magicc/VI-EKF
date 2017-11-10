@@ -1,5 +1,6 @@
 import numpy as np
-from quaternion import Quaternion
+from pyquat import Quaternion
+from math_helper import skew, T_zeta
 import scipy.linalg
 import cv2
 
@@ -61,20 +62,6 @@ class VI_EKF():
         self.q_b_c = Quaternion(np.array([[1, 0, 0, 0]]).T) # Rotation from body to camera
         self.t_b_c = np.array([[0, 0, 0]]).T # translation from body to camera (in body frame)
 
-    # Creates the skew-symmetric matrix from v
-    def skew(self, v):
-        assert v.shape == (3,1)
-        return np.array([[0, -v[2,0], v[1,0]],
-                         [v[2,0], 0, -v[0,0]],
-                         [-v[2,0], v[0,0], 0]])
-
-    # Creates 3x2 projection matrix onto the plane perpendicular to zeta
-    def T_zeta(self, q_zeta):
-        # assert q_zeta.shape == (4,1)
-
-        quat_zeta = Quaternion(q_zeta)
-        return quat_zeta.R.T[:,0:2]
-
     # Returns the depth to all features
     def get_depth(self):
         return 1./self.x[17+4::5]
@@ -119,7 +106,7 @@ class VI_EKF():
             qzeta = x[xFEAT:xRHO,:] # 4-vector quaternion
 
             # Feature Quaternion States (use manifold)
-            out[xFEAT:xRHO,:] = (Quaternion(qzeta).inverse + self.T_zeta(qzeta).dot(dqzeta)).inverse.elements
+            out[xFEAT:xRHO,:] = (Quaternion(qzeta).inverse + T_zeta(qzeta).dot(dqzeta)).inverse.elements
 
             # Inverse Depth State
             out[xRHO,:] = x[xRHO] + dx[dxRHO]
@@ -208,11 +195,11 @@ class VI_EKF():
             q_zeta = x[xZETA_i:xRHO_i,:]
             rho = x[xRHO_i,0]
             zeta = Quaternion(q_zeta).rot(self.khat)
-            vel_c_i = self.q_b_c.invrot(vel + self.skew(omega).dot(self.t_b_c))
+            vel_c_i = self.q_b_c.invrot(vel + skew(omega).dot(self.t_b_c))
             omega_c_i = omega
 
             # feature bearing vector dynamics
-            feat_dot[ftZETA_i:ftRHO_i,:] = self.T_zeta(q_zeta).T.dot(rho*self.skew(zeta).dot(vel_c_i) + omega_c_i)
+            feat_dot[ftZETA_i:ftRHO_i,:] = T_zeta(q_zeta).T.dot(rho*skew(zeta).dot(vel_c_i) + omega_c_i)
 
             # feature inverse depth dynamics
             feat_dot[ftRHO_i,:] = rho*rho*zeta.T.dot(vel_c_i)
@@ -245,13 +232,13 @@ class VI_EKF():
 
         # Position Partials
         A[POS:VEL, VEL:ATT] = q_I_b.R.T
-        A[POS:VEL, ATT:B_A] = -self.skew(q_I_b.invrot(vel))
+        A[POS:VEL, ATT:B_A] = -skew(q_I_b.invrot(vel))
 
         # Velocity Partials
-        A[VEL:ATT, VEL:ATT] = -self.skew(omega) # - mu * np.eye(3)
-        A[VEL:ATT, ATT:B_A] = -self.skew(q_I_b.invrot(self.gravity))
+        A[VEL:ATT, VEL:ATT] = -skew(omega) # - mu * np.eye(3)
+        A[VEL:ATT, ATT:B_A] = -skew(q_I_b.invrot(self.gravity))
         A[VEL:ATT, B_A:B_G] = -self.khat.dot(self.khat.T)
-        A[VEL:ATT, B_G:MU] = -self.skew(vel)
+        A[VEL:ATT, B_G:MU] = -skew(vel)
         A[VEL:ATT, MU, None] = vel
 
         # Attitude Partials
@@ -266,23 +253,23 @@ class VI_EKF():
             q_zeta = x[i * 5 + 17:i * 5 + 4 + 17, :]
             rho = x[i * 5 + 4 + 17, 0]
             zeta = Quaternion(q_zeta).invrot(self.khat)
-            vel_c_i = self.q_b_c.invrot(vel + self.skew(omega).dot(self.t_b_c))
+            vel_c_i = self.q_b_c.invrot(vel + skew(omega).dot(self.t_b_c))
             omega_c_i = self.q_b_c.invrot(omega)
             ZETA_i = Z+i*3
             RHO_i = Z+i*3+2
-            T_z = self.T_zeta(q_zeta)
-            skew_zeta = self.skew(zeta)
+            T_z = T_zeta(q_zeta)
+            skew_zeta = skew(zeta)
             R_b_c = self.q_b_c.R
 
             # Bearing Quaternion Partials
             A[ZETA_i:RHO_i, VEL:ATT] = rho*T_z.T.dot(skew_zeta).dot(R_b_c)
-            A[ZETA_i:RHO_i, B_G:MU] = T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(self.skew(self.t_b_c)) - R_b_c)
-            A[ZETA_i:RHO_i, ZETA_i:RHO_i] = -T_z.T.dot(self.skew(omega_c_i - rho*self.skew(vel_c_i).dot(zeta)) + rho*self.skew(vel_c_i).dot(skew_zeta)).dot(T_z)
+            A[ZETA_i:RHO_i, B_G:MU] = T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(skew(self.t_b_c)) - R_b_c)
+            A[ZETA_i:RHO_i, ZETA_i:RHO_i] = -T_z.T.dot(skew(omega_c_i - rho*skew(vel_c_i).dot(zeta)) + rho*skew(vel_c_i).dot(skew_zeta)).dot(T_z)
             A[ZETA_i:RHO_i, RHO_i,None] = T_z.T.dot(skew_zeta).dot(vel_c_i)
 
             # Inverse Depth Partials
             A[RHO_i, VEL:ATT] = rho*rho*zeta.T.dot(R_b_c)
-            A[RHO_i, B_G:MU] = rho*rho*zeta.T.dot(R_b_c).dot(self.skew(self.t_b_c))
+            A[RHO_i, B_G:MU] = rho*rho*zeta.T.dot(R_b_c).dot(skew(self.t_b_c))
             A[RHO_i, ZETA_i:RHO_i] = rho*rho*vel_c_i.T.dot(skew_zeta).dot(T_z)
             A[RHO_i, RHO_i] = 2*rho*zeta.T.dot(vel_c_i).squeeze()
 
@@ -313,7 +300,7 @@ class VI_EKF():
 
         # State partials
         G[VEL:ATT, Y_A,None] = self.khat
-        G[VEL:ATT, Y_W:] = self.skew(vel)
+        G[VEL:ATT, Y_W:] = skew(vel)
 
         # Feature Partials
         for i in range(self.len_features):
@@ -322,11 +309,11 @@ class VI_EKF():
             zeta = Quaternion(q_zeta).rot(self.khat)
             ZETA_i = Z+i*3
             RHO_i = Z+i*3+2
-            skew_zeta = self.skew(zeta)
+            skew_zeta = skew(zeta)
             R_b_c = self.q_b_c.R
-            skew_t_b_c = self.skew(self.t_b_c)
+            skew_t_b_c = skew(self.t_b_c)
 
-            G[ZETA_i:RHO_i, Y_W:] = rho*self.T_zeta(q_zeta).T.dot(-skew_zeta.dot(R_b_c).dot(skew_t_b_c) + R_b_c)
+            G[ZETA_i:RHO_i, Y_W:] = rho*T_zeta(q_zeta).T.dot(-skew_zeta.dot(R_b_c).dot(skew_t_b_c) + R_b_c)
             G[RHO_i, Y_W:] = rho*rho*zeta.T.dot(R_b_c).dot(skew_t_b_c)
 
         return G

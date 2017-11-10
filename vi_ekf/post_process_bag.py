@@ -50,19 +50,36 @@ x = ekf.propagate(data['imu_data']['acc'][10,:, None], data['imu_data']['gyro'][
 u = np.array([data['imu_data']['acc'][10,:, None], data['imu_data']['gyro'][10,:, None]])
 a_dfdx = ekf.dfdx(x, u)
 d_dfdx = np.zeros_like(a_dfdx)
-I = np.eye(d_dfdx.shape[0])
+I = np.eye(d_dfdx.shape[1])
 epsilon = 1e-15
 for i in range(d_dfdx.shape[0]):
     x_prime = ekf.boxplus(x, (I[i] * epsilon)[:, None])
     d_dfdx[:, i] = ((ekf.f(x_prime, u) - ekf.f(x, u)) / epsilon)[:, 0]
+#
+# print '\ndxPOS:dxVEL error\n', d_dfdx[dxPOS:dxPOS+3, dxVEL:dxVEL+3] - a_dfdx[dxPOS:dxPOS+3, dxVEL:dxVEL+3]
+# print '\ndxPOS:dxATT error\n', d_dfdx[dxPOS:dxPOS+3, dxATT:dxATT+3] - a_dfdx[dxPOS:dxPOS+3, dxATT:dxATT+3]
+# print '\ndxVEL:dxVEL error\n', d_dfdx[dxVEL:dxVEL+3, dxVEL:dxVEL+3] - a_dfdx[dxVEL:dxVEL+3, dxVEL:dxVEL+3]
+# print '\ndxVEL:dxATT error\n', d_dfdx[dxVEL:dxVEL+3, dxATT:dxATT+3] - a_dfdx[dxVEL:dxVEL+3, dxVEL:dxVEL+3]
+# print '\ndxVEL:dxB_A error\n', d_dfdx[dxVEL:dxVEL+3, dxB_A:dxB_A+3] - a_dfdx[dxVEL:dxVEL+3, dxATT:dxATT+3]
+# print '\ndxVEL:dxB_G error\n', d_dfdx[dxVEL:dxVEL+3, dxB_G:dxB_G+3] - a_dfdx[dxVEL:dxVEL+3, dxB_A:dxB_A+3]
+# print '\ndxVEL:dxMU error\n', d_dfdx[dxVEL:dxVEL+3, dxMU, None]    - a_dfdx[dxVEL:dxVEL+3, dxB_G:dxB_G+3]
+#
 
-print '\ndxPOS:dxVEL error\n', d_dfdx[dxPOS:dxPOS+3, dxVEL:dxVEL+3] - a_dfdx[dxPOS:dxPOS+3, dxVEL:dxVEL+3]
-print '\ndxPOS:dxATT error\n', d_dfdx[dxPOS:dxPOS+3, dxATT:dxATT+3] - a_dfdx[dxPOS:dxPOS+3, dxATT:dxATT+3]
-print '\ndxVEL:dxVEL error\n', d_dfdx[dxVEL:dxVEL+3, dxVEL:dxVEL+3] - a_dfdx[dxVEL:dxVEL+3, dxVEL:dxVEL+3]
-print '\ndxVEL:dxATT error\n', d_dfdx[dxVEL:dxVEL+3, dxATT:dxATT+3] - a_dfdx[dxVEL:dxVEL+3, dxVEL:dxVEL+3]
-print '\ndxVEL:dxB_A error\n', d_dfdx[dxVEL:dxVEL+3, dxB_A:dxB_A+3] - a_dfdx[dxVEL:dxVEL+3, dxATT:dxATT+3]
-print '\ndxVEL:dxB_G error\n', d_dfdx[dxVEL:dxVEL+3, dxB_G:dxB_G+3] - a_dfdx[dxVEL:dxVEL+3, dxB_A:dxB_A+3]
-print '\ndxVEL:dxMU error\n', d_dfdx[dxVEL:dxVEL+3, dxMU, None]    - a_dfdx[dxVEL:dxVEL+3, dxB_G:dxB_G+3]
+a_dfdu = ekf.dfdu(x)
+d_dfdu = np.zeros_like(a_dfdu)
+I = np.eye(d_dfdu.shape[1])
+
+print(a_dfdu.shape)
+print(u.shape)
+quit()
+
+epsilon = 1e-15
+for i in range(d_dfdx.shape[0]):
+    u_prime = u + (I[i] * epsilon)[:, None]
+    d_dfdu[:, i] = ((ekf.f(x, u_prime) - ekf.f(x, u)) / epsilon)[:, 0]
+
+print(a_dfdu)
+print(d_dfdu)
 
 quit()
 

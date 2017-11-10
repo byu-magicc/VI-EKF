@@ -233,11 +233,11 @@ class VI_EKF():
         # assert x.shape == (17+5*self.len_features, 1) and y_acc.shape == (3,1) and y_gyro.shape == (3,1)
 
         vel = x[xVEL:xVEL+6]
-        q_I_b = Quaternion(x[dxATT:dxATT+4])
+        q_I_b = Quaternion(x[xATT:xATT+4])
 
-        omega = y_gyro - x[dxB_G:dxB_G+3]
-        acc = y_acc - x[dxB_A:dxB_A+3]
-        mu = x[dxMU, None]
+        omega = y_gyro - x[xB_G:xB_G+3]
+        acc = y_acc - x[xB_A:xB_A+3]
+        mu = x[xMU, None]
 
         A = np.zeros((dxZ+3*self.len_features, dxZ+3*self.len_features))
 
@@ -324,4 +324,41 @@ class VI_EKF():
 
         return G
 
+    # Accelerometer model
+    # Returns estimated measurement (2 x 1) and Jacobian (2 x 16+3N)
+    def h_acc(self, x):
+
+        vel = x[xVEL:xVEL + 3]
+        b_a = x[xB_A:xB_A + 3]
+        mu = x[xMU, None]
+
+
+        I_2x3 = np.array([[1, 0, 0],
+                          [0, 1, 0]])
+        h = I_2x3.dot(-mu.dot(vel) + b_a)
+
+        dhdx = np.zeros((2, dxZ+3*self.len_features))
+        dhdx[:,dxVEL:dxVEL+3] = -mu * I_2x3
+        dhdx[:,dxB_A:dxB_A+3] = I_2x3
+        dhdx[:,dxMU] = I_2x3.dot(-vel)
+
+        return h, dhdx
+
+    # Altimeter model
+    # Returns estimated measurement (1x1) and Jacobian (1 x 16+3N)
+    def h_alt(self, x):
+
+        pos = x[xPOS:xPOS + 3]
+
+        h = -self.khat.T.dot(pos)
+
+        dhdx = np.zeros((1, dxZ+3*self.len_features))
+        dhdx[0,dxPOS:dxPOS+3] = -self.khat.T
+
+        return h, dhdx
+
+    # Feature model for feature index i
+    # Returns estimated measurement (1x1) and Jacobian (1 x 16+3N)
+    def h_feat(self, x, i):
+        pass
     

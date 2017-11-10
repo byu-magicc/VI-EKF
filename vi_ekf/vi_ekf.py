@@ -358,7 +358,7 @@ class VI_EKF():
         return h, dhdx
 
     # Feature model for feature index i
-    # Returns estimated measurement (1x1) and Jacobian (1 x 16+3N)
+    # Returns estimated measurement (3x1) and Jacobian (3 x 16+3N)
     def h_feat(self, x, i):
         q_c_z = Quaternion(x[xZ+i*5, xZ+i*5+4])
 
@@ -369,7 +369,22 @@ class VI_EKF():
 
         return h, dhdx
 
+    # Feature depth measurement
+    # Returns estimated measurement (1x1) and Jacobian (1 x 16+3N)
+    def h_depth(self, x, i):
+        rho = x[xZ+i*5+4]
+
+        h = 1.0/rho
+
+        dhdx = np.zeros((1, dxZ+3*self.len_features))
+        dhdx[0, dxZ+3*i+2] = -1/(rho*rho)
+
+        return h, dhdx
+
     
+
+
+
 
 
 

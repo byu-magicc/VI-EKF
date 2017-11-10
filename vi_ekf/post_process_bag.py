@@ -9,7 +9,7 @@ from generate_data import generate_data
 # read_bag('data/simulated_waypoints.bag')
 # data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
 
-generate_data()
+#generate_data()
 data = cPickle.load(open('generated_data.pkl', 'rb'))
 
 # Find the true data closest to the first imu message
@@ -26,11 +26,12 @@ x0 = np.concatenate([data['truth_NED']['pos'][truth_start_index,:,None],
                      np.zeros((3,1)),
                      0.2*np.ones((1,1))], axis=0)
 
- 
-
 ekf = VI_EKF(x0)
 
-for i in range(4):
+
+
+
+for i in range(0):
     ekf.init_feature(data['features']['zeta'][truth_start_index,i,:,None], data['features']['depth'][truth_start_index,i])
 
 prev_time = 0
@@ -44,6 +45,26 @@ estimate.append(ekf.x)
 est_zeta.append(ekf.get_zeta())
 est_depth.append(ekf.get_depth())
 est_qzeta.append(ekf.get_qzeta())
+
+np.set_printoptions(suppress=True, linewidth=300, threshold=1000)
+x = ekf.propagate(data['imu_data']['acc'][10,:, None], data['imu_data']['gyro'][10,:, None], 0.01)
+u = np.array([data['imu_data']['acc'][10,:, None], data['imu_data']['gyro'][10,:, None]])
+a_dfdx = ekf.dfdx(x, u)
+d_dfdx = np.zeros_like(a_dfdx)
+I = np.eye(d_dfdx.shape[0])
+epsilon = 1e-15
+for i in range(d_dfdx.shape[0]):
+    x_prime = ekf.boxplus(x, (I[i] * epsilon)[:, None])
+    d_dfdx[:, i] = ((ekf.f(x_prime, u) - ekf.f(x, u)) / epsilon)[:, 0]
+
+print(d_dfdx)
+print(a_dfdx)
+print(d_dfdx - a_dfdx)
+quit()
+
+
+
+
 for i, t in enumerate(tqdm(data['imu_data']['t'])):
     if prev_time == 0:
         prev_time = t

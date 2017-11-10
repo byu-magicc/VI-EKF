@@ -1105,7 +1105,7 @@ The derivative of the projection operator with respect to the quaternion
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\frac{d}{dq_{c}^{\zeta}}\left(T_{\zeta}^{\top}v\right)=-T_{\zeta}^{\top}\left\lfloor v\right\rfloor T_{\zeta}
+\begin{aligned}\frac{d}{dq_{c}^{\zeta}}\left(T_{\zeta}^{\top}v\right) & =-T_{\zeta}^{\top}\left\lfloor v\right\rfloor T_{\zeta}\end{aligned}
 \]
 
 \end_inset
@@ -1179,6 +1179,29 @@ ing frame and describes the rotation to a fixed frame, (such as in the case
 \end{aligned}
 \label{eq:body_fixed_rotation_dynamics}
 \end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Some identities with the Projection operator
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}T_{\zeta}T_{\zeta}^{\top} & =R\left(q_{c}^{\zeta}\right)^{\top}\left[\begin{array}{cc}
+\boldsymbol{e}_{x} & \boldsymbol{e}_{y}\end{array}\right]\left[\begin{array}{c}
+\boldsymbol{e}_{x}^{\top}\\
+\boldsymbol{e}_{y}^{\top}
+\end{array}\right]R\left(q_{c}^{\zeta}\right)\\
+ & =R\left(q_{c}^{\zeta}\right)^{\top}\left(e_{x}e_{x}^{\top}+e_{y}e_{y}^{\top}\right)R\left(q_{c}^{\zeta}\right)\\
+ & =R\left(q_{c}^{\zeta}\right)^{\top}\left(e_{x}e_{x}^{\top}+e_{y}e_{y}^{\top}+e_{z}e_{z}^{\top}-e_{z}e_{z}^{\top}\right)R\left(q_{c}^{\zeta}\right)\\
+ & =I-R\left(q_{c}^{\zeta}\right)^{\top}\left(e_{z}e_{z}^{\top}\right)R\left(q_{c}^{\zeta}\right)
+\end{aligned}
+\]
 
 \end_inset
 
@@ -2312,7 +2335,7 @@ Pinhole Camera Geometry
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\omega & =\frac{r\times v}{\left\Vert r\right\Vert ^{2}}\end{aligned}
+\begin{aligned}v & =\omega\times r\end{aligned}
 \]
 
 \end_inset
@@ -2321,8 +2344,11 @@ Pinhole Camera Geometry
 \end_layout
 
 \begin_layout Standard
-In the case of pixel measurements, the moment arm is the camera z-axis times
- the focal length 
+In the case of pixel measurements, the moment arm is the camera z-axis 
+\begin_inset Formula $e_{z}$
+\end_inset
+
+ times the focal length 
 \begin_inset Formula $f$
 \end_inset
 
@@ -2331,27 +2357,7 @@ In the case of pixel measurements, the moment arm is the camera z-axis times
 \end_inset
 
 .
- This then means that the angular velocity in the camera frame of feature
- 
-\begin_inset Formula $i$
-\end_inset
-
- is
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-\begin{aligned}\omega_{i} & =I_{2\times3}\frac{\left\lfloor fe_{z}\right\rfloor \tfrac{d\lambda}{dt}}{f^{2}}\end{aligned}
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-And, as shown in Eq.
+ And, as shown in Eq.
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "eq:omega_is_derivative_of_q"
@@ -2373,10 +2379,11 @@ reference "eq:omega_is_derivative_of_q"
 \begin_layout Standard
 \begin_inset Formula 
 \begin{equation}
-\begin{aligned}h_{\dot{\lambda}}(x,u,\eta_{\dot{\lambda}}) & =I_{2\times3}\frac{\left\lfloor fe_{z}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta_{i}}}{f^{2}}+\eta_{\dot{\mathbf{u}}}\\
- & =\frac{1}{f^{2}}I_{2\times3}\left\lfloor fe_{z}\right\rfloor T_{\zeta}T_{\zeta}^{\top}\left(\rho\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}+\omega_{c/I}^{c}\right)\\
- & =\frac{1}{f^{2}}I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\left(\rho\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}+\omega_{c/I}^{c}\right)\\
- & =\frac{1}{f^{2}}I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(\rho\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}+\left(I-\zeta\zeta^{\top}\right)\omega_{c/I}^{c}\right)
+\begin{aligned}h_{\dot{\lambda}}(x,u,\eta_{\dot{\lambda}}) & =I_{2\times3}\left\lfloor \omega_{i}\right\rfloor fe_{z}\\
+ & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \omega_{i}\\
+ & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta_{i}}\\
+ & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor T_{\zeta}T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\omega_{c/I}^{I}\right)\\
+ & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\omega_{c/I}^{I}\right)
 \end{aligned}
 \label{eq:pixel_velocity_model}
 \end{equation}
@@ -2400,9 +2407,9 @@ reference "eq:pixel_velocity_model"
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\frac{\partial h_{\dot{\lambda}}}{\partial v_{b/I}^{b}} & =\frac{\partial}{\partial v_{b/I}^{b}}\left(\frac{1}{f^{2}}I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(\rho\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}+\left(I-\zeta\zeta^{\top}\right)\omega_{c/I}^{c}\right)\right)\\
- & =\frac{\rho}{f^{2}}I_{2\times3}\left\lfloor fe_{z}\right\rfloor \frac{\partial}{\partial v_{b/I}^{b}}\left(\left\lfloor \zeta_{i}^{c}\right\rfloor R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\right)+\left(I-\zeta\zeta^{\top}\right)R\left(q_{b}^{c}\right)\omega_{b/I}^{b}\right)\\
- & =\frac{\rho}{f^{2}}I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor R\left(q_{b}^{c}\right)
+\begin{aligned}\frac{\partial h_{\dot{\lambda}}}{\partial v_{b/I}^{b}} & =\frac{\partial}{\partial v_{b/I}^{b}}\left(-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\omega_{c/I}^{I}\right)\right)\\
+ & =\frac{\partial}{\partial v_{b/I}^{b}}\left(-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}\right)\\
+ & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor 
 \end{aligned}
 \]
 
@@ -2414,24 +2421,26 @@ reference "eq:pixel_velocity_model"
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\frac{\partial h_{\dot{\lambda}}}{\partial q_{c}^{\zeta}} & =\frac{\partial}{\partial q_{c}^{\zeta}}\left(\frac{1}{f^{2}}I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(\rho\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}+\left(I-\zeta\zeta^{\top}\right)\omega_{c/I}^{c}\right)\right)\\
- & =\frac{\rho}{f^{2}}I_{2\times3}\left\lfloor fe_{z}\right\rfloor \frac{\partial}{\partial q_{c}^{\zeta}}\left(\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}\right)\\
- & =-\frac{\rho}{f^{2}}I_{2\times3}\left\lfloor fe_{z}\right\rfloor \frac{\partial}{\partial q_{c}^{\zeta}}\left(\left\lfloor v_{c/I}^{c}\right\rfloor \zeta_{i}^{c}\right)\\
- & =-\frac{\rho}{f^{2}}I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left\lfloor v_{c/I}^{c}\right\rfloor \frac{\partial}{\partial q_{c}^{\zeta}}\left(R\left(q_{c}^{\zeta}\right)e_{z}\right)\\
- & =\frac{\rho}{f^{2}}I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left\lfloor v_{c/I}^{c}\right\rfloor \left\lfloor R\left(q_{c}^{\zeta}\right)e_{z}\right\rfloor 
+\begin{aligned}\frac{\partial h_{\dot{\lambda}}}{\partial q_{c}^{\zeta}} & =\frac{\partial}{\partial q_{c}^{\zeta}}\left(-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\omega_{c/I}^{I}\right)\right)\\
+ & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(\frac{\partial}{\partial q_{c}^{\zeta}}\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\frac{\partial}{\partial q_{c}^{\zeta}}\left(I-\zeta\zeta^{\top}\right)\omega_{c/I}^{I}\right)\\
+ & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(-\rho_{i}\left\lfloor v_{c/I}^{c}\right\rfloor \left(\zeta_{i}^{c}\right)-\frac{\partial}{\partial q_{c}^{\zeta}}\left(\zeta\zeta^{\top}\right)\omega_{c/I}^{I}\right)\\
+ & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(-\rho_{i}\left\lfloor v_{c/I}^{c}\right\rfloor \left(\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\right)-2I\zeta\left(\frac{\partial\zeta}{\partial q_{c}^{\zeta}}\right)\omega_{c/I}^{I}\right)\\
+ & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(-\rho_{i}\left\lfloor v_{c/I}^{c}\right\rfloor \left(\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\right)-2I\zeta\left\lfloor \zeta\right\rfloor T_{\zeta}\omega_{c/I}^{I}\right)\\
+ & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(-\rho_{i}\left\lfloor v_{c/I}^{c}\right\rfloor \left(\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\right)-0\right)\\
+ & =I_{2\times3}\left\lfloor fe_{z}\right\rfloor \rho_{i}\left\lfloor v_{c/I}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}
 \end{aligned}
 \]
 
 \end_inset
 
-ate, scope=None): if self._need_to_init:
+
 \end_layout
 
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\frac{\partial h_{\dot{\lambda}}}{\partial\rho} & =\frac{\partial}{\partial\rho}\left(I_{2\times3}\frac{1}{f^{2}}\left\lfloor fe_{z}\right\rfloor \left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}+\left(I-\zeta\zeta^{\top}\right)\omega_{c/I}^{c}\right)\right)\\
- & =\frac{1}{f^{2}}I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}
+\begin{aligned}\frac{\partial h_{\dot{\lambda}}}{\partial\rho} & =\frac{\partial}{\partial\rho}\left(-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\omega_{c/I}^{I}\right)\right)\\
+ & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)
 \end{aligned}
 \]
 
@@ -2477,6 +2486,37 @@ Remembering that
 \begin_inset Formula 
 \[
 \frac{\partial h_{\rho}}{\partial\rho_{i}}=-\frac{1}{\rho_{i}^{2}}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Inverse Depth Measurement
+\end_layout
+
+\begin_layout Standard
+Assuming that we had a measurement of inverse depth to a feature, we could
+ employ the following model:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+h_{\rho}(x,u,\eta_{\rho})=\rho_{i}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial h_{\rho}}{\partial\rho_{i}}=1
 \]
 
 \end_inset

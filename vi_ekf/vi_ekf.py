@@ -20,9 +20,15 @@ xB_G = 13
 xMU = 16
 xZ = 17
 
+uA = 0
+uG = 1
+
+I_2x3 = np.array([[1, 0, 0],
+                  [0, 1, 0]])
+
 class VI_EKF():
     def __init__(self, x0):
-        assert x0.shape == (17, 1)
+        assert x0.shape == (xZ, 1)
 
         # 17 main states + 5N feature states
         # pos, vel, att, b_gyro, b_acc, mu, q_feat, rho_feat, q_feat, rho_feat ...
@@ -78,15 +84,18 @@ class VI_EKF():
         self.q_b_c = Quaternion(np.array([[1, 0, 0, 0]]).T) # Rotation from body to camera
         self.t_b_c = np.array([[0, 0, 0]]).T # translation from body to camera (in body frame)
 
+        # Camera Parameters
+        self.focal_len = 258 # made up
+
     # Returns the depth to all features
     def get_depth(self):
-        return 1./self.x[17+4::5]
+        return 1./self.x[xZ+4::5]
 
     # Returns the estimated bearing vector to all features
     def get_zeta(self):
         zetas = np.zeros((self.len_features, 3))
         for i in range(self.len_features):
-            qzeta = self.x[17 + 5 * i:17 + 5 * i + 4, :]  # 4-vector quaternion
+            qzeta = self.x[xZ + 5 * i:xZ + 5 * i + 4, :]  # 4-vector quaternion
             zetas[i] = Quaternion(qzeta).R.T[:,2].copy()  # 3-vector pointed at the feature in the camera frame
         return zetas
 
@@ -94,14 +103,14 @@ class VI_EKF():
     def get_qzeta(self):
         qzetas = np.zeros((self.len_features, 4))
         for i in range(self.len_features):
-            qzetas[i,:,None] = self.x[17+5*i:17+5*i+4]   # 4-vector quaternion
+            qzetas[i,:,None] = self.x[xZ+5*i:xZ+5*i+4]   # 4-vector quaternion
         return qzetas
 
     # Adds the state with the delta state on the manifold
     def boxplus(self, x, dx):
         # assert x.shape == (17+5*self.len_features, 1) and dx.shape == (16+3*self.len_features, 1)
 
-        out = np.zeros((17+5*self.len_features, 1))
+        out = np.zeros((xZ+5*self.len_features, 1))
 
         # Add position and velocity vector states
         out[xPOS:xPOS+3] = x[xPOS:xPOS+3] + dx[xPOS:xPOS+3]
@@ -138,7 +147,8 @@ class VI_EKF():
         # assert y_acc.shape == (3, 1) and y_gyro.shape == (3, 1)
 
         # Propagate State
-        xdot = self.f(self.x, y_acc, y_gyro)
+        u = np.array([y_acc, y_gyro])
+        xdot = self.f(self.x, u)
         self.x = self.boxplus(self.x, xdot*dt)
 
         # Propagate Uncertainty
@@ -190,14 +200,14 @@ class VI_EKF():
     # Determines the derivative of state x given inputs y_acc and y_gyro
     # the returned value of f is a delta state, delta features, and therefore is a different
     # size than the state and features and needs to be applied with boxplus
-    def f(self, x, y_acc, y_gyro):
+    def f(self, x, u):
         # assert x.shape == (17+5*self.len_features, 1) and y_acc.shape == (3,1) and y_gyro.shape == (3,1)
 
         vel = x[xVEL:xVEL+3]
         q_I_b = Quaternion(x[xATT:xATT+4])
 
-        omega = y_gyro - x[xB_G:xB_G+3]
-        acc = y_acc - x[xB_A:xB_A+3]
+        omega = u[uG] - x[xB_G:xB_G+3]
+        acc = u[uA] - x[xB_A:xB_A+3]
         mu = x[xMU, None]
 
         vdot = acc + q_I_b.rot(self.gravity)
@@ -229,14 +239,14 @@ class VI_EKF():
 
     # Calculates the jacobian of the state dynamics with respect to the state.
     # this is used in propagating the state, and will return a matrix of size 16+3N x 16+3N
-    def dfdx(self, x, y_acc, y_gyro):
+    def dfdx(self, x, u):
         # assert x.shape == (17+5*self.len_features, 1) and y_acc.shape == (3,1) and y_gyro.shape == (3,1)
 
         vel = x[xVEL:xVEL+6]
         q_I_b = Quaternion(x[xATT:xATT+4])
 
-        omega = y_gyro - x[xB_G:xB_G+3]
-        acc = y_acc - x[xB_A:xB_A+3]
+        omega = u[uG] - x[xB_G:xB_G+3]
+        acc = u[uA] - x[xB_A:xB_A+3]
         mu = x[xMU, None]
 
         A = np.zeros((dxZ+3*self.len_features, dxZ+3*self.len_features))
@@ -294,17 +304,16 @@ class VI_EKF():
         # assert x.shape == (17+5*self.len_features, 1)
 
         # Input indexes to make code easier to read
-        Y_A = 0
-        Y_W = 1
 
-        G = np.zeros((16+3*self.len_features, 4))
+
+        G = np.zeros((dxZ+3*self.len_features, 4))
 
         vel = x[xVEL:xVEL]
         q_I_b = Quaternion(x[xATT:xATT+4])
 
         # State partials
-        G[dxVEL:dxATT, Y_A,None] = self.khat
-        G[dxVEL:dxATT, Y_W:] = skew(vel)
+        G[dxVEL:dxATT, uA,None] = self.khat
+        G[dxVEL:dxATT, uG:] = skew(vel)
 
         # Feature Partials
         for i in range(self.len_features):
@@ -319,8 +328,8 @@ class VI_EKF():
             R_b_c = self.q_b_c.R
             skew_t_b_c = skew(self.t_b_c)
 
-            G[dxZETA_i:dxRHO_i, Y_W:] = rho*T_zeta(q_zeta).T.dot(-skew_zeta.dot(R_b_c).dot(skew_t_b_c) + R_b_c)
-            G[dxRHO_i, Y_W:] = rho*rho*zeta.T.dot(R_b_c).dot(skew_t_b_c)
+            G[dxZETA_i:dxRHO_i, uG:] = rho*T_zeta(q_zeta).T.dot(-skew_zeta.dot(R_b_c).dot(skew_t_b_c) + R_b_c)
+            G[dxRHO_i, uG:] = rho*rho*zeta.T.dot(R_b_c).dot(skew_t_b_c)
 
         return G
 
@@ -332,9 +341,6 @@ class VI_EKF():
         b_a = x[xB_A:xB_A + 3]
         mu = x[xMU, None]
 
-
-        I_2x3 = np.array([[1, 0, 0],
-                          [0, 1, 0]])
         h = I_2x3.dot(-mu.dot(vel) + b_a)
 
         dhdx = np.zeros((2, dxZ+3*self.len_features))
@@ -381,14 +387,37 @@ class VI_EKF():
 
         return h, dhdx
 
-    
+    # Feature inverse depth measurement
+    # Returns estimated measurement (1x1) and Jacobian (1 x 16+3N)
+    def h_inv_depth(self, x, i):
+        h = x[xZ+i*5+4]
 
+        dhdx = np.zeros((1, dxZ+3*self.len_features))
+        dhdx[0, dxZ+3*i+2] = 1
 
+        return h, dhdx
 
+    # Feature pixel velocity measurement
+    # Returns estimated measurement (2x1) and Jacobian (2 x 16+3N)
+    def h_pixel_vel(self, x, i, u):
 
+        vel = x[xVEL:xVEL + 3]
+        omega = u[0] - x[xB_G:xB_G+3]
+        q_c_z = Quaternion(x[xZ+i*5:xZ+i*5+4])
+        rho = x[xZ+i*5+4]
+        zeta = q_c_z.R.T[:, 2].copy()
 
+        sk_vel = skew(vel)
+        sk_ez = skew(self.khat)
+        sk_zeta = skew(zeta)
 
+        # TODO: Need to convert to camera dynamics
 
+        h = -self.focal_len*I_2x3.dot(sk_ez).dot(np.eye(3)-zeta.dot(zeta.T)).dot(rho.dot(sk_zeta.dot(vel) + omega))
 
-        pass
+        dhdx = np.zeros((2,dxZ+3*self.len_features))
+        dhdx[:,dxVEL:dxVEL+3] = -self.focal_len*rho*I_2x3.dot(sk_ez).dot(sk_zeta)
+        dhdx[:,dxZ+3*i:dxZ+3*i+3] = self.focal_len*rho*I_2x3.dot(sk_ez).dot(sk_vel).dot(sk_zeta).dot(T_zeta(q_c_z))
+        dhdx[:,dxZ+3*i+2] = -self.focal_len*I_2x3.dot(sk_ez).dot(sk_zeta).dot(vel)
 
+        return h, dhdx

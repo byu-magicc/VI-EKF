@@ -147,12 +147,12 @@ class VI_EKF():
         # assert y_acc.shape == (3, 1) and y_gyro.shape == (3, 1)
 
         # Propagate State
-        u = np.array([y_acc, y_gyro])
+        u = np.vstack((y_acc[2], y_gyro))
         xdot = self.f(self.x, u)
         self.x = self.boxplus(self.x, xdot*dt)
 
         # Propagate Uncertainty
-        u = np.array([y_acc, y_gyro])
+
         A = self.dfdx(self.x, u)
         G = self.dfdu(self.x)
 
@@ -203,7 +203,7 @@ class VI_EKF():
         del self.feature_ids[feature_index]
         self.len_features -= 1
 
-    # Determines the derivative of state x given inputs y_acc and y_gyro
+    # Determines the derivative of state x given inputs u
     # the returned value of f is a delta state, delta features, and therefore is a different
     # size than the state and features and needs to be applied with boxplus
     def f(self, x, u):
@@ -213,10 +213,10 @@ class VI_EKF():
         q_I_b = Quaternion(x[xATT:xATT+4])
 
         omega = u[uG] - x[xB_G:xB_G+3]
-        acc = u[uA] - x[xB_A:xB_A+3]
+        acc_z = np.array([[0, 0, u[uA][0]]]).T
         mu = x[xMU, None]
 
-        vdot = skew(vel).dot(omega) + q_I_b.rot(self.gravity) + self.khat.dot(self.khat.T).dot(acc) - mu*vel
+        vdot = skew(vel).dot(omega) + q_I_b.rot(self.gravity) + acc_z - mu*vel
         qdot = omega
         pdot = q_I_b.rot(vel)
 
@@ -262,7 +262,7 @@ class VI_EKF():
         A[dxPOS:dxPOS+3, dxATT:dxATT+3] = -skew(q_I_b.invrot(vel))
 
         # Velocity Partials
-        A[dxVEL:dxVEL+3, dxVEL:dxVEL+3] = - omega - mu * np.eye(3)
+        A[dxVEL:dxVEL+3, dxVEL:dxVEL+3] = -skew(omega) - mu * np.eye(3)
         A[dxVEL:dxVEL+3, dxATT:dxATT+3] = -skew(q_I_b.invrot(self.gravity))
         A[dxVEL:dxVEL+3, dxB_A:dxB_A+3] = -self.khat.dot(self.khat.T)
         A[dxVEL:dxVEL+3, dxB_G:dxB_G+3] = -skew(vel)

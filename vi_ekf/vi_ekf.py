@@ -360,5 +360,20 @@ class VI_EKF():
     # Feature model for feature index i
     # Returns estimated measurement (1x1) and Jacobian (1 x 16+3N)
     def h_feat(self, x, i):
-        pass
+        q_c_z = Quaternion(x[xZ+i*5, xZ+i*5+4])
+
+        h = q_c_z.rot(self.khat)
+
+        dhdx = np.zeros((3, xZ+3*self.len_features))
+        dhdx[:, dxZ+i*3:dxZ+i*3+3] = -skew(h)
+
+        return h, dhdx
+
     
+
+
+
+
+
+        pass
+

@@ -299,8 +299,8 @@ class VI_EKF():
 
         G = np.zeros((16+3*self.len_features, 4))
 
-        vel = x[3:6]
-        q_I_b = Quaternion(x[6:10])
+        vel = x[xVEL:xVEL]
+        q_I_b = Quaternion(x[xATT:xATT+4])
 
         # State partials
         G[dxVEL:dxATT, Y_A,None] = self.khat
@@ -311,8 +311,8 @@ class VI_EKF():
             dxZETA_i = dxZ + i * 3
             dxRHO_i = dxZ + i * 3 + 2
 
-            q_zeta = x[i * 5 + 17:i * 5 + 4 + 17, :]
-            rho = x[i * 5 + 4 + 17, 0]
+            q_zeta = x[i * 5 + xZ:i * 5 + 4 + xZ, :]
+            rho = x[i * 5 + 4 + xZ, 0]
             zeta = Quaternion(q_zeta).rot(self.khat)
 
             skew_zeta = skew(zeta)
@@ -323,3 +323,5 @@ class VI_EKF():
             G[dxRHO_i, Y_W:] = rho*rho*zeta.T.dot(R_b_c).dot(skew_t_b_c)
 
         return G
+
+    

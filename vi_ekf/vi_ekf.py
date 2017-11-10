@@ -152,14 +152,19 @@ class VI_EKF():
         self.x = self.boxplus(self.x, xdot*dt)
 
         # Propagate Uncertainty
-        # A = self.dfdx(self.x, y_acc, y_gyro)
-        # G = self.dfdu(self.x)
+        A = self.dfdx(self.x, y_acc, y_gyro)
+        G = self.dfdu(self.x)
 
         ## TODO: Convert to proper noise introduction (instead of additive noise on all states)
-        # Pdot = A.dot(self.P) + self.P.dot(A.T) + G.dot(self.Qu).dot(G.T) + self.Qx
-        # self.P += Pdot*dt
+        Pdot = A.dot(self.P) + self.P.dot(A.T) + G.dot(self.Qu).dot(G.T) + self.Qx
+        self.P += Pdot*dt
 
         return self.x.copy()
+
+    def update(self, z, h_func, i=None, u=None):
+        zhat, H = h_func(self.x, u, i)
+
+
 
     # Used for overriding imu biases, Not to be used in real life
     def set_imu_bias(self, b_g, b_a):

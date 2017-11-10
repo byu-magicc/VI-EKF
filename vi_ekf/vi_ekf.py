@@ -262,7 +262,7 @@ class VI_EKF():
         A[dxPOS:dxPOS+3, dxATT:dxATT+3] = -skew(q_I_b.invrot(vel))
 
         # Velocity Partials
-        A[dxVEL:dxVEL+3, dxVEL:dxVEL+3] = -skew(omega) # - mu * np.eye(3)
+        A[dxVEL:dxVEL+3, dxVEL:dxVEL+3] = - omega - mu * np.eye(3)
         A[dxVEL:dxVEL+3, dxATT:dxATT+3] = -skew(q_I_b.invrot(self.gravity))
         A[dxVEL:dxVEL+3, dxB_A:dxB_A+3] = -self.khat.dot(self.khat.T)
         A[dxVEL:dxVEL+3, dxB_G:dxB_G+3] = -skew(vel)

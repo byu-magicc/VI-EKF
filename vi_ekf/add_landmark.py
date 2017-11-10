@@ -1,5 +1,5 @@
 import numpy as np
-from quaternion import Quaternion
+from pyquat import Quaternion
 import scipy.linalg
 from tqdm import tqdm
 

@@ -1,7 +1,7 @@
 import numpy as np
 from vi_ekf import VI_EKF
 import scipy.linalg
-from quaternion import Quaternion
+from pyquat import Quaternion
 from tqdm import tqdm
 from add_landmark import add_landmark
 import cPickle

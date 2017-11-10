@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from quaternion import Quaternion
+from pyquat import Quaternion
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection

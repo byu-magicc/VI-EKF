@@ -4,7 +4,7 @@ import glob, os, sys
 sys.path.append('/usr/local/lib/python2.7/site-packages')
 import cv2
 from tqdm import tqdm
-from quaternion import Quaternion
+from pyquat import Quaternion
 import yaml
 
 R_NWU_NED = np.array([[1, 0, 0],

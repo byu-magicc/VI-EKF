@@ -152,7 +152,8 @@ class VI_EKF():
         self.x = self.boxplus(self.x, xdot*dt)
 
         # Propagate Uncertainty
-        A = self.dfdx(self.x, y_acc, y_gyro)
+        u = np.array([y_acc, y_gyro])
+        A = self.dfdx(self.x, u)
         G = self.dfdu(self.x)
 
         ## TODO: Convert to proper noise introduction (instead of additive noise on all states)
@@ -247,7 +248,7 @@ class VI_EKF():
     def dfdx(self, x, u):
         # assert x.shape == (17+5*self.len_features, 1) and y_acc.shape == (3,1) and y_gyro.shape == (3,1)
 
-        vel = x[xVEL:xVEL+6]
+        vel = x[xVEL:xVEL+3]
         q_I_b = Quaternion(x[xATT:xATT+4])
 
         omega = u[uG] - x[xB_G:xB_G+3]
@@ -290,15 +291,15 @@ class VI_EKF():
             R_b_c = self.q_b_c.R
 
             # Bearing Quaternion Partials
-            A[dxZETA_i:dxZETA_i+3, dxVEL:dxVEL+3] = rho*T_z.T.dot(skew_zeta).dot(R_b_c)
-            A[dxZETA_i:dxZETA_i+3, dxB_G:dxB_G+3] = T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(skew(self.t_b_c)) - R_b_c)
-            A[dxZETA_i:dxZETA_i+3, dxZETA_i:dxZETA_i+3] = -T_z.T.dot(skew(omega_c_i - rho*skew(vel_c_i).dot(zeta)) + rho*skew(vel_c_i).dot(skew_zeta)).dot(T_z)
-            A[dxZETA_i:dxZETA_i+3, dxRHO_i,None] = T_z.T.dot(skew_zeta).dot(vel_c_i)
+            A[dxZETA_i:dxZETA_i+2, dxVEL:dxVEL+3] = rho*T_z.T.dot(skew_zeta).dot(R_b_c)
+            A[dxZETA_i:dxZETA_i+2, dxB_G:dxB_G+3] = T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(skew(self.t_b_c)) - R_b_c)
+            A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = -T_z.T.dot(skew(omega_c_i - rho*skew(vel_c_i).dot(zeta)) + rho*skew(vel_c_i).dot(skew_zeta)).dot(T_z)
+            A[dxZETA_i:dxZETA_i+2, dxRHO_i,None] = T_z.T.dot(skew_zeta).dot(vel_c_i)
 
             # Inverse Depth Partials
             A[dxRHO_i, dxVEL:dxVEL+3] = rho*rho*zeta.T.dot(R_b_c)
             A[dxRHO_i, dxB_G:dxB_G+3] = rho*rho*zeta.T.dot(R_b_c).dot(skew(self.t_b_c))
-            A[dxRHO_i, dxZETA_i:dxZETA_i+3] = rho*rho*vel_c_i.T.dot(skew_zeta).dot(T_z)
+            A[dxRHO_i, dxZETA_i:dxZETA_i+2] = rho*rho*vel_c_i.T.dot(skew_zeta).dot(T_z)
             A[dxRHO_i, dxRHO_i] = 2*rho*zeta.T.dot(vel_c_i).squeeze()
 
         return A
@@ -307,13 +308,9 @@ class VI_EKF():
     # this is used in propagating the state, and will return a matrix of size 16+3N x 4
     def dfdu(self, x):
         # assert x.shape == (17+5*self.len_features, 1)
-
-        # Input indexes to make code easier to read
-
-
         G = np.zeros((dxZ+3*self.len_features, 4))
 
-        vel = x[xVEL:xVEL]
+        vel = x[xVEL:xVEL+3]
         q_I_b = Quaternion(x[xATT:xATT+4])
 
         # State partials

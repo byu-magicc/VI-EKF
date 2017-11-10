@@ -7,7 +7,7 @@ from generate_data import generate_data
 #from bag_loader import read_bag
 
 # read_bag('data/simulated_waypoints.bag')
-# data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
+#data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
 
 #generate_data()
 data = cPickle.load(open('generated_data.pkl', 'rb'))
@@ -29,8 +29,6 @@ x0 = np.concatenate([data['truth_NED']['pos'][truth_start_index,:,None],
 ekf = VI_EKF(x0)
 
 
-
-
 for i in range(0):
     ekf.init_feature(data['features']['zeta'][truth_start_index,i,:,None], data['features']['depth'][truth_start_index,i])
 
@@ -46,6 +44,7 @@ est_zeta.append(ekf.get_zeta())
 est_depth.append(ekf.get_depth())
 est_qzeta.append(ekf.get_qzeta())
 
+from vi_ekf import *
 np.set_printoptions(suppress=True, linewidth=300, threshold=1000)
 x = ekf.propagate(data['imu_data']['acc'][10,:, None], data['imu_data']['gyro'][10,:, None], 0.01)
 u = np.array([data['imu_data']['acc'][10,:, None], data['imu_data']['gyro'][10,:, None]])
@@ -57,11 +56,15 @@ for i in range(d_dfdx.shape[0]):
     x_prime = ekf.boxplus(x, (I[i] * epsilon)[:, None])
     d_dfdx[:, i] = ((ekf.f(x_prime, u) - ekf.f(x, u)) / epsilon)[:, 0]
 
-print(d_dfdx)
-print(a_dfdx)
-print(d_dfdx - a_dfdx)
-quit()
+print '\ndxPOS:dxVEL error\n', d_dfdx[dxPOS:dxPOS+3, dxVEL:dxVEL+3] - a_dfdx[dxPOS:dxPOS+3, dxVEL:dxVEL+3]
+print '\ndxPOS:dxATT error\n', d_dfdx[dxPOS:dxPOS+3, dxATT:dxATT+3] - a_dfdx[dxPOS:dxPOS+3, dxATT:dxATT+3]
+print '\ndxVEL:dxVEL error\n', d_dfdx[dxVEL:dxVEL+3, dxVEL:dxVEL+3] - a_dfdx[dxVEL:dxVEL+3, dxVEL:dxVEL+3]
+print '\ndxVEL:dxATT error\n', d_dfdx[dxVEL:dxVEL+3, dxATT:dxATT+3] - a_dfdx[dxVEL:dxVEL+3, dxVEL:dxVEL+3]
+print '\ndxVEL:dxB_A error\n', d_dfdx[dxVEL:dxVEL+3, dxB_A:dxB_A+3] - a_dfdx[dxVEL:dxVEL+3, dxATT:dxATT+3]
+print '\ndxVEL:dxB_G error\n', d_dfdx[dxVEL:dxVEL+3, dxB_G:dxB_G+3] - a_dfdx[dxVEL:dxVEL+3, dxB_A:dxB_A+3]
+print '\ndxVEL:dxMU error\n', d_dfdx[dxVEL:dxVEL+3, dxMU, None]    - a_dfdx[dxVEL:dxVEL+3, dxB_G:dxB_G+3]
 
+quit()
 
 
 

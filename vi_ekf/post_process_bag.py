@@ -6,16 +6,22 @@ from plot_helper import plot_cube
 from generate_data import generate_data
 from bag_loader import read_bag
 
-read_bag('data/simulated_waypoints.bag')
-data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
+# read_bag('data/simulated_waypoints.bag')
+# data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
 
 # generate_data()
-# data = cPickle.load(open('generated_data.pkl', 'rb'))
+data = cPickle.load(open('generated_data.pkl', 'rb'))
+
+# Find the true data closest to the first imu message
+# t0 = data['imu_data']['t'][0]
+# truth_start_index = np.argmax(data['truth_NED']['t'] > t0)
+truth_start_index = 0
+
 
 # State: pos, vel, att, b_gyro, b_acc, mu
-x0 = np.concatenate([data['truth_NED']['pos'][0,:,None],
-                     data['truth_NED']['vel'][0,:,None],
-                     data['truth_NED']['att'][0,:,None],
+x0 = np.concatenate([data['truth_NED']['pos'][truth_start_index,:,None],
+                     data['truth_NED']['vel'][truth_start_index,:,None],
+                     data['truth_NED']['att'][truth_start_index,:,None],
                      np.zeros((3,1)),
                      np.zeros((3,1)),
                      0.2*np.ones((1,1))], axis=0)
@@ -25,19 +31,19 @@ x0 = np.concatenate([data['truth_NED']['pos'][0,:,None],
 ekf = VI_EKF(x0)
 
 for i in range(4):
-    ekf.init_feature(data['features']['zeta'][0,i,:,None], data['features']['depth'][0,i])
+    ekf.init_feature(data['features']['zeta'][truth_start_index,i,:,None], data['features']['depth'][truth_start_index,i])
 
 prev_time = 0
 estimate = []
 est_zeta = []
 est_qzeta = []
 est_depth = []
-end = 3.0
-if data['imu_data']['t'][0] == 0:
-    estimate.append(ekf.x)
-    est_zeta.append(ekf.get_zeta())
-    est_depth.append(ekf.get_depth())
-    est_qzeta.append(ekf.get_qzeta())
+end = 120.0
+
+estimate.append(ekf.x)
+est_zeta.append(ekf.get_zeta())
+est_depth.append(ekf.get_depth())
+est_qzeta.append(ekf.get_qzeta())
 for i, t in tqdm(enumerate(data['imu_data']['t'])):
     if prev_time == 0:
         prev_time = t
@@ -55,9 +61,9 @@ for i, t in tqdm(enumerate(data['imu_data']['t'])):
     est_depth.append(ekf.get_depth())
     est_qzeta.append(ekf.get_qzeta())
 
-    if i % 30 == 0 and True:
-        q_I_b = Quaternion(xhat[6:10])
-        plot_cube(q_I_b, est_zeta[-1], data['features']['zeta'][i])
+    # if i % 30 == 0 and True:
+    #     q_I_b = Quaternion(xhat[6:10])
+    #     plot_cube(q_I_b, est_zeta[-1], data['features']['zeta'][i])
 
 # convert lists to np arrays
 estimate = np.array(estimate)
@@ -150,21 +156,21 @@ plt.subplot(414)
 plt.plot(est_t, estimate[:,9], label='zhat')
 plt.plot(truth_t, truth_att[:,3], label='z')
 
-plt.figure(7, figsize=(20,13))
-for i in range(ekf.len_features):
-    for j in range(3):
-        plt.subplot(4,ekf.len_features,j*ekf.len_features+i+1)
-        plt.plot(est_t, est_zeta[:,i,0], label='xhat')
-        plt.plot(truth_feature_t, truth_zeta[:,i,0], label="x")
-    if i == 0 and j == 0:
-        plt.title('zeta')
-        plt.legend()
-    plt.subplot(4,ekf.len_features,3*ekf.len_features+i+1)
-    plt.title('depth')
-    plt.plot(est_t, est_depth[:,i], label='1/rho hat')
-    plt.plot(truth_feature_t, truth_depth[:,i], label="1/rho")
-    if i == 0:
-        plt.legend()
+# plt.figure(7, figsize=(20,13))
+# for i in range(ekf.len_features):
+#     for j in range(3):
+#         plt.subplot(4,ekf.len_features,j*ekf.len_features+i+1)
+#         plt.plot(est_t, est_zeta[:,i,0], label='xhat')
+#         plt.plot(truth_feature_t, truth_zeta[:,i,0], label="x")
+#     if i == 0 and j == 0:
+#         plt.title('zeta')
+#         plt.legend()
+#     plt.subplot(4,ekf.len_features,3*ekf.len_features+i+1)
+#     plt.title('depth')
+#     plt.plot(est_t, est_depth[:,i], label='1/rho hat')
+#     plt.plot(truth_feature_t, truth_depth[:,i], label="1/rho")
+#     if i == 0:
+#         plt.legend()
 
 
 plt.show()

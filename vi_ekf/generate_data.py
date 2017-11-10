@@ -10,7 +10,7 @@ import cPickle
 
 def generate_data():
     dt = 0.0033
-    t = np.arange(dt, 5.1, dt)
+    t = np.arange(dt, 120.1, dt)
 
     g = np.array([[0, 0, 9.80665]]).T
 
@@ -34,7 +34,7 @@ def generate_data():
 
         q[i,:,None] = (quat + omega[:,i,None]*dt).elements
 
-        acc[:,i,None] = -quat.invrot(g)
+        acc[:,i,None] = -quat.rot(g)
 
     data = dict()
     data['truth_NED'] = dict()

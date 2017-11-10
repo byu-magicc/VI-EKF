@@ -108,7 +108,7 @@ class VI_EKF():
 
     # Adds the state with the delta state on the manifold
     def boxplus(self, x, dx):
-        # assert x.shape == (17+5*self.len_features, 1) and dx.shape == (16+3*self.len_features, 1)
+        assert x.shape == (xZ+5*self.len_features, 1) and dx.shape == (dxZ+3*self.len_features, 1)
 
         out = np.zeros((xZ+5*self.len_features, 1))
 
@@ -144,7 +144,7 @@ class VI_EKF():
 
     # propagates all states, features and covariances
     def propagate(self, y_acc, y_gyro, dt):
-        # assert y_acc.shape == (3, 1) and y_gyro.shape == (3, 1)
+        assert y_acc.shape == (3, 1) and y_gyro.shape == (3, 1) and isinstance(dt, float)
 
         # Propagate State
         u = np.vstack((y_acc[2], y_gyro))
@@ -207,13 +207,14 @@ class VI_EKF():
     # the returned value of f is a delta state, delta features, and therefore is a different
     # size than the state and features and needs to be applied with boxplus
     def f(self, x, u):
-        # assert x.shape == (17+5*self.len_features, 1) and y_acc.shape == (3,1) and y_gyro.shape == (3,1)
+        assert x.shape == (xZ+5*self.len_features, 1) and u.shape == (4,1)
 
         vel = x[xVEL:xVEL+3]
         q_I_b = Quaternion(x[xATT:xATT+4])
 
-        omega = u[uG] - x[xB_G:xB_G+3]
-        acc_z = np.array([[0, 0, u[uA][0]]]).T
+        omega = u[uG:uG+3] - x[xB_G:xB_G+3]
+        y_acc_z = u[uA][0] - x[xB_A+3, 0]
+        acc_z = np.array([[0, 0, y_acc_z]]).T
         mu = x[xMU, None]
 
         vdot = skew(vel).dot(omega) + q_I_b.rot(self.gravity) + acc_z - mu*vel
@@ -246,13 +247,12 @@ class VI_EKF():
     # Calculates the jacobian of the state dynamics with respect to the state.
     # this is used in propagating the state, and will return a matrix of size 16+3N x 16+3N
     def dfdx(self, x, u):
-        # assert x.shape == (17+5*self.len_features, 1) and y_acc.shape == (3,1) and y_gyro.shape == (3,1)
+        assert x.shape == (xZ+5*self.len_features, 1) and u.shape == (4,1)
 
         vel = x[xVEL:xVEL+3]
         q_I_b = Quaternion(x[xATT:xATT+4])
 
-        omega = u[uG] - x[xB_G:xB_G+3]
-        acc = u[uA] - x[xB_A:xB_A+3]
+        omega = u[uG:uG+3] - x[xB_G:xB_G+3]
         mu = x[xMU, None]
 
         A = np.zeros((dxZ+3*self.len_features, dxZ+3*self.len_features))
@@ -307,7 +307,7 @@ class VI_EKF():
     # Calculates the jacobian of the state dynamics with respect to the input noise.
     # this is used in propagating the state, and will return a matrix of size 16+3N x 4
     def dfdu(self, x):
-        # assert x.shape == (17+5*self.len_features, 1)
+        assert x.shape == (xZ+5*self.len_features, 1)
         G = np.zeros((dxZ+3*self.len_features, 4))
 
         vel = x[xVEL:xVEL+3]
@@ -338,6 +338,7 @@ class VI_EKF():
     # Accelerometer model
     # Returns estimated measurement (2 x 1) and Jacobian (2 x 16+3N)
     def h_acc(self, x):
+        assert x.shape==(xZ+5*self.len_features,1)
 
         vel = x[xVEL:xVEL + 3]
         b_a = x[xB_A:xB_A + 3]
@@ -355,6 +356,7 @@ class VI_EKF():
     # Altimeter model
     # Returns estimated measurement (1x1) and Jacobian (1 x 16+3N)
     def h_alt(self, x):
+        assert x.shape == (xZ + 5 * self.len_features, 1)
 
         pos = x[xPOS:xPOS + 3]
 
@@ -368,6 +370,7 @@ class VI_EKF():
     # Feature model for feature index i
     # Returns estimated measurement (3x1) and Jacobian (3 x 16+3N)
     def h_feat(self, x, i):
+        assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int)
         q_c_z = Quaternion(x[xZ+i*5, xZ+i*5+4])
 
         h = q_c_z.rot(self.khat)
@@ -380,6 +383,7 @@ class VI_EKF():
     # Feature depth measurement
     # Returns estimated measurement (1x1) and Jacobian (1 x 16+3N)
     def h_depth(self, x, i):
+        assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int)
         rho = x[xZ+i*5+4]
 
         h = 1.0/rho
@@ -392,6 +396,7 @@ class VI_EKF():
     # Feature inverse depth measurement
     # Returns estimated measurement (1x1) and Jacobian (1 x 16+3N)
     def h_inv_depth(self, x, i):
+        assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int)
         h = x[xZ+i*5+4]
 
         dhdx = np.zeros((1, dxZ+3*self.len_features))
@@ -402,9 +407,10 @@ class VI_EKF():
     # Feature pixel velocity measurement
     # Returns estimated measurement (2x1) and Jacobian (2 x 16+3N)
     def h_pixel_vel(self, x, i, u):
+        assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int) and u.shape == (4, 1)
 
         vel = x[xVEL:xVEL + 3]
-        omega = u[0] - x[xB_G:xB_G+3]
+        omega = u[uG:uG+3] - x[xB_G:xB_G+3]
         q_c_z = Quaternion(x[xZ+i*5:xZ+i*5+4])
         rho = x[xZ+i*5+4]
         zeta = q_c_z.R.T[:, 2].copy()

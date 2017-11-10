@@ -3,6 +3,7 @@ import numpy as np
 
 x0 = np.zeros((xZ, 1))
 x0[xATT] = 1
+x0[xMU] = 0.2
 
 ekf = VI_EKF(x0)
 
@@ -15,7 +16,7 @@ gyro = np.array([[ 0.03629203],
                    [-0.03629203]])
 
 x = ekf.propagate(acc, gyro, 0.01)
-u = np.array([acc, gyro])
+u = np.vstack([acc[2], gyro])
 a_dfdx = ekf.dfdx(x, u)
 d_dfdx = np.zeros_like(a_dfdx)
 I = np.eye(d_dfdx.shape[0])

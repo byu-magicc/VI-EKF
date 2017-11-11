@@ -1765,7 +1765,8 @@ Velocity Jacobians
 \begin_inset Formula 
 \[
 \begin{aligned}\frac{\partial}{\partial v_{b/I}^{b}}v_{b/I}^{b} & =\frac{\partial}{\partial v_{b/I}^{b}}\left(\left\lfloor v_{b/I}^{b}\right\rfloor \left(y_{\omega}-\beta_{\omega}\right)+R\left(q_{I}^{b}\right)g+\hat{k}\hat{k}^{\top}\left(y_{a}-\beta_{a}\right)-\mu v_{b/I}^{b}+\eta_{v}\right)\\
- & =-\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor -\mu I_{3\times3}
+ & =\frac{\partial}{\partial v_{b/I}^{b}}\left(-\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor \left(v_{b/I}^{b}\right)-\mu v_{b/I}^{b}\right)\\
+ & =-\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor -\mu I
 \end{aligned}
 \]
 

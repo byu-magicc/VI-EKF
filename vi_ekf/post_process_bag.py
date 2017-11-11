@@ -9,7 +9,7 @@ from generate_data import generate_data
 # read_bag('data/simulated_waypoints.bag')
 #data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
 
-#generate_data()
+generate_data()
 data = cPickle.load(open('generated_data.pkl', 'rb'))
 
 # Find the true data closest to the first imu message
@@ -37,7 +37,7 @@ estimate = []
 est_zeta = []
 est_qzeta = []
 est_depth = []
-end = 10.0
+end = 5.0
 
 estimate.append(ekf.x)
 est_zeta.append(ekf.get_zeta())
@@ -156,21 +156,21 @@ plt.subplot(414)
 plt.plot(est_t, estimate[:,9], label='zhat')
 plt.plot(truth_t, truth_att[:,3], label='z')
 
-# plt.figure(7, figsize=(20,13))
-# for i in range(ekf.len_features):
-#     for j in range(3):
-#         plt.subplot(4,ekf.len_features,j*ekf.len_features+i+1)
-#         plt.plot(est_t, est_zeta[:,i,0], label='xhat')
-#         plt.plot(truth_feature_t, truth_zeta[:,i,0], label="x")
-#     if i == 0 and j == 0:
-#         plt.title('zeta')
-#         plt.legend()
-#     plt.subplot(4,ekf.len_features,3*ekf.len_features+i+1)
-#     plt.title('depth')
-#     plt.plot(est_t, est_depth[:,i], label='1/rho hat')
-#     plt.plot(truth_feature_t, truth_depth[:,i], label="1/rho")
-#     if i == 0:
-#         plt.legend()
+plt.figure(7, figsize=(20,13))
+for i in range(ekf.len_features):
+    for j in range(3):
+        plt.subplot(4,ekf.len_features,j*ekf.len_features+i+1)
+        plt.plot(est_t, est_zeta[:,i,0], label='xhat')
+        plt.plot(truth_feature_t, truth_zeta[:,i,0], label="x")
+    if i == 0 and j == 0:
+        plt.title('zeta')
+        plt.legend()
+    plt.subplot(4,ekf.len_features,3*ekf.len_features+i+1)
+    plt.title('depth')
+    plt.plot(est_t, est_depth[:,i], label='1/rho hat')
+    plt.plot(truth_feature_t, truth_depth[:,i], label="1/rho")
+    if i == 0:
+        plt.legend()
 
 
 plt.show()

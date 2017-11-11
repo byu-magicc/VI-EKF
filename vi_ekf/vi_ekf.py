@@ -175,7 +175,7 @@ class VI_EKF():
 
     # Used to initialize a new feature.  Returns the feature id associated with this feature
     def init_feature(self, zeta, depth):
-        # assert zeta.shape == (3, 1)
+        assert zeta.shape == (3, 1) and abs(1.0 - scipy.linalg.norm(zeta)) < 1e-5
 
         self.len_features += 1
         self.feature_ids.append(self.next_feature_id)
@@ -219,6 +219,7 @@ class VI_EKF():
 
         # acc_z = np.array([[0, 0, 1]]).T
         vdot = skew(vel).dot(omega) - mu*vel + acc_z + q_I_b.invrot(self.gravity)
+        # vdot = np.zeros((3,1))
         qdot = omega
         pdot = q_I_b.rot(vel)
 
@@ -229,11 +230,11 @@ class VI_EKF():
             dxZETA_i = i*3
             dxRHO_i = i*3+2
 
-            q_zeta = x[xZETA_i:xRHO_i,:]
+            q_zeta = x[xZETA_i:xZETA_i+4,:]
             rho = x[xRHO_i,0]
             zeta = Quaternion(q_zeta).rot(self.khat)
             vel_c_i = self.q_b_c.invrot(vel + skew(omega).dot(self.t_b_c))
-            omega_c_i = omega
+            omega_c_i = self.q_b_c.invrot(omega)
 
             # feature bearing vector dynamics
             feat_dot[dxZETA_i:dxRHO_i,:] = T_zeta(q_zeta).T.dot(rho*skew(zeta).dot(vel_c_i) + omega_c_i)
@@ -280,21 +281,24 @@ class VI_EKF():
         for i in range(self.len_features):
             dxZETA_i = dxZ + i * 3
             dxRHO_i = dxZ + i * 3 + 2
+            xZETA_i = xZ + i * 5
+            xRHO_i = xZ + 5 * i + 4
 
-            q_zeta = x[i * 5 + xZ:i * 5 + 4 + xZ, :]
-            rho = x[i * 5 + 4 + xZ, 0]
+            q_zeta = x[xZETA_i:xZETA_i+4, :]
+            rho = x[xRHO_i, 0]
 
-            zeta = Quaternion(q_zeta).invrot(self.khat)
+            zeta = Quaternion(q_zeta).rot(self.khat)
             vel_c_i = self.q_b_c.invrot(vel + skew(omega).dot(self.t_b_c))
             omega_c_i = self.q_b_c.invrot(omega)
             T_z = T_zeta(q_zeta)
             skew_zeta = skew(zeta)
+            skew_vel_c = skew(vel_c_i)
             R_b_c = self.q_b_c.R
 
             # Bearing Quaternion Partials
             A[dxZETA_i:dxZETA_i+2, dxVEL:dxVEL+3] = rho*T_z.T.dot(skew_zeta).dot(R_b_c)
             A[dxZETA_i:dxZETA_i+2, dxB_G:dxB_G+3] = T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(skew(self.t_b_c)) - R_b_c)
-            A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = -T_z.T.dot(skew(omega_c_i - rho*skew(vel_c_i).dot(zeta)) + rho*skew(vel_c_i).dot(skew_zeta)).dot(T_z)
+            A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = -T_z.T.dot(skew(omega_c_i - rho*skew_vel_c.dot(zeta)).dot(-rho*skew_vel_c.dot(skew_zeta))).dot(T_z)
             A[dxZETA_i:dxZETA_i+2, dxRHO_i,None] = T_z.T.dot(skew_zeta).dot(vel_c_i)
 
             # Inverse Depth Partials

@@ -6,7 +6,7 @@ def skew(v):
     assert v.shape == (3,1)
     return np.array([[0, -v[2,0], v[1,0]],
                      [v[2,0], 0, -v[0,0]],
-                     [-v[2,0], v[0,0], 0]])
+                     [-v[1,0], v[0,0], 0]])
 
 # Creates 3x2 projection matrix onto the plane perpendicular to zeta
 def T_zeta(q_zeta):

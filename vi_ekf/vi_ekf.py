@@ -217,7 +217,7 @@ class VI_EKF():
         acc_z = np.array([[0, 0, y_acc_z]]).T
         mu = x[xMU, None]
 
-        vdot = skew(vel).dot(omega) + q_I_b.rot(self.gravity) + acc_z - mu*vel
+        vdot = skew(vel).dot(omega) - mu*vel #+ acc_z + q_I_b.rot(self.gravity)
         qdot = omega
         pdot = q_I_b.rot(vel)
 

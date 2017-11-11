@@ -67,31 +67,3 @@ htest(ekf.h_feat, i=0)
 htest(ekf.h_depth, i=0)
 htest(ekf.h_inv_depth, i=0)
 htest(ekf.h_pixel_vel, i=0, u=u)
-
-
-
-def htest(fn, **kwargs):
-    print '\nTesting ', fn.__name__
-    try:
-        analytical = fn(x, **kwargs)[1]
-        finite_difference = np.zeros_like(analytical)
-        I = np.eye(finite_difference.shape[1])
-        epsilon = 1e-5
-        for i in range(finite_difference.shape[1]):
-            x_prime = ekf.boxplus(x, (I[i] * epsilon)[:, None])
-            finite_difference[:, i] = ((fn(x_prime, **kwargs)[0] - fn(x, **kwargs)[0]) / epsilon)[:, 0]
-
-        print analytical - finite_difference
-    except Exception as e:
-        print 'error:', e
-
-htest(ekf.h_acc)
-htest(ekf.h_alt)
-htest(ekf.h_feat, i=0)
-htest(ekf.h_depth, i=0)
-htest(ekf.h_inv_depth, i=0)
-htest(ekf.h_pixel_vel, i=0, u=u)
-
-quit()
-
-quit()

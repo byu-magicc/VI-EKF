@@ -6,6 +6,7 @@ x0[xATT] = 1
 x0[xMU] = 0.2
 
 ekf = VI_EKF(x0)
+ekf.init_feature(np.random.randn(3)[:, None], np.abs(np.random.randn(1))[0] * 10)
 
 np.set_printoptions(suppress=True, linewidth=300, threshold=1000)
 acc = np.array([[  1.04120597e-02],

@@ -33,4 +33,16 @@ print '\ndxVEL:dxVEL error\n', d_dfdx[dxVEL:dxVEL+3, dxVEL:dxVEL+3] - a_dfdx[dxV
 # print '\ndxVEL:dxB_G error\n', d_dfdx[dxVEL:dxVEL+3, dxB_G:dxB_G+3] - a_dfdx[dxVEL:dxVEL+3, dxB_A:dxB_A+3]
 # print '\ndxVEL:dxMU error\n', d_dfdx[dxVEL:dxVEL+3, dxMU, None]    - a_dfdx[dxVEL:dxVEL+3, dxB_G:dxB_G+3]
 
+
+a_dfdu = ekf.dfdu(x)
+d_dfdu = np.zeros_like(a_dfdu)
+I = np.eye(d_dfdu.shape[1])
+epsilon = 1e-15
+for i in range(d_dfdu.shape[1]):
+    u_prime = u + (I[i] * epsilon)[:, None]
+    d_dfdu[:, i] = ((ekf.f(x, u_prime) - ekf.f(x, u)) / epsilon)[:, 0]
+
+print '\ndxVEL:uA error\n', a_dfdu[dxVEL:dxATT, uA] - d_dfdu[dxVEL:dxATT, uA]
+print '\ndxVEL:uG error\n', a_dfdu[dxVEL:dxATT, uG:] - d_dfdu[dxVEL:dxATT, uG:]
+
 quit()

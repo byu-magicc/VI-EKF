@@ -1776,6 +1776,7 @@ Velocity Jacobians
 \end_layout
 
 \begin_layout Standard
+	
 \begin_inset Formula 
 \[
 \begin{aligned}\frac{\partial}{\partial q_{I}^{b}}v_{b/I}^{b} & =\frac{\partial}{\partial q_{I}^{b}}\left(\left\lfloor v_{b/I}^{b}\right\rfloor \left(y_{\omega}-\beta_{\omega}\right)+R\left(q_{I}^{b}\right)g+\hat{k}\hat{k}^{\top}\left(y_{a}-\beta_{a}\right)-\mu v_{b/I}^{b}+\eta_{v}\right)\\
@@ -1906,6 +1907,8 @@ Bearing Quaternion Jacobians
 \[
 \begin{aligned}\dfrac{\partial}{\partial q_{c}^{\zeta_{i}}}\dot{q}_{c}^{\zeta_{i}} & =\dfrac{\partial}{\partial q_{c}^{\zeta_{i}}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/i}^{c}+\omega_{c/i}^{c}\right)\right)\\
  & =\dfrac{\partial}{\partial q_{c}^{\zeta_{i}}}\left(T_{\zeta}^{\top}\left(-\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right)\right)\\
+ & =-T_{\zeta}^{\top}\left\lfloor -\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right\rfloor T_{\zeta}\dfrac{\partial}{\partial q_{c}^{\zeta_{i}}}\left(-\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right)\\
+ & =-T_{\zeta}^{\top}\left\lfloor -\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right\rfloor \left(-\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \right)T_{\zeta}\\
  & =-T_{\zeta}^{\top}\left(\left\lfloor \omega_{c/i}^{c}-\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}\right\rfloor +\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \right)T_{\zeta}
 \end{aligned}
 \]
@@ -2028,8 +2031,12 @@ Now, we want the jacobian for mapping
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\dfrac{\partial}{\partial y_{\omega}}\dot{q}_{c}^{\zeta_{i}} & =\dfrac{\partial}{\partial y_{\omega}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\right)\\
- & =\rho_{i}T_{\zeta}^{\top}\left(-\left\lfloor \zeta_{i}^{c}\right\rfloor R\left(q_{b}^{c}\right)\left\lfloor p_{cb}^{b}\right\rfloor +R\left(q_{b}^{c}\right)\right)
+\begin{aligned}\dfrac{\partial}{\partial y_{\omega}}\dot{q}_{c}^{\zeta_{i}} & =\dfrac{\partial}{\partial y_{\omega}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\omega_{c/I}^{I}\right)\right)\\
+ & =\dfrac{\partial}{\partial y_{\omega}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\omega_{b/I}^{b}\right)\right)\\
+ & =T_{\zeta}^{\top}\dfrac{\partial}{\partial y_{\omega}}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\omega_{b/I}^{b}\right)\\
+ & =T_{\zeta}^{\top}\dfrac{\partial}{\partial y_{\omega}}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}-\left\lfloor p_{cb}^{b}\right\rfloor \omega_{b/i}^{b}\right)\right)+R\left(q_{b}^{c}\right)\omega_{b/I}^{b}\right)\\
+ & =T_{\zeta}^{\top}\dfrac{\partial}{\partial y_{\omega}}\left(-\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left\lfloor p_{cb}^{b}\right\rfloor \omega_{b/i}^{b}\right)+R\left(q_{b}^{c}\right)\omega_{b/I}^{b}\right)\\
+ & =T_{\zeta}^{\top}\left(R\left(q_{b}^{c}\right)-\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor R\left(q_{b}^{c}\right)\left\lfloor p_{cb}^{b}\right\rfloor \right)
 \end{aligned}
 \]
 
@@ -2088,8 +2095,29 @@ Because the thrust term
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\frac{\partial h_{acc}}{\partial x} & =I_{2\times3}\left[\begin{array}{cccccccc}
-0 & -\mu & 0 & I & 0 & -v_{b/i}^{b} & 0\cdots0 & 0\cdots0\end{array}\right]\end{aligned}
+\begin{aligned}\frac{\partial h_{acc}}{\partial v_{b/i}^{b}} & =-\mu I_{2\times3}\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial h_{acc}}{\partial\beta_{a}} & =I_{2\times3}\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial h_{acc}}{\partial\mu} & =-I_{2\times3}v_{b/i}^{b}\end{aligned}
 \]
 
 \end_inset

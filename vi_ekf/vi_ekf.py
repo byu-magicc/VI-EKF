@@ -213,12 +213,12 @@ class VI_EKF():
         q_I_b = Quaternion(x[xATT:xATT+4])
 
         omega = u[uG:uG+3] - x[xB_G:xB_G+3]
-        y_acc_z = u[uA][0] - x[xB_A+3, 0]
+        y_acc_z = u[uA][0] - x[xB_A+2, 0]
         acc_z = np.array([[0, 0, y_acc_z]]).T
         mu = x[xMU, 0]
 
         # acc_z = np.array([[0, 0, 1]]).T
-        vdot = q_I_b.invrot(self.gravity) #+ skew(vel).dot(omega) - mu*vel + acc_z
+        vdot = skew(vel).dot(omega) - mu*vel + acc_z + q_I_b.invrot(self.gravity)
         qdot = omega
         pdot = q_I_b.rot(vel)
 
@@ -259,8 +259,8 @@ class VI_EKF():
         A = np.zeros((dxZ+3*self.len_features, dxZ+3*self.len_features))
 
         # Position Partials
-        # A[dxPOS:dxPOS+3, dxVEL:dxVEL+3] = q_I_b.R.T
-        # A[dxPOS:dxPOS+3, dxATT:dxATT+3] = -skew(q_I_b.invrot(vel))
+        A[dxPOS:dxPOS+3, dxVEL:dxVEL+3] = q_I_b.R.T
+        A[dxPOS:dxPOS+3, dxATT:dxATT+3] = -skew(q_I_b.invrot(vel))
 
         # Velocity Partials
         A[dxVEL:dxVEL+3, dxVEL:dxVEL+3] = -skew(omega) - mu * np.eye(3)

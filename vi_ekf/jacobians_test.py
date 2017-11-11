@@ -34,6 +34,20 @@ print '\ndxVEL:dxATT error\n', d_dfdx[dxVEL:dxVEL+3, dxATT:dxATT+3] - a_dfdx[dxV
 # print '\ndxVEL:dxB_G error\n', d_dfdx[dxVEL:dxVEL+3, dxB_G:dxB_G+3] - a_dfdx[dxVEL:dxVEL+3, dxB_A:dxB_A+3]
 # print '\ndxVEL:dxMU error\n', d_dfdx[dxVEL:dxVEL+3, dxMU, None]    - a_dfdx[dxVEL:dxVEL+3, dxB_G:dxB_G+3]
 
+i = 0
+dxZETA_i = dxZ + i * 3
+dxRHO_i = dxZ + i * 3 + 2
+
+print '\ndZETA_i:dxVEL\n', d_dfdx[dxZETA_i:dxZETA_i+2, dxVEL:dxVEL+3] - a_dfdx[dxZETA_i:dxZETA_i+2, dxVEL:dxVEL+3]
+print '\ndZETA:dB_G\n', d_dfdx[dxZETA_i:dxZETA_i+2, dxB_G:dxB_G+3] - a_dfdx[dxZETA_i:dxZETA_i+2, dxB_G:dxB_G+3]
+print '\ndZETA:dZETA\n', d_dfdx[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] - a_dfdx[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2]
+print '\ndZETA:dRHO\n', d_dfdx[dxZETA_i:dxZETA_i+2, dxRHO_i,None] - a_dfdx[dxZETA_i:dxZETA_i+2, dxRHO_i,None]
+print '\ndRHO:dVEL\n', d_dfdx[dxRHO_i, dxVEL:dxVEL+3] - a_dfdx[dxRHO_i, dxVEL:dxVEL+3]
+print '\ndRHO:dB_G\n', d_dfdx[dxRHO_i, dxB_G:dxB_G+3] - a_dfdx[dxRHO_i, dxB_G:dxB_G+3]
+print '\ndRHO:dZETA\n', d_dfdx[dxRHO_i, dxZETA_i:dxZETA_i+2] - a_dfdx[dxRHO_i, dxZETA_i:dxZETA_i+2]
+print '\ndRHO:dRHO\n', d_dfdx[dxRHO_i, dxRHO_i] - a_dfdx[dxRHO_i, dxRHO_i]
+
+print '\nOverall dfdx Test\n', d_dfdx - a_dfdx
 
 a_dfdu = ekf.dfdu(x)
 d_dfdu = np.zeros_like(a_dfdu)
@@ -46,6 +60,10 @@ for i in range(d_dfdu.shape[1]):
 # print '\ndxVEL:uA error\n', a_dfdu[dxVEL:dxATT, uA] - d_dfdu[dxVEL:dxATT, uA]
 # print '\ndxVEL:uG error\n', a_dfdu[dxVEL:dxATT, uG:] - d_dfdu[dxVEL:dxATT, uG:]
 
+print '\nZETA:uG\n', d_dfdu[dxZETA_i:dxRHO_i, uG:] - a_dfdu[dxZETA_i:dxRHO_i, uG:]
+print '\nRHO:uG\n', d_dfdu[dxRHO_i, uG:] - a_dfdu[dxRHO_i, uG:]
+
+print '\nOverall dfdu Test\n', d_dfdu - a_dfdu
 
 def htest(fn, **kwargs):
     print '\nTesting ', fn.__name__

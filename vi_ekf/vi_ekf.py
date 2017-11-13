@@ -381,7 +381,7 @@ class VI_EKF():
         h = Quaternion(q_c_z).rot(self.khat)
 
         dhdx = np.zeros((3, dxZ+3*self.len_features))
-        dhdx[:, dxZ+i*3:dxZ+i*3+2] = -skew(h).dot(T_zeta(q_c_z))
+        dhdx[:, dxZ+i*3:dxZ+i*3+2] = -Quaternion(q_c_z).R.T.dot(skew(h)).dot(T_zeta(q_c_z))
 
         return h, dhdx
 
@@ -428,7 +428,7 @@ class VI_EKF():
 
         # TODO: Need to convert to camera dynamics
 
-        h = -self.focal_len*I_2x3.dot(sk_ez).dot(I_zz).dot(rho*(sk_zeta.dot(vel) + omega))
+        h = -self.focal_len*I_2x3.dot(sk_ez).dot(I_zz).dot(rho*(sk_zeta.dot(vel)) + omega)
 
         dhdx = np.zeros((2,dxZ+3*self.len_features))
         dhdx[:,dxVEL:dxVEL+3] = -self.focal_len*rho*I_2x3.dot(sk_ez).dot(sk_zeta)

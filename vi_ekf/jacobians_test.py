@@ -7,9 +7,11 @@ x0[xMU] = 0.2
 
 ekf = VI_EKF(x0)
 # zeta = np.random.randn(3)[:, None]
-zeta = np.array([[1., 1., 0.]]).T
+zeta = np.array([[0., 0., 1.]]).T
 zeta /= scipy.linalg.norm(zeta)
-ekf.init_feature(zeta, np.abs(np.random.randn(1))[0] * 10)
+# depth = np.abs(np.random.randn(1))[0]
+depth = 0.5
+ekf.init_feature(zeta,  depth * 10)
 
 np.set_printoptions(suppress=True, linewidth=300, threshold=1000)
 # acc = np.array([[  1.04120597e-02],
@@ -46,7 +48,8 @@ def print_error(rowname, colname, rowdim, coldim, matrix):
     exec("col = %s" % colname)
     if scipy.linalg.norm(matrix[row:row+rowdim, col:col+coldim]) > 1e-3:
         print 'Error in Jacobian', rowname, colname
-        print matrix[row:row+rowdim, col:col+coldim]
+        print 'BLOCK_ERROR\n', matrix[row:row+rowdim, col:col+coldim]
+
 
 print_error('dxPOS', 'dxVEL', 3, 3, dfdx_err)
 print_error('dxPOS', 'dxATT', 3, 3, dfdx_err)
@@ -93,16 +96,14 @@ def htest(fn, **kwargs):
                'dxZETA': [16, 18],
                'dxRHO': [18, 19]}
 
-
-
     # try:
     x0, analytical = fn(x, **kwargs)
     finite_difference = np.zeros_like(analytical)
     I = np.eye(finite_difference.shape[1])
-    epsilon = 1e-1
-    # for i in range(finite_difference.shape[1]):
-    for j in range(3):
-        i = j + dxB_G
+    epsilon = 1e-8
+    for i in range(finite_difference.shape[1]):
+    # for j in range(3):
+    #     i = j + dxB_G
         x_prime = ekf.boxplus(x, (I[i] * epsilon)[:, None])
         finite_difference[:, i] = ((fn(x_prime, **kwargs)[0] - x0) / epsilon)[:, 0]
 
@@ -111,14 +112,18 @@ def htest(fn, **kwargs):
         block_error = error[:,item[0]:item[1]]
         if np.max(block_error) > 1e-4:
             print '\nError in ', fn.__name__, key
-            print block_error
+            print 'BLOCK_ERROR:\n', block_error
+            print 'ANALYTICAL:\n', analytical[:,item[0]:item[1]]
+            print 'FD:\n', finite_difference[:, item[0]:item[1]]
+
     # except Exception as e:
     #     print 'error:', e
 
 
 # htest(ekf.h_acc)
 # htest(ekf.h_alt)
-# htest(ekf.h_feat, i=0)
+htest(ekf.h_feat, i=0)
 # htest(ekf.h_depth, i=0)
 # htest(ekf.h_inv_depth, i=0)
-htest(ekf.h_pixel_vel, i=0, u=u)
+# htest(ekf.h_pixel_vel, i=0, u=u)
+

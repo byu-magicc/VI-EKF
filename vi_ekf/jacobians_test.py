@@ -19,8 +19,6 @@ indexes = {'dxPOS': [0, 3],
            'dxB_A': [9, 12],
            'dxB_G': [12, 15],
            'dxMU': [15, 16],
-           'dxZETA': [16, 18],
-           'dxRHO': [18, 19],
            'uA': [0, 1],
            'uG': [1, 4]}
 for i in range(50):
@@ -31,7 +29,7 @@ def print_error(row_idx, col_idx, analytical, fd):
     error_mat = analytical - fd
     row = indexes[row_idx]
     col = indexes[col_idx]
-    if scipy.linalg.norm(error_mat[row[0]:row[1], col[0]:col[1]]) > 1e-3:
+    if scipy.linalg.norm(error_mat[row[0]:row[1], col[0]:col[1]]) > 1e-4:
         print (bcolors.FAIL + 'Error in Jacobian %s, %s, \nBLOCK_ERROR:\n%s\n ANALYTICAL:\n%s\n FD:\n%s\n' \
         % (row_idx, col_idx, error_mat[row[0]:row[1], col[0]:col[1]], analytical[row[0]:row[1], col[0]:col[1]], \
            fd[row[0]:row[1], col[0]:col[1]]))
@@ -123,7 +121,7 @@ def all_h_tests(x, u, ekf):
         num_errors += htest(ekf.h_feat, i=i)
         num_errors += htest(ekf.h_depth, i=i)
         num_errors += htest(ekf.h_inv_depth, i=i)
-        # htest(ekf.h_pixel_vel, i=i, u=u)
+        htest(ekf.h_pixel_vel, i=i, u=u)
     return num_errors
 
 if __name__ == '__main__':
@@ -138,8 +136,7 @@ if __name__ == '__main__':
                              [0.0],
                              [0.0]])
     errors = 0
-    # for i in tqdm(range(100)):
-    for i in range(1):
+    for i in tqdm(range(100)):
         # Set nominal Values for x0
         x0 = np.zeros((xZ, 1))
         x0[xATT] = 1
@@ -160,8 +157,10 @@ if __name__ == '__main__':
         # Initialize Random Features
         for j in range(10):
             zeta = np.random.randn(3)[:, None]
+            zeta = np.array([[0, 0, 1.0]]).T
             zeta /= scipy.linalg.norm(zeta)
             depth = np.abs(np.random.randn(1))[0]
+            depth = 1.0
             ekf.init_feature(zeta, depth * 10)
 
         # Initialize Inputs

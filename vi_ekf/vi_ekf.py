@@ -217,11 +217,11 @@ class VI_EKF():
         acc_z = np.array([[0, 0, y_acc_z]]).T
         mu = x[xMU, 0]
 
-        # acc_z = np.array([[0, 0, 1]]).T
+        pdot = q_I_b.invrot(vel)
         vdot = skew(vel).dot(omega) - mu*vel + acc_z + q_I_b.invrot(self.gravity)
         # vdot = np.zeros((3,1))
         qdot = omega
-        pdot = q_I_b.rot(vel)
+
 
         feat_dot = np.zeros((3*self.len_features, 1))
         for i in range(self.len_features):
@@ -238,6 +238,9 @@ class VI_EKF():
 
             # feature bearing vector dynamics
             feat_dot[dxZETA_i:dxRHO_i,:] = T_zeta(q_zeta).T.dot(rho*skew(zeta).dot(vel_c_i) + omega_c_i)
+            # feat_dot[dxZETA_i:dxRHO_i,:] = T_zeta(q_zeta).T.dot(-omega)
+
+
 
             # feature inverse depth dynamics
             feat_dot[dxRHO_i,:] = rho*rho*zeta.T.dot(vel_c_i)
@@ -260,7 +263,7 @@ class VI_EKF():
         A = np.zeros((dxZ+3*self.len_features, dxZ+3*self.len_features))
 
         # Position Partials
-        A[dxPOS:dxPOS+3, dxVEL:dxVEL+3] = q_I_b.R.T
+        A[dxPOS:dxPOS+3, dxVEL:dxVEL+3] = q_I_b.R
         A[dxPOS:dxPOS+3, dxATT:dxATT+3] = -skew(q_I_b.invrot(vel))
 
         # Velocity Partials
@@ -268,7 +271,7 @@ class VI_EKF():
         A[dxVEL:dxVEL+3, dxATT:dxATT+3] = -skew(q_I_b.invrot(self.gravity))
         A[dxVEL:dxVEL+3, dxB_A:dxB_A+3] = -self.khat.dot(self.khat.T)
         A[dxVEL:dxVEL+3, dxB_G:dxB_G+3] = -skew(vel)
-        A[dxVEL:dxVEL+3, dxMU, None] = vel
+        A[dxVEL:dxVEL+3, dxMU, None] = -vel
 
         # Attitude Partials
         A[dxATT:dxATT+3, dxB_G:dxB_G+3] = -np.eye(3)
@@ -298,7 +301,7 @@ class VI_EKF():
             # Bearing Quaternion Partials
             A[dxZETA_i:dxZETA_i+2, dxVEL:dxVEL+3] = rho*T_z.T.dot(skew_zeta).dot(R_b_c)
             A[dxZETA_i:dxZETA_i+2, dxB_G:dxB_G+3] = T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(skew(self.p_b_c)) - R_b_c)
-            A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = -T_z.T.dot(skew(omega_c_i - rho*skew_vel_c.dot(zeta)) + (rho*skew_vel_c.dot(skew_zeta))).dot(T_z)
+            A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = T_z.T.dot(skew(omega_c_i - rho*skew_vel_c.dot(zeta)) + (rho*skew_vel_c.dot(skew_zeta))).dot(T_z)
             A[dxZETA_i:dxZETA_i+2, dxRHO_i,None] = T_z.T.dot(skew_zeta).dot(vel_c_i)
 
             # Inverse Depth Partials
@@ -381,7 +384,7 @@ class VI_EKF():
         h = Quaternion(q_c_z).rot(self.khat)
 
         dhdx = np.zeros((3, dxZ+3*self.len_features))
-        dhdx[:, dxZ+i*3:dxZ+i*3+2] = -Quaternion(q_c_z).R.T.dot(skew(h)).dot(T_zeta(q_c_z))
+        dhdx[:, dxZ+i*3:dxZ+i*3+2] = -skew(h).dot(T_zeta(q_c_z))
 
         return h, dhdx
 
@@ -430,11 +433,14 @@ class VI_EKF():
 
         h = -self.focal_len*I_2x3.dot(sk_ez).dot(I_zz).dot(rho*(sk_zeta.dot(vel)) + omega)
 
+        ZETA_i = dxZ+3*i
+        RHO_i = dxZ+3*i+2
         dhdx = np.zeros((2,dxZ+3*self.len_features))
         dhdx[:,dxVEL:dxVEL+3] = -self.focal_len*rho*I_2x3.dot(sk_ez).dot(sk_zeta)
-        dhdx[:,dxZ+3*i:dxZ+3*i+2] = self.focal_len*rho*I_2x3.dot(sk_ez).dot(sk_vel).dot(sk_zeta).dot(T_zeta(q_c_z))
-        dhdx[:,dxZ+3*i+2,None] = -self.focal_len*I_2x3.dot(sk_ez).dot(sk_zeta).dot(vel)
-        # dhdx[:,dxB_G:dxB_G+3] = self.focal_len*I_2x3.dot(sk_ez).dot(I_zz).dot(R_b_c - rho*sk_zeta.dot(R_b_c).dot(skew(self.p_b_c)))
-        dhdx[:, dxB_G:dxB_G + 3] = self.focal_len * I_2x3.dot(sk_ez).dot(I_zz)
+        dhdx[:,ZETA_i:ZETA_i+2] = self.focal_len*rho*I_2x3.dot(sk_ez).dot(sk_vel).dot(sk_zeta).dot(T_zeta(q_c_z))
+        dhdx[:,RHO_i,None] = -self.focal_len*I_2x3.dot(sk_ez).dot(sk_zeta).dot(vel)
+        dhdx[:,dxB_G:dxB_G+3] = self.focal_len*I_2x3.dot(sk_ez).dot(I_zz).dot(R_b_c - rho*sk_zeta.dot(R_b_c).dot(skew(self.p_b_c)))
+        # dhdx[:, dxB_G:dxB_G + 3] = self.focal_len * I_2x3.dot(sk_ez).dot(I_zz)
+
 
         return h, dhdx

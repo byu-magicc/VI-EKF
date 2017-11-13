@@ -87,6 +87,14 @@ class VI_EKF():
         # Camera Parameters
         self.focal_len = 258 # made up
 
+        self.measurement_functions = dict()
+        self.measurement_functions['acc'] = self.h_acc
+        self.measurement_functions['alt'] = self.h_alt
+        self.measurement_functions['feat'] = self.h_feat
+        self.measurement_functions['pixel_vel'] = self.h_pixel_vel
+        self.measurement_functions['depth'] = self.h_depth
+        self.measurement_functions['inv_depth'] = self.h_inv_depth
+
     # Returns the depth to all features
     def get_depth(self):
         return 1./self.x[xZ+4::5]
@@ -124,8 +132,6 @@ class VI_EKF():
         out[xB_G:xB_G+3] = x[xB_G:xB_G+3] + dx[dxB_G:dxB_G+3]
         out[xMU] = x[xMU] + dx[dxMU]
 
-
-
         # add Feature quaternion states
         for i in range(self.len_features):
             xFEAT = xZ+i*5
@@ -162,14 +168,30 @@ class VI_EKF():
 
         return self.x.copy()
 
-    def update(self, z, h_func, i=None, u=None):
-        zhat, H = h_func(self.x, u, i)
+    def update(self, z, measurement_type, R, **kwargs):
+        assert measurement_type in self.measurement_functions.keys(), "Unknown Measurement Type"
 
+        # Feature Points need a slightly modified update process because of the non-vectorness of the measurement
+        zhat, H = self.measurement_functions[measurement_type](self.x, **kwargs)
+        K = self.P.dot(H.T).dot(scipy.linalg.inv(R + H.dot(self.P).dot(H)))
+        self.P = (np.eye(self.P.shape) - K.dot(H)).dot(self.P)
 
+        if measurement_type != 'feat':
+            residual = z - zhat
+        else:
+            # For features, we have to do boxminus on the weird space between quaternions
+            i = kwargs['i']
+            xZETA_i = xZ + 5*i
+            T_z = T_zeta(self.x[xZETA_i:xZETA_i+4])
+            zhat_x_z = skew(zhat).dot(z)
+            residual = T_z.T.dot(np.arccos(zhat.dot(z.T))*zhat_x_z/scipy.linalg.norm(zhat_x_z))
+
+        # TODO: Do residual saturation here
+        self.x += K.dot(residual)
 
     # Used for overriding imu biases, Not to be used in real life
     def set_imu_bias(self, b_g, b_a):
-        # assert b_g.shape == (3,1) and b_a.shape(3,1)
+        assert b_g.shape == (3,1) and b_a.shape(3,1)
         self.x[xB_A:xB_A+3] = b_g
         self.x[xB_G:xB_G+3] = b_a
 
@@ -186,8 +208,6 @@ class VI_EKF():
         # Add three states to the process noise matrix
         self.Qx = scipy.linalg.block_diag(self.Qx, self.Qx_feat)
         self.P = scipy.linalg.block_diag(self.P, self.P0_feat)
-
-        # self.q_zeta = Quaternion().from_two_unit_vectors(zeta, self.khat)
 
         return self.next_feature_id - 1
 
@@ -219,9 +239,7 @@ class VI_EKF():
 
         pdot = q_I_b.invrot(vel)
         vdot = skew(vel).dot(omega) - mu*vel + acc_z + q_I_b.invrot(self.gravity)
-        # vdot = np.zeros((3,1))
         qdot = omega
-
 
         feat_dot = np.zeros((3*self.len_features, 1))
         for i in range(self.len_features):
@@ -441,3 +459,4 @@ class VI_EKF():
 
 
         return h, dhdx
+

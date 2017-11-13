@@ -136,7 +136,7 @@ if __name__ == '__main__':
                              [0.0],
                              [0.0]])
     errors = 0
-    for i in tqdm(range(100)):
+    for i in tqdm(range(10)):
         # Set nominal Values for x0
         x0 = np.zeros((xZ, 1))
         x0[xATT] = 1
@@ -179,4 +179,7 @@ if __name__ == '__main__':
         errors += dfdu_test(x, u, ekf)
         errors += all_h_tests(x, u, ekf)
 
-    print('total errors %d' % errors)
+    if errors == 0:
+        print(bcolors.OKGREEN + "[PASSED]" + bcolors.ENDC)
+    else:
+        print(bcolors.FAIL + "[FAILED] %d tests" % errors)

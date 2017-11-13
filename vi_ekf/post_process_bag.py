@@ -28,6 +28,13 @@ x0 = np.concatenate([data['truth_NED']['pos'][truth_start_index,:,None],
 
 ekf = VI_EKF(x0)
 
+# Load Sensor Noise Matrices
+R_acc = data['R_acc']
+R_alt = data['R_alt']
+R_feat = data['R_feat']
+R_depth = data['R_depth']
+R_alt = data['R_alt']
+
 
 for i in range(1):
     ekf.init_feature(data['features']['zeta'][truth_start_index,i,:,None], data['features']['depth'][truth_start_index,i])
@@ -60,6 +67,15 @@ for i, t in enumerate(tqdm(data['imu_data']['t'])):
     est_zeta.append(ekf.get_zeta())
     est_depth.append(ekf.get_depth())
     est_qzeta.append(ekf.get_qzeta())
+
+    # Update Step
+    # TODO: Measurement throttling, Delayed Update
+    # ekf.update(data['imu_data']['acc'][i,:2], 'acc', R_acc)
+    # ekf.update(data['alt']['alt'][i,:], 'alt', R_alt)
+    # ekf.update(data['features']['zeta'][i, :], 'feat', R_feat)
+    # ekf.update(data['features']['depth'][i, :], 'depth', R_depth)
+    # ekf.update(1.0/data['features']['depth'][i, :], 'inv_depth', R_alt)
+
 
     # if i % 30 == 0 and True:
     #     q_I_b = Quaternion(xhat[6:10])

@@ -10,7 +10,7 @@ def skew(v):
 
 # Creates 3x2 projection matrix onto the plane perpendicular to zeta
 def T_zeta(q_zeta):
-    # assert q_zeta.shape == (4,1)
+    assert q_zeta.shape == (4,1)
 
     quat_zeta = Quaternion(q_zeta)
     return quat_zeta.R.T[:,0:2]

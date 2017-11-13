@@ -12,18 +12,18 @@ zeta /= scipy.linalg.norm(zeta)
 ekf.init_feature(zeta, np.abs(np.random.randn(1))[0] * 10)
 
 np.set_printoptions(suppress=True, linewidth=300, threshold=1000)
-acc = np.array([[  1.04120597e-02],
-               [ -6.93710705e-03],
-               [ -9.80664202e+00]])
-gyro = np.array([[ 0.03629203],
-                   [ 0.0544231 ],
-                   [-0.03629203]])
-# acc = np.array([[ 0],
-#                [ 0],
-#                [ -9.80665]])
-# gyro = np.array([[ 0.0],
-#                    [ 0.0 ],
-#                    [ 0.0]])
+# acc = np.array([[  1.04120597e-02],
+#                [ -6.93710705e-03],
+#                [ -9.80664202e+00]])
+# gyro = np.array([[ 0.03629203],
+#                    [ 0.0544231 ],
+#                    [-0.03629203]])
+acc = np.array([[ 0],
+               [ 0],
+               [ -9.80665]])
+gyro = np.array([[ 0.0],
+                   [ 0.0 ],
+                   [ 0.0]])
 x = ekf.x
 # x = ekf.propagate(acc, gyro, 0.01)
 u = np.vstack([acc[2], gyro])
@@ -84,26 +84,41 @@ print_error('dxRHO_i','uG', 1, 3, dfdu_err)
 
 def htest(fn, **kwargs):
 
+    indexes = {'dxPOS': [0, 3],
+               'dxVEL': [3, 6],
+               'dxATT': [6, 9],
+               'dxB_A': [9, 12],
+               'dxB_G': [12, 15],
+               'dxMU':  [15, 16],
+               'dxZETA': [16, 18],
+               'dxRHO': [18, 19]}
+
+
+
     # try:
-    analytical = fn(x, **kwargs)[1]
+    x0, analytical = fn(x, **kwargs)
     finite_difference = np.zeros_like(analytical)
     I = np.eye(finite_difference.shape[1])
-    epsilon = 1e-8
-    for i in range(finite_difference.shape[1]):
+    epsilon = 1e-1
+    # for i in range(finite_difference.shape[1]):
+    for j in range(3):
+        i = j + dxB_G
         x_prime = ekf.boxplus(x, (I[i] * epsilon)[:, None])
-        finite_difference[:, i] = ((fn(x_prime, **kwargs)[0] - fn(x, **kwargs)[0]) / epsilon)[:, 0]
+        finite_difference[:, i] = ((fn(x_prime, **kwargs)[0] - x0) / epsilon)[:, 0]
 
     error = analytical - finite_difference
-    if np.max(error) > 1e-4:
-        print '\nError in ', fn.__name__
-        print error
+    for key, item in indexes.iteritems():
+        block_error = error[:,item[0]:item[1]]
+        if np.max(block_error) > 1e-4:
+            print '\nError in ', fn.__name__, key
+            print block_error
     # except Exception as e:
     #     print 'error:', e
 
 
-htest(ekf.h_acc)
-htest(ekf.h_alt)
-htest(ekf.h_feat, i=0)
-htest(ekf.h_depth, i=0)
-htest(ekf.h_inv_depth, i=0)
+# htest(ekf.h_acc)
+# htest(ekf.h_alt)
+# htest(ekf.h_feat, i=0)
+# htest(ekf.h_depth, i=0)
+# htest(ekf.h_inv_depth, i=0)
 htest(ekf.h_pixel_vel, i=0, u=u)

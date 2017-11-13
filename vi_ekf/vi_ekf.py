@@ -108,8 +108,7 @@ class VI_EKF():
 
     # Adds the state with the delta state on the manifold
     def boxplus(self, x, dx):
-        if not ( x.shape == (xZ+5*self.len_features, 1) and dx.shape == (dxZ+3*self.len_features, 1)):
-            debug = 1
+        assert  x.shape == (xZ+5*self.len_features, 1) and dx.shape == (dxZ+3*self.len_features, 1)
 
         out = np.zeros((xZ+5*self.len_features, 1))
 
@@ -377,12 +376,12 @@ class VI_EKF():
     # Returns estimated measurement (3x1) and Jacobian (3 x 16+3N)
     def h_feat(self, x, i):
         assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int)
-        q_c_z = Quaternion(x[xZ+i*5:xZ+i*5+4])
+        q_c_z = x[xZ+i*5:xZ+i*5+4]
 
-        h = q_c_z.rot(self.khat)
+        h = Quaternion(q_c_z).rot(self.khat)
 
         dhdx = np.zeros((3, dxZ+3*self.len_features))
-        dhdx[:, dxZ+i*3:dxZ+i*3+3] = -skew(h)
+        dhdx[:, dxZ+i*3:dxZ+i*3+2] = -skew(h).dot(T_zeta(q_c_z))
 
         return h, dhdx
 
@@ -424,14 +423,18 @@ class VI_EKF():
         sk_vel = skew(vel)
         sk_ez = skew(self.khat)
         sk_zeta = skew(zeta)
+        I_zz = np.eye(3)-zeta.dot(zeta.T)
+        R_b_c = self.q_b_c.R
 
         # TODO: Need to convert to camera dynamics
 
-        h = -self.focal_len*I_2x3.dot(sk_ez).dot(np.eye(3)-zeta.dot(zeta.T)).dot(rho*(sk_zeta.dot(vel) + omega))
+        h = -self.focal_len*I_2x3.dot(sk_ez).dot(I_zz).dot(rho*(sk_zeta.dot(vel) + omega))
 
         dhdx = np.zeros((2,dxZ+3*self.len_features))
         dhdx[:,dxVEL:dxVEL+3] = -self.focal_len*rho*I_2x3.dot(sk_ez).dot(sk_zeta)
         dhdx[:,dxZ+3*i:dxZ+3*i+2] = self.focal_len*rho*I_2x3.dot(sk_ez).dot(sk_vel).dot(sk_zeta).dot(T_zeta(q_c_z))
         dhdx[:,dxZ+3*i+2,None] = -self.focal_len*I_2x3.dot(sk_ez).dot(sk_zeta).dot(vel)
+        # dhdx[:,dxB_G:dxB_G+3] = self.focal_len*I_2x3.dot(sk_ez).dot(I_zz).dot(R_b_c - rho*sk_zeta.dot(R_b_c).dot(skew(self.p_b_c)))
+        dhdx[:, dxB_G:dxB_G + 3] = self.focal_len * I_2x3.dot(sk_ez).dot(I_zz)
 
         return h, dhdx

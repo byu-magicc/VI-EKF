@@ -150,7 +150,7 @@ class VI_EKF():
             qzeta = x[xFEAT:xRHO,:] # 4-vector quaternion
 
             # Feature Quaternion States (use manifold)
-            out[xFEAT:xRHO,:] = (Quaternion(qzeta).inverse + T_zeta(qzeta).dot(dqzeta)).inverse.elements
+            out[xFEAT:xRHO,:] = (Quaternion(qzeta).inverse + (-T_zeta(qzeta).dot(dqzeta))).inverse.elements
 
             # Inverse Depth State
             out[xRHO,:] = x[xRHO] + dx[dxRHO]
@@ -182,8 +182,6 @@ class VI_EKF():
 
         # Feature Points need a slightly modified update process because of the non-vectorness of the measurement
         zhat, H = self.measurement_functions[measurement_type](self.x, **kwargs)
-        if not np.isfinite(R + H.dot(self.P).dot(H.T)).any():
-            debug = 1
         K = self.P.dot(H.T).dot(scipy.linalg.inv(R + H.dot(self.P).dot(H.T)))
 
         if not passive_update:

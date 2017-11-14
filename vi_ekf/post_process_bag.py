@@ -12,8 +12,8 @@ data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
 # generate_data()
 # data = cPickle.load(open('generated_data.pkl', 'rb'))
 
-start = 2.0
-end = 4.0
+start = 1.0
+end = 7.0
 truth_start_index = np.argmax(data['truth_NED']['t'] > start)
 
 

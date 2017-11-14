@@ -117,13 +117,13 @@ class Quaternion():
 
         norm_v = norm(v)
         # If we aren't going to run into numerical issues
-        if norm_v > 1e-4:
-            v = np.sin(norm_v / 2.) * v / norm_v
-            exp_quat = Quaternion([np.cos(norm_v / 2.0), v[0, 0], v[1, 0], v[2, 0]])
-        else:
-            v = v / 2.0
-            exp_quat = Quaternion([1.0, v[0, 0], v[1, 0], v[2, 0]])
-            exp_quat.normalize()
+        # if norm_v > 1e-4:
+        #     v = np.sin(norm_v / 2.) * v / norm_v
+        #     exp_quat = Quaternion([np.cos(norm_v / 2.0), v[0, 0], v[1, 0], v[2, 0]])
+        # else:
+        v = v / 2.0
+        exp_quat = Quaternion([1.0, v[0, 0], v[1, 0], v[2, 0]])
+        exp_quat.normalize()
         return exp_quat
 
     @staticmethod
@@ -170,7 +170,7 @@ class Quaternion():
                          [(2.0*(x*y - w*z)) * v[0,0] + (1.0 - 2.0*x*x - 2.0*z*z) * v[1,0] + 2.0*(y*z + w*x)*v[2,0]],
                          [(2.0*(x*z + w*y)) * v[0,0] + 2.0*(y*z - w*x)*v[1,0] + (1.0 - 2.0*x*x - 2.0*y*y)*v[2,0]]])
 
-    def invert(self):
+    def inv(self):
         self.arr[1:] *= -1.0
 
     @property

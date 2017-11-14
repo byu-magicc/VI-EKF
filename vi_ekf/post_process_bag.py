@@ -44,7 +44,7 @@ estimate = []
 est_zeta = []
 est_qzeta = []
 est_depth = []
-end = 120.0
+end = 25.0
 
 estimate.append(ekf.x)
 est_zeta.append(ekf.get_zeta())
@@ -80,7 +80,7 @@ for i, t in enumerate(tqdm(data['imu_data']['t'])):
     # if i % 30 == 0 and True:
     #     q_I_b = Quaternion(xhat[6:10])
     #     plot_cube(q_I_b, est_zeta[-1], data['features']['zeta'][i])
-
+quit()
 # convert lists to np arrays
 estimate = np.array(estimate)
 est_zeta = np.array(est_zeta)

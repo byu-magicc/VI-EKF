@@ -3,6 +3,41 @@ import numpy as np
 def norm(v):
     return np.sqrt(np.sum(v*v))
 
+cross_matrix = np.array([[[0, 0, 0],
+                          [0, 0, -1.0],
+                          [0, 1.0, 0]],
+                         [[0, 0, 1.0],
+                          [0, 0, 0],
+                          [-1.0, 0, 0]],
+                         [[0, -1.0, 0],
+                          [1, 0, 0],
+                          [0, 0, 0]]])
+
+qmat_matrix = np.array([[[1.0, 0, 0, 0],
+                         [0, -1.0, 0, 0],
+                         [0, 0, -1.0, 0],
+                         [0, 0, 0, -1.0]],
+                        [[0, 1.0, 0, 0],
+                         [1.0, 0, 0, 0],
+                         [0, 0, 0, -1.0],
+                         [0, 0, 1.0, 0]],
+                        [[0, 0, 1.0, 0],
+                         [0, 0, 0, 1.0],
+                         [1.0, 0, 0, 0],
+                         [0, -1.0, 0, 0]],
+                        [[0, 0, 0, 1.0],
+                         [0, 0, -1.0, 0],
+                         [0, 1.0, 0, 0],
+                         [1.0, 0, 0, 0]]])
+
+
+def skew(v):
+    assert v.shape == (3, 1)
+    return cross_matrix.dot(v).squeeze()
+
+
+
+
 class Quaternion():
     def __init__(self, *args):
         if len(args) == 0:
@@ -20,7 +55,15 @@ class Quaternion():
     def __mul__(self, other):
         return self.otimes(other)
 
+    def __imul__(self, other):
+        self.arr = qmat_matrix.dot(other.arr).squeeze().dot(self.arr)
+        return self
+
     def __add__(self, other):
+        q_new = Quaternion(self.arr.copy())
+        return q_new.boxplus(other)
+
+    def __iadd__(self, other):
         return self.boxplus(other)
 
     @property
@@ -133,7 +176,7 @@ class Quaternion():
             self.arr = np.array([[1., 0., 0., 0.]]).T
         else:
             invs = (2.0*(1.0+d))**-0.5
-            xyz = np.cross(u, v, axis=0)*invs.squeeze()
+            xyz = skew(u).dot(v)*invs.squeeze()
             self.arr[0,0]=0.5/invs
             self.arr[1:,:] = xyz
             self.normalize()
@@ -143,14 +186,18 @@ class Quaternion():
         # assert isinstance(q, Quaternion)
         # q = q.copy()
 
-        w = self.arr[0,0]
-        x = self.arr[1,0]
-        y = self.arr[2,0]
-        z = self.arr[3,0]
-        return Quaternion([w * q.w - x * q.x - y * q.y - z * q.z,
-                           w * q.x + x * q.w - y * q.z + z * q.y,
-                           w * q.y + x * q.z + y * q.w - z * q.x,
-                           w * q.z - x * q.y + y * q.x + z * q.w])
+        # w = self.arr[0,0]
+        # x = self.arr[1,0]
+        # y = self.arr[2,0]
+        # z = self.arr[3,0]
+        # q_known = Quaternion([w * q.w - x * q.x - y * q.y - z * q.z,
+        #                       w * q.x + x * q.w - y * q.z + z * q.y,
+        #                       w * q.y + x * q.z + y * q.w - z * q.x,
+        #                       w * q.z - x * q.y + y * q.x + z * q.w])
+
+        q_try = Quaternion(qmat_matrix.dot(q.arr).squeeze().dot(self.arr))
+
+        return q_try
 
     def boxplus(self, delta):
         # assert delta.shape == (3,1)
@@ -162,11 +209,11 @@ class Quaternion():
         if norm_delta > 1e-4:
             v = np.sin(norm_delta / 2.) * (delta / norm_delta)
             dquat = Quaternion([np.cos(norm_delta/2.0), v[0,0], v[1,0], v[2,0]])
-            self.arr = (self * dquat).elements
+            self *= dquat
         else:
             v = (delta / 2.0)
             dquat = Quaternion([1.0, v[0,0], v[1,0], v[2,0]])
-            self.arr = (self * dquat).elements
+            self *= dquat
             self.normalize()
         return self
 

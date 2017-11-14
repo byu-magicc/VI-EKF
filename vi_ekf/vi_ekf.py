@@ -250,10 +250,10 @@ class VI_EKF():
         acc_z = np.array([[0, 0, y_acc_z]]).T
         mu = x[xMU, 0]
 
-        # pdot = q_I_b.invrot(vel)
-        # vdot = skew(vel).dot(omega) - mu*vel + acc_z + q_I_b.invrot(self.gravity)
-        pdot = np.zeros((3,1))
-        vdot = np.zeros((3, 1))
+        pdot = q_I_b.invrot(vel)
+        vdot = skew(vel).dot(omega) - mu*vel + acc_z + q_I_b.invrot(self.gravity)
+        # pdot = np.zeros((3,1))
+        # vdot = np.zeros((3, 1))
         qdot = omega
 
         feat_dot = np.zeros((3*self.len_features, 1))

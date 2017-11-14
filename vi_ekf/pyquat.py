@@ -1,5 +1,7 @@
 import numpy as np
-import scipy.linalg
+
+def norm(v):
+    return np.sqrt(np.sum(v*v))
 
 class Quaternion():
     def __init__(self, *args):
@@ -7,7 +9,7 @@ class Quaternion():
             self.arr = np.array([[1., 0., 0., 0.]]).T
         elif isinstance(args[0], np.ndarray):
             assert args[0].shape == (4,1)
-            self.arr = args[0].copy()
+            self.arr = args[0]
         elif len(args[0]) == 4:
             self.arr = np.array([args[0]]).T
 
@@ -48,16 +50,26 @@ class Quaternion():
         y = self.arr[2,0]
         z = self.arr[3,0]
 
-        return np.array([[[1. - 2.*y*y - 2.*z*z], [2.*x*y - 2.*z*w], [2.*x*z + 2.*y*w]],
-                         [[2.*x*y + 2.*z*w], [1. - 2.*x*x - 2.*z*z], [2.*y*z - 2.*x*w]],
-                         [[2.*x*z - 2.*y*w], [2.*y*z + 2.*x*w], [1. - 2.*x*x - 2.*y*y]]]).squeeze()
+        wx = w*x
+        wy = w*y
+        wz = w*z
+        xx = x*x
+        xy = x*y
+        xz = x*z
+        yy = y*y
+        yz = y*z
+        zz = z*z
+
+        return np.array([[[1. - 2.*yy - 2.*zz], [2.*xy - 2.*wz], [2.*xz + 2.*wy]],
+                         [[2.*xy + 2.*wz], [1. - 2.*xx - 2.*zz], [2.*yz - 2.*wx]],
+                         [[2.*xz - 2.*wy], [2.*yz + 2.*wx], [1. - 2.*xx - 2.*yy]]]).squeeze()
 
     @staticmethod
     def qexp(v):
         # assert v.shape == (3,1)
         v = v.copy()
 
-        norm_v = scipy.linalg.norm(v)
+        norm_v = norm(v)
         # If we aren't going to run into numerical issues
         if norm_v > 1e-4:
             v = np.sin(norm_v / 2.) * v / norm_v
@@ -73,7 +85,7 @@ class Quaternion():
         return q_copy
 
     def normalize(self):
-        self.arr /= scipy.linalg.norm(self.arr)
+        self.arr /= norm(self.arr)
 
     def rot(self, v):
         assert v.shape == (3,1)
@@ -144,7 +156,7 @@ class Quaternion():
         # assert delta.shape == (3,1)
         delta = delta.copy()
 
-        norm_delta = scipy.linalg.norm(delta)
+        norm_delta = norm(delta)
 
         # If we aren't going to run into numerical issues
         if norm_delta > 1e-4:

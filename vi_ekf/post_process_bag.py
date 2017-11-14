@@ -9,7 +9,7 @@ from generate_data import generate_data
 # read_bag('data/simulated_waypoints.bag')
 #data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
 
-generate_data()
+# generate_data()
 data = cPickle.load(open('generated_data.pkl', 'rb'))
 
 # Find the true data closest to the first imu message
@@ -29,11 +29,11 @@ x0 = np.concatenate([data['truth_NED']['pos'][truth_start_index,:,None],
 ekf = VI_EKF(x0)
 
 # Load Sensor Noise Matrices
-R_acc = data['R_acc']
-R_alt = data['R_alt']
-R_feat = data['R_feat']
-R_depth = data['R_depth']
-R_alt = data['R_alt']
+# R_acc = data['R_acc']
+# R_alt = data['R_alt']
+# R_feat = data['R_feat']
+# R_depth = data['R_depth']
+# R_alt = data['R_alt']
 
 
 for i in range(1):
@@ -44,7 +44,7 @@ estimate = []
 est_zeta = []
 est_qzeta = []
 est_depth = []
-end = 5.0
+end = 120.0
 
 estimate.append(ekf.x)
 est_zeta.append(ekf.get_zeta())

@@ -1,6 +1,6 @@
 import numpy as np
 from pyquat import Quaternion
-from math_helper import skew, T_zeta
+from math_helper import skew, T_zeta, norm
 import scipy.linalg
 import cv2
 
@@ -25,6 +25,7 @@ uG = 1
 
 I_2x3 = np.array([[1, 0, 0],
                   [0, 1, 0]])
+I_3x3 = np.eye(3)
 
 class VI_EKF():
     def __init__(self, x0):
@@ -94,6 +95,10 @@ class VI_EKF():
         self.measurement_functions['pixel_vel'] = self.h_pixel_vel
         self.measurement_functions['depth'] = self.h_depth
         self.measurement_functions['inv_depth'] = self.h_inv_depth
+
+        # Matrix Workspace
+        self.A = np.zeros((dxZ, dxZ))
+        self.G = np.zeros((dxZ, 4))
 
     # Returns the depth to all features
     def get_depth(self):
@@ -184,7 +189,7 @@ class VI_EKF():
             xZETA_i = xZ + 5*i
             T_z = T_zeta(self.x[xZETA_i:xZETA_i+4])
             zhat_x_z = skew(zhat).dot(z)
-            residual = T_z.T.dot(np.arccos(zhat.dot(z.T))*zhat_x_z/scipy.linalg.norm(zhat_x_z))
+            residual = T_z.T.dot(np.arccos(zhat.dot(z.T))*zhat_x_z/norm(zhat_x_z))
 
         # TODO: Do residual saturation here
         self.x += K.dot(residual)
@@ -197,7 +202,7 @@ class VI_EKF():
 
     # Used to initialize a new feature.  Returns the feature id associated with this feature
     def init_feature(self, zeta, depth):
-        assert zeta.shape == (3, 1) and abs(1.0 - scipy.linalg.norm(zeta)) < 1e-5
+        assert zeta.shape == (3, 1) and abs(1.0 - norm(zeta)) < 1e-5
 
         self.len_features += 1
         self.feature_ids.append(self.next_feature_id)
@@ -208,6 +213,10 @@ class VI_EKF():
         # Add three states to the process noise matrix
         self.Qx = scipy.linalg.block_diag(self.Qx, self.Qx_feat)
         self.P = scipy.linalg.block_diag(self.P, self.P0_feat)
+
+        # Set up the matrices to work with
+        self.A = np.zeros((dxZ + 3 * self.len_features, dxZ + 3 * self.len_features))
+        self.G = np.zeros((dxZ + 3 * self.len_features, 4))
 
         return self.next_feature_id - 1
 
@@ -223,6 +232,10 @@ class VI_EKF():
         del self.feature_ids[feature_index]
         self.len_features -= 1
 
+        # Matrix Workspace Modifications
+        self.A = np.zeros((dxZ + 3 * self.len_features, dxZ + 3 * self.len_features))
+        self.G = np.zeros((dxZ+3*self.len_features, 4))
+
     # Determines the derivative of state x given inputs u
     # the returned value of f is a delta state, delta features, and therefore is a different
     # size than the state and features and needs to be applied with boxplus
@@ -237,8 +250,10 @@ class VI_EKF():
         acc_z = np.array([[0, 0, y_acc_z]]).T
         mu = x[xMU, 0]
 
-        pdot = q_I_b.invrot(vel)
-        vdot = skew(vel).dot(omega) - mu*vel + acc_z + q_I_b.invrot(self.gravity)
+        # pdot = q_I_b.invrot(vel)
+        # vdot = skew(vel).dot(omega) - mu*vel + acc_z + q_I_b.invrot(self.gravity)
+        pdot = np.zeros((3,1))
+        vdot = np.zeros((3, 1))
         qdot = omega
 
         feat_dot = np.zeros((3*self.len_features, 1))
@@ -276,21 +291,21 @@ class VI_EKF():
         omega = u[uG:uG+3] - x[xB_G:xB_G+3]
         mu = x[xMU, None]
 
-        A = np.zeros((dxZ+3*self.len_features, dxZ+3*self.len_features))
+
 
         # Position Partials
-        A[dxPOS:dxPOS+3, dxVEL:dxVEL+3] = q_I_b.R
-        A[dxPOS:dxPOS+3, dxATT:dxATT+3] = -skew(q_I_b.invrot(vel))
+        self.A[dxPOS:dxPOS+3, dxVEL:dxVEL+3] = q_I_b.R
+        self.A[dxPOS:dxPOS+3, dxATT:dxATT+3] = -skew(q_I_b.invrot(vel))
 
         # Velocity Partials
-        A[dxVEL:dxVEL+3, dxVEL:dxVEL+3] = -skew(omega) - mu * np.eye(3)
-        A[dxVEL:dxVEL+3, dxATT:dxATT+3] = -skew(q_I_b.invrot(self.gravity))
-        A[dxVEL:dxVEL+3, dxB_A:dxB_A+3] = -self.khat.dot(self.khat.T)
-        A[dxVEL:dxVEL+3, dxB_G:dxB_G+3] = -skew(vel)
-        A[dxVEL:dxVEL+3, dxMU, None] = -vel
+        self.A[dxVEL:dxVEL+3, dxVEL:dxVEL+3] = -skew(omega) - mu * I_3x3
+        self.A[dxVEL:dxVEL+3, dxATT:dxATT+3] = -skew(q_I_b.invrot(self.gravity))
+        self.A[dxVEL:dxVEL+3, dxB_A:dxB_A+3] = -self.khat.dot(self.khat.T)
+        self.A[dxVEL:dxVEL+3, dxB_G:dxB_G+3] = -skew(vel)
+        self.A[dxVEL:dxVEL+3, dxMU, None] = -vel
 
         # Attitude Partials
-        A[dxATT:dxATT+3, dxB_G:dxB_G+3] = -np.eye(3)
+        self.A[dxATT:dxATT+3, dxB_G:dxB_G+3] = -I_3x3
 
         # Accel Bias Partials (constant)
         # Gyro Bias Partials (constant)
@@ -315,31 +330,32 @@ class VI_EKF():
             R_b_c = self.q_b_c.R
 
             # Bearing Quaternion Partials
-            A[dxZETA_i:dxZETA_i+2, dxVEL:dxVEL+3] = rho*T_z.T.dot(skew_zeta).dot(R_b_c)
-            A[dxZETA_i:dxZETA_i+2, dxB_G:dxB_G+3] = T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(skew(self.p_b_c)) - R_b_c)
-            A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = T_z.T.dot(skew(omega_c_i - rho*skew_vel_c.dot(zeta)) + (rho*skew_vel_c.dot(skew_zeta))).dot(T_z)
-            A[dxZETA_i:dxZETA_i+2, dxRHO_i,None] = T_z.T.dot(skew_zeta).dot(vel_c_i)
+            self.A[dxZETA_i:dxZETA_i+2, dxVEL:dxVEL+3] = rho*T_z.T.dot(skew_zeta).dot(R_b_c)
+            self.A[dxZETA_i:dxZETA_i+2, dxB_G:dxB_G+3] = T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(skew(self.p_b_c)) - R_b_c)
+            self.A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = T_z.T.dot(skew(omega_c_i - rho*skew_vel_c.dot(zeta)) + (rho*skew_vel_c.dot(skew_zeta))).dot(T_z)
+            self.A[dxZETA_i:dxZETA_i+2, dxRHO_i,None] = T_z.T.dot(skew_zeta).dot(vel_c_i)
 
             # Inverse Depth Partials
-            A[dxRHO_i, dxVEL:dxVEL+3] = rho*rho*zeta.T.dot(R_b_c)
-            A[dxRHO_i, dxB_G:dxB_G+3] = rho*rho*zeta.T.dot(R_b_c).dot(skew(self.p_b_c))
-            A[dxRHO_i, dxZETA_i:dxZETA_i+2] = rho*rho*vel_c_i.T.dot(skew_zeta).dot(T_z)
-            A[dxRHO_i, dxRHO_i] = 2*rho*zeta.T.dot(vel_c_i).squeeze()
+            rho2 = rho*rho
+            self.A[dxRHO_i, dxVEL:dxVEL+3] = rho2*zeta.T.dot(R_b_c)
+            self.A[dxRHO_i, dxB_G:dxB_G+3] = rho2*zeta.T.dot(R_b_c).dot(skew(self.p_b_c))
+            self.A[dxRHO_i, dxZETA_i:dxZETA_i+2] = rho2*vel_c_i.T.dot(skew_zeta).dot(T_z)
+            self.A[dxRHO_i, dxRHO_i] = 2*rho*zeta.T.dot(vel_c_i).squeeze()
 
-        return A
+        return self.A
 
     # Calculates the jacobian of the state dynamics with respect to the input noise.
     # this is used in propagating the state, and will return a matrix of size 16+3N x 4
     def dfdu(self, x):
         assert x.shape == (xZ+5*self.len_features, 1)
-        G = np.zeros((dxZ+3*self.len_features, 4))
+
 
         vel = x[xVEL:xVEL+3]
         q_I_b = Quaternion(x[xATT:xATT+4])
 
         # State partials
-        G[dxVEL:dxATT, uA, None] = self.khat
-        G[dxVEL:dxATT, uG:] = skew(vel)
+        self.G[dxVEL:dxATT, uA, None] = self.khat
+        self.G[dxVEL:dxATT, uG:] = skew(vel)
 
         # Feature Partials
         for i in range(self.len_features):
@@ -354,10 +370,10 @@ class VI_EKF():
             R_b_c = self.q_b_c.R
             skew_p_b_c = skew(self.p_b_c)
 
-            G[dxZETA_i:dxZETA_i+2, uG:uG+3] = T_zeta(q_zeta).T.dot(R_b_c - rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c))
-            G[dxRHO_i, uG:] = rho*rho*zeta.T.dot(R_b_c).dot(skew_p_b_c)
+            self.G[dxZETA_i:dxZETA_i+2, uG:uG+3] = T_zeta(q_zeta).T.dot(R_b_c - rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c))
+            self.G[dxRHO_i, uG:] = rho*rho*zeta.T.dot(R_b_c).dot(skew_p_b_c)
 
-        return G
+        return self.G
 
     # Accelerometer model
     # Returns estimated measurement (2 x 1) and Jacobian (2 x 16+3N)

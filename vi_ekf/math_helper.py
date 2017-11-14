@@ -1,6 +1,9 @@
 from pyquat import Quaternion
 import numpy as np
 
+def norm(v):
+    return np.sqrt(np.sum(v*v))
+
 # Creates the skew-symmetric matrix from v
 def skew(v):
     assert v.shape == (3,1)

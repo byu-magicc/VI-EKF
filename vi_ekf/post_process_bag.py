@@ -2,20 +2,19 @@ import cPickle
 from vi_ekf import *
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from plot_helper import plot_cube
+from plot_helper import plot_cube, plot_side_by_side
 from generate_data import generate_data
-#from bag_loader import read_bag
+from bag_loader import read_bag
 
 # read_bag('data/simulated_waypoints.bag')
-#data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
+data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
 
 # generate_data()
-data = cPickle.load(open('generated_data.pkl', 'rb'))
+# data = cPickle.load(open('generated_data.pkl', 'rb'))
 
-# Find the true data closest to the first imu message
-# t0 = data['imu_data']['t'][0]
-# truth_start_index = np.argmax(data['truth_NED']['t'] > t0)
-truth_start_index = 0
+start = 2.0
+end = 4.0
+truth_start_index = np.argmax(data['truth_NED']['t'] > start)
 
 
 # State: pos, vel, att, b_gyro, b_acc, mu
@@ -30,9 +29,12 @@ ekf = VI_EKF(x0)
 
 # Load Sensor Noise Matrices
 # R_acc = data['R_acc']
-# R_alt = data['R_alt']
-# R_feat = data['R_feat']
-# R_depth = data['R_depth']
+R_alt = 0.01
+R_acc = np.diag([0.01, 0.01])
+R_att = np.diag([0.0001, 0.0001, 0.0001])
+R_pos = np.diag([0.0001,0.0001, 0.0001])
+R_feat = np.diag([0.0001, 0.0001])
+R_depth = 0.01
 # R_alt = data['R_alt']
 
 
@@ -41,18 +43,57 @@ for i in range(1):
 
 prev_time = 0
 estimate = []
+cov = []
 est_zeta = []
 est_qzeta = []
 est_depth = []
-end = 25.0
+est_t = []
 
-estimate.append(ekf.x)
-est_zeta.append(ekf.get_zeta())
-est_depth.append(ekf.get_depth())
-est_qzeta.append(ekf.get_qzeta())
+
+alt_index = 0
+alt_zhat = []
+alt_zhat_t = []
+while data['alt']['t'][alt_index] < start:
+    alt_index += 1
+
+acc_index = 0
+acc_zhat = []
+acc_zhat_t = []
+while data['imu_data']['t'][acc_index] < start:
+    acc_index += 1
+
+att_index = 0
+att_zhat = []
+att_zhat_t = []
+while data['truth_NED']['t'][att_index] < start:
+    att_index += 1
+
+pos_index = 0
+pos_zhat = []
+pos_zhat_t = []
+while data['truth_NED']['t'][pos_index] < start:
+    pos_index += 1
+
+feat_index = 0
+feat_zhat = [[] for i in range(ekf.len_features)]
+feat_zhat_t = []
+while data['features']['t'][feat_index] < start:
+    feat_index += 1
+
+depth_index = 0
+depth_zhat = [[] for i in range(ekf.len_features)]
+depth_zhat_t = []
+while data['features']['t'][depth_index] < start:
+    depth_index += 1
+
+# estimate.append(ekf.x)
+# est_zeta.append(ekf.get_zeta())
+# est_depth.append(ekf.get_depth())
+# est_qzeta.append(ekf.get_qzeta())
+
 
 for i, t in enumerate(tqdm(data['imu_data']['t'])):
-    if prev_time == 0:
+    if prev_time == 0 or t <= start:
         prev_time = t
         continue
     if t > end:
@@ -62,135 +103,106 @@ for i, t in enumerate(tqdm(data['imu_data']['t'])):
     prev_time = t
 
     # Propagation step
-    xhat = ekf.propagate(data['imu_data']['acc'][i,:, None], data['imu_data']['gyro'][i,:, None], dt)
+    xhat, P = ekf.propagate(data['imu_data']['acc'][i,:, None], data['imu_data']['gyro'][i,:, None], dt)
     estimate.append(xhat)
+    cov.append(P)
+    est_t.append(t)
     est_zeta.append(ekf.get_zeta())
     est_depth.append(ekf.get_depth())
     est_qzeta.append(ekf.get_qzeta())
 
     # Update Step
     # TODO: Measurement throttling, Delayed Update
-    # ekf.update(data['imu_data']['acc'][i,:2], 'acc', R_acc)
-    # ekf.update(data['alt']['alt'][i,:], 'alt', R_alt)
-    # ekf.update(data['features']['zeta'][i, :], 'feat', R_feat)
-    # ekf.update(data['features']['depth'][i, :], 'depth', R_depth)
-    # ekf.update(1.0/data['features']['depth'][i, :], 'inv_depth', R_alt)
+
+    while data['alt']['t'][alt_index] <= t:
+        alt_zhat.append(ekf.update(data['alt']['alt'][alt_index], 'alt', R_alt, passive=True))
+        alt_zhat_t.append(t)
+        alt_index += 1
+
+    while data['imu_data']['t'][acc_index] <= t:
+        acc_zhat.append(ekf.update(data['imu_data']['acc'][acc_index, :2, None], 'acc', R_acc, passive=True))
+        acc_zhat_t.append(t)
+        acc_index += 1
+
+    while data['truth_NED']['t'][att_index] <= t:
+        att_zhat.append(ekf.update(data['truth_NED']['att'][att_index, :, None], 'att', R_att, passive=True))
+        att_zhat_t.append(t)
+        att_index += 1
+
+    while data['truth_NED']['t'][pos_index] <= t:
+        pos_zhat.append(ekf.update(data['truth_NED']['pos'][pos_index, :, None], 'pos', R_pos, passive=True))
+        pos_zhat_t.append(t)
+        pos_index += 1
+
+    while data['features']['t'][feat_index] <= t:
+        for k in range(ekf.len_features):
+            feat_zhat[k].append(ekf.update(data['features']['zeta'][feat_index, k, :, None], 'feat', R_feat, passive=True, i=k))
+        feat_zhat_t.append(t)
+        feat_index += 1
+
+    while data['features']['t'][depth_index] <= t:
+        for k in range(ekf.len_features):
+            depth_zhat[k].append(
+                ekf.update(data['features']['depth'][depth_index, k, None], 'depth', R_depth, passive=True, i=k))
+        depth_zhat_t.append(t)
+        depth_index += 1
 
 
     # if i % 30 == 0 and True:
     #     q_I_b = Quaternion(xhat[6:10])
     #     plot_cube(q_I_b, est_zeta[-1], data['features']['zeta'][i])
-quit()
+
 # convert lists to np arrays
+est_t = np.array(est_t)
 estimate = np.array(estimate)
+cov = np.array(cov)
 est_zeta = np.array(est_zeta)
 est_depth = np.array(est_depth)
 est_qzeta = np.array(est_qzeta)
 
-imu_t = data['imu_data']['t']
-est_t = data['imu_data']['t'][imu_t < end]
-gyro = data['imu_data']['gyro'][imu_t < end]
-acc = data['imu_data']['acc'][imu_t < end]
-# b_acc = [data['imu_acc_bias']['t'][data['imu_acc_bias']['t'] < end], data['imu_acc_bias']['v'][data['imu_acc_bias']['t'] < end]]
-# b_gyro = [data['imu_gyro_bias']['t'][data['imu_gyro_bias']['t'] < end], data['imu_gyro_bias']['v'][data['imu_gyro_bias']['t'] < end]]
+alt_zhat = np.array(alt_zhat)
+alt_zhat_t = np.array(alt_zhat_t)
+att_zhat = np.array(att_zhat)
+att_zhat_t = np.array(att_zhat_t)
+acc_zhat = np.array(acc_zhat)
+acc_zhat_t = np.array(acc_zhat_t)
+pos_zhat = np.array(pos_zhat)
+pos_zhat_t = np.array(pos_zhat_t)
+feat_zhat = np.array(feat_zhat)
+feat_zhat_t = np.array(feat_zhat_t)
+depth_zhat = np.array(depth_zhat)
+depth_zhat_t = np.array(depth_zhat_t)
 
-truth_t = data['truth_NED']['t']
-truth_pos = data['truth_NED']['pos'][truth_t < end]
-truth_vel = data['truth_NED']['vel'][truth_t < end]
-truth_att = data['truth_NED']['att'][truth_t < end]
-truth_t = truth_t[truth_t < end]
 
-truth_feature_t = data['features']['t']
-truth_zeta = data['features']['zeta'][truth_feature_t < end, :, :]
-truth_depth = data['features']['depth'][truth_feature_t < end, :]
-truth_feature_t = truth_feature_t[truth_feature_t < end]
+# Plot States
+plot_side_by_side('pos', xPOS, xPOS+3, est_t, estimate, cov=cov, truth_t=data['truth_NED']['t'], truth=data['truth_NED']['pos'], labels=['x','y','z'])
+plot_side_by_side('vel', xVEL, xVEL+3, est_t, estimate, cov=cov, truth_t=data['truth_NED']['t'], truth=data['truth_NED']['vel'], labels=['x','y','z'])
+plot_side_by_side('att', xATT, xATT+4, est_t, estimate, cov=None, truth_t=data['truth_NED']['t'], truth=data['truth_NED']['att'], labels=['w','x','y','z'])
+plot_side_by_side('gyro_bias', xB_G, xB_G+3, est_t, estimate, cov=cov, truth_t=data['imu_gyro_bias']['t'], truth=data['imu_gyro_bias']['v'], labels=['x','y','z'])
+plot_side_by_side('acc_bias', xB_A, xB_A+3, est_t, estimate, cov=cov, truth_t=data['imu_acc_bias']['t'], truth=data['imu_acc_bias']['v'], labels=['x','y','z'])
+plot_side_by_side('mu', xMU, xMU+1, est_t, estimate, cov=cov, truth_t=None, truth=None, labels=['mu'])
 
-# Plot
-plt.figure(1)
-plt.subplot(311)
-plt.title('pos')
-plt.plot(est_t, estimate[:,0], label='xhat')
-plt.plot(truth_t, truth_pos[:,0], label='x')
-plt.legend()
-plt.subplot(312)
-plt.plot(est_t, estimate[:,1], label='yhat')
-plt.plot(truth_t, truth_pos[:,1], label='y')
-plt.subplot(313)
-plt.plot(est_t, estimate[:,2], label='zhat')
-plt.plot(truth_t, truth_pos[:,2], label='z')
-
-# plt.figure(2)
-# plt.title('acc')
-# plt.plot(est_t, acc[:,0], label='x')
-# plt.plot(est_t, acc[:,1], label='y')
-# plt.plot(est_t, acc[:,2], label='z')
-#
-# plt.figure(5)
-# plt.title('gyro')
-# plt.plot(est_t, gyro[:,0], label='x')
-# plt.plot(est_t, gyro[:,1], label='y')
-# plt.plot(est_t, gyro[:,2], label='z')
-
-# plt.figure(4)
-# plt.subplot(211)
-# plt.title('acc bias')
-# plt.plot(b_acc[0], b_acc[1][:,0], label='x')
-# plt.plot(b_acc[0], b_acc[1][:,1], label='y')
-# plt.plot(b_acc[0], b_acc[1][:,2], label='z')
-# plt.subplot(212)
-# plt.title('gyro bias')
-# plt.plot(b_gyro[0], b_gyro[1][:,0], label='x')
-# plt.plot(b_gyro[0], b_gyro[1][:,1], label='y')
-# plt.plot(b_gyro[0], b_gyro[1][:,2], label='z')
-
-plt.figure(3)
-plt.subplot(311)
-plt.title('vel')
-plt.plot(est_t, estimate[:,3], label='xhat')
-plt.plot(truth_t, truth_vel[:,0], label='x')
-plt.legend()
-plt.subplot(312)
-plt.plot(est_t, estimate[:,4], label='yhat')
-plt.plot(truth_t, truth_vel[:,1], label='y')
-plt.subplot(313)
-plt.plot(est_t, estimate[:,5], label='zhat')
-plt.plot(truth_t, truth_vel[:,2], label='z')
-
-plt.figure(6)
-plt.subplot(411)
-plt.title('att')
-plt.plot(est_t, estimate[:,6], label='$\hat{w}$')
-plt.plot(truth_t, truth_att[:,0], label='w')
-plt.legend()
-plt.subplot(412)
-plt.plot(est_t, estimate[:,7], label='$\hat{x}')
-plt.plot(truth_t, truth_att[:,1], label='x')
-plt.subplot(413)
-plt.plot(est_t, estimate[:,8], label='yhat')
-plt.plot(truth_t, truth_att[:,2], label='y')
-plt.subplot(414)
-plt.plot(est_t, estimate[:,9], label='zhat')
-plt.plot(truth_t, truth_att[:,3], label='z')
-
-plt.figure(7, figsize=(20,13))
+# Plot features
 for i in range(ekf.len_features):
-    for j in range(3):
-        plt.subplot(4,ekf.len_features,j*ekf.len_features+i+1)
-        plt.plot(est_t, est_zeta[:,i,0], label='xhat')
-        plt.plot(truth_feature_t, truth_zeta[:,i,0], label="x")
-    if i == 0 and j == 0:
-        plt.title('zeta')
-        plt.legend()
-    plt.subplot(4,ekf.len_features,3*ekf.len_features+i+1)
-    plt.title('depth')
-    plt.plot(est_t, est_depth[:,i], label='1/rho hat')
-    plt.plot(truth_feature_t, truth_depth[:,i], label="1/rho")
-    if i == 0:
-        plt.legend()
+    truth_feature = np.hstack((data['features']['zeta'][:,i,:], data['features']['depth'][:,i,None]))
+    est = np.hstack((est_zeta[:,i,:], est_depth[:,i]))
+    plot_side_by_side('zeta_'+str(i), 0, 4, est_t, est, cov=None, truth_t=data['features']['t'], truth=truth_feature, labels=['zx', 'zy', 'zz', 'rho'])
 
+# Plot Inputs
+plot_side_by_side('gyro', 0, 3, data['imu_data']['t'], data['imu_data']['gyro'], labels=['x','y','z'])
+plot_side_by_side('acc', 0, 3, data['imu_data']['t'], data['imu_data']['acc'], labels=['x','y','z'])
 
-plt.show()
-# debug = 1
+# Plot Measurements
+plot_side_by_side('z_alt', 0, 1, alt_zhat_t, alt_zhat, truth_t=data['truth_NED']['t'], truth=-data['truth_NED']['pos'][:,2,None], labels=['z_alt_'])
+plot_side_by_side('z_att', 0, 4, att_zhat_t, att_zhat, truth_t=data['truth_NED']['t'], truth=data['truth_NED']['att'], labels='z_att')
+plot_side_by_side('z_acc', 0, 2, acc_zhat_t, acc_zhat, truth_t=data['imu_data']['t'], truth=data['imu_data']['acc'][:,:2], labels=['x', 'y'])
+plot_side_by_side('z_pos', 0, 2, pos_zhat_t, pos_zhat, truth_t=data['truth_NED']['t'], truth=data['truth_NED']['pos'], labels=['x', 'y', 'z'])
+for i in range(ekf.len_features):
+    plot_side_by_side('z_feat_'+str(i), 0, 3, feat_zhat_t, feat_zhat[i], truth_t=data['features']['t'], truth= data['features']['zeta'][:, i, :], labels=['x', 'y', 'z'])
+    plot_side_by_side('z_rho_'+str(i), 0, 1, depth_zhat_t, depth_zhat[i], truth_t=data['features']['t'], truth= data['features']['depth'][:, i,None], labels=['1/rho'])
+
+# plt.show()
+debug = 1
 
 
 

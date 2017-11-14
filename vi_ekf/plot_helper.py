@@ -4,6 +4,34 @@ import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
 
+def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None, truth=None, labels=None, skip=10):
+    estimate = estimate[:, start:end]
+    if isinstance(cov, np.ndarray):
+        cov_copy = cov[:, start:end, start:end].copy()
+
+    start_t = est_t[0]
+    end_t = est_t[-1]
+
+    if isinstance(truth_t, np.ndarray):
+        truth_t_copy = truth_t[(truth_t > start_t) & (truth_t < end_t)].copy()
+    if isinstance(truth, np.ndarray):
+        truth_copy = truth[(truth_t > start_t) & (truth_t < end_t)].copy()
+
+    plt.figure(figsize=(18, 14))
+    for i in range(end - start):
+        plt.subplot(end-start, 1, i + 1)
+        plt.plot(est_t[::skip], estimate[::skip, i], label=labels[i] + 'hat')
+        if isinstance(cov, np.ndarray):
+            plt.plot(est_t[::skip], estimate[::skip, i] + 2 * cov_copy[::skip, i, i, None], 'k-', alpha=0.5)
+            plt.plot(est_t[::skip], estimate[::skip, i] - 2 * cov_copy[::skip, i, i, None], 'k-', alpha=0.5)
+        if isinstance(truth, np.ndarray):
+            plt.plot(truth_t_copy[::skip], truth_copy[::skip, i], label=labels[i])
+        plt.legend()
+        if i == 0:
+            plt.title(title)
+
+    plt.savefig('plots/'+title+'.png')
+
 def plot_cube(q_I_b, zetas, zeta_truth):
 
     cube = np.array([[-1., -1., -1.],

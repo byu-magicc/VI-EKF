@@ -17,3 +17,4 @@ def T_zeta(q_zeta):
 
     quat_zeta = Quaternion(q_zeta)
     return quat_zeta.R.T[:,0:2]
+

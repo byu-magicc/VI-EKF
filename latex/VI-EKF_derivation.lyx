@@ -1120,9 +1120,9 @@ The derivative of a bearing vector with respect to the quaternion
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\frac{d}{dq_{\zeta}^{c}}\zeta^{c} & =\frac{d}{dq_{\zeta}^{c}}\left(R\left(q_{\zeta}^{c}\right)e_{z}\right)\\
- & =-\left\lfloor R\left(q_{\zeta}^{c}\right)e_{z}\right\rfloor \\
- & =\left\lfloor \zeta\right\rfloor T_{\zeta}
+\begin{aligned}\frac{d}{dq_{\zeta}^{c}}\zeta^{c} & =\frac{d}{dq_{\zeta}^{c}}\left(R\left(q_{\zeta}^{c}\right)^{\top}e_{z}\right)\\
+ & =-\left\lfloor R\left(q_{\zeta}^{c}\right)^{\top}e_{z}\right\rfloor \\
+ & =-T_{\zeta}^{\top}\left\lfloor \zeta\right\rfloor T_{\zeta}
 \end{aligned}
 \]
 
@@ -2272,7 +2272,7 @@ X & Y & Z\end{array}\right]^{\top}$
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\frac{\partial h_{\zeta_{i}}}{\partial q_{c}^{\zeta}}=-\left\lfloor R\left(q_{c}^{\zeta_{i}}\right)e_{z}\right\rfloor 
+\frac{\partial h_{\zeta_{i}}}{\partial q_{c}^{\zeta}}=-\left\lfloor \zeta\right\rfloor T_{\zeta}
 \]
 
 \end_inset
@@ -2409,8 +2409,8 @@ reference "eq:omega_is_derivative_of_q"
 \begin_inset Formula 
 \begin{equation}
 \begin{aligned}h_{\dot{\lambda}}(x,u,\eta_{\dot{\lambda}}) & =I_{2\times3}\left\lfloor \omega_{i}\right\rfloor fe_{z}\\
- & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \omega_{i}\\
- & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta_{i}}\\
+ & =-I_{2\times3}f\left\lfloor e_{z}\right\rfloor \omega_{i}\\
+ & =-I_{2\times3}f\left\lfloor e_{z}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta_{i}}\\
  & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor T_{\zeta}T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\omega_{c/I}^{I}\right)\\
  & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\omega_{c/I}^{I}\right)
 \end{aligned}
@@ -2453,8 +2453,10 @@ reference "eq:pixel_velocity_model"
 \begin{aligned}\frac{\partial h_{\dot{\lambda}}}{\partial q_{c}^{\zeta}} & =\frac{\partial}{\partial q_{c}^{\zeta}}\left(-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\omega_{c/I}^{I}\right)\right)\\
  & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(\frac{\partial}{\partial q_{c}^{\zeta}}\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\frac{\partial}{\partial q_{c}^{\zeta}}\left(I-\zeta\zeta^{\top}\right)\omega_{c/I}^{I}\right)\\
  & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(-\rho_{i}\left\lfloor v_{c/I}^{c}\right\rfloor \left(\zeta_{i}^{c}\right)-\frac{\partial}{\partial q_{c}^{\zeta}}\left(\zeta\zeta^{\top}\right)\omega_{c/I}^{I}\right)\\
- & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(-\rho_{i}\left\lfloor v_{c/I}^{c}\right\rfloor \left(\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\right)-2I\zeta\left(\frac{\partial\zeta}{\partial q_{c}^{\zeta}}\right)\omega_{c/I}^{I}\right)\\
- & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(-\rho_{i}\left\lfloor v_{c/I}^{c}\right\rfloor \left(\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\right)-2I\zeta\left\lfloor \zeta\right\rfloor T_{\zeta}\omega_{c/I}^{I}\right)\\
+ & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(-\rho_{i}\left\lfloor v_{c/I}^{c}\right\rfloor \left(\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\right)-2I\zeta\left(\frac{\partial}{\partial q_{c}^{\zeta}}\zeta\right)\omega_{c/I}^{I}\right)\\
+ & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(-\rho_{i}\left\lfloor v_{c/I}^{c}\right\rfloor \left(\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\right)-2I\zeta\left(\frac{\partial}{\partial q_{c}^{\zeta}}R\left(q_{c}^{\zeta}\right)e_{z}\right)\omega_{c/I}^{I}\right)\\
+ & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(-\rho_{i}\left\lfloor v_{c/I}^{c}\right\rfloor \left(\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\right)-2\left(R\left(q_{c}^{\zeta}\right)e_{z}\right)\left(\left\lfloor R\left(q_{c}^{\zeta}\right)e_{z}\right\rfloor \right)\omega_{c/I}^{I}\right)\\
+ & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(-\rho_{i}\left\lfloor v_{c/I}^{c}\right\rfloor \left(\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\right)-2\left(R\left(q_{c}^{\zeta}\right)e_{z}\right)\left\lfloor R\left(q_{c}^{\zeta}\right)e_{z}\right\rfloor \omega_{c/I}^{I}\right)\\
  & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(-\rho_{i}\left\lfloor v_{c/I}^{c}\right\rfloor \left(\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\right)-0\right)\\
  & =I_{2\times3}\left\lfloor fe_{z}\right\rfloor \rho_{i}\left\lfloor v_{c/I}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}
 \end{aligned}
@@ -2469,7 +2471,26 @@ reference "eq:pixel_velocity_model"
 \begin_inset Formula 
 \[
 \begin{aligned}\frac{\partial h_{\dot{\lambda}}}{\partial\rho} & =\frac{\partial}{\partial\rho}\left(-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\omega_{c/I}^{I}\right)\right)\\
+ & =\frac{\partial}{\partial\rho}\left(-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)\right)\\
  & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+a\begin{aligned}\frac{\partial h_{\dot{\lambda}}}{\partial\beta_{\omega}} & =\frac{\partial}{\partial\beta_{\omega}}\left(-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\omega_{c/I}^{I}\right)\right)\\
+ & =\frac{\partial}{\partial\beta_{\omega}}\left(-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\left(y_{\omega}-\beta_{\omega}\right)\right)\right)\\
+ & =\frac{\partial}{\partial\beta_{\omega}}\left(-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\\
+ & =I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\\
+ & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\frac{\partial}{\partial\beta_{\omega}}\left(R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)-\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(\left\lfloor p_{cb}^{b}\right\rfloor \left(y_{\omega}-\beta_{\omega}\right)\right)\right)\right)\\
+ & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\left(-R\left(q_{b}^{c}\right)+\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor R\left(q_{b}^{c}\right)\left\lfloor p_{cb}^{b}\right\rfloor \right)\\
+ & =I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\left(R\left(q_{b}^{c}\right)-\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor R\left(q_{b}^{c}\right)\left\lfloor p_{cb}^{b}\right\rfloor \right)
 \end{aligned}
 \]
 
@@ -2555,6 +2576,36 @@ h_{\rho}(x,u,\eta_{\rho})=\rho_{i}
 
 \begin_layout Subsection
 Velocity Measurement
+\end_layout
+
+\begin_layout Standard
+If we employ an some measurement of body-fixed velocity, 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+h_{v}\left(x,u,\eta_{v}\right)=v_{b/I}^{b}+\eta_{v}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial h_{v}}{\partial v_{b/i}^{b}}=I\in\mathbb{R}^{3\times3}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Attitude Measurement
 \end_layout
 
 \begin_layout Standard

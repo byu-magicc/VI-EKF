@@ -53,7 +53,7 @@ def generate_data():
                           [1, 0, 1],
                           [1, 1, 1]])
 
-    landmarks = np.random.uniform(-25, 25, (25, 3))
+    landmarks = np.random.uniform(-25, 25, (2, 3))
                           #[0, 9, 1],
                           #[2, 3, 5]
 

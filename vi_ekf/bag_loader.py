@@ -20,6 +20,8 @@ def read_bag(filename):
     data['imu_data']['acc'] = []
     data['imu_data']['gyro'] = []
 
+    data['alt'] = {'t': [], 'alt': []}
+
     data['perfect_imu_data'] = dict()
     data['perfect_imu_data']['t'] = []
     data['perfect_imu_data']['acc'] = []
@@ -72,6 +74,8 @@ def read_bag(filename):
             data['truth_NED']['vel'].append(to_list(msg.twist.twist.linear))
             data['truth_NED']['att'].append(to_list4(msg.pose.pose.orientation))
             data['truth_NED']['omega'].append(to_list(msg.twist.twist.angular))
+            data['alt']['t'].append(msg.header.stamp.to_sec())
+            data['alt']['alt'].append(-msg.pose.pose.position.z)
 
         if topic == '/multirotor/baro/data':
             data['baro']['t'].append(msg.header.stamp.to_sec())

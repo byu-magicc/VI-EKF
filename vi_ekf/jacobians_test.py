@@ -96,10 +96,21 @@ def htest(fn, **kwargs):
     x0, analytical = fn(x, **kwargs)
     finite_difference = np.zeros_like(analytical)
     I = np.eye(finite_difference.shape[1])
-    epsilon = 1e-8
+    epsilon = 1e-6
     for i in range(finite_difference.shape[1]):
         x_prime = ekf.boxplus(x, (I[i] * epsilon)[:, None])
-        finite_difference[:, i] = ((fn(x_prime, **kwargs)[0] - x0) / epsilon)[:, 0]
+        if 'type' in kwargs.keys() and kwargs['type'] == 'feat':
+            q_zeta = kwargs['q_zeta']
+            T_z = T_zeta(q_zeta)
+            z = fn(x_prime, **kwargs)[0]
+            if norm(z - x0) < 1e-16:
+                continue
+            else:
+                zhat_x_z = skew(x0).dot(z)
+                dx = T_z.T.dot(np.arccos(x0.T.dot(z)) * zhat_x_z / norm(zhat_x_z))
+                finite_difference[:, i] = (dx/epsilon)[:,0]
+        else:
+            finite_difference[:, i] = ((fn(x_prime, **kwargs)[0] - x0) / epsilon)[:, 0]
 
     error = analytical - finite_difference
     for key, item in indexes.iteritems():
@@ -118,7 +129,7 @@ def all_h_tests(x, u, ekf):
     num_errors += htest(ekf.h_acc)
     num_errors += htest(ekf.h_alt)
     for i in range(ekf.len_features):
-        num_errors += htest(ekf.h_feat, i=i)
+        num_errors += htest(ekf.h_feat, i=i, type='feat', q_zeta=x[xZ+5*i:xZ+5*i+4])
         num_errors += htest(ekf.h_depth, i=i)
         num_errors += htest(ekf.h_inv_depth, i=i)
         htest(ekf.h_pixel_vel, i=i, u=u)

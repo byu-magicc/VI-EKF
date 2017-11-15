@@ -1245,7 +1245,7 @@ Update for Measurement
 \begin{aligned}H_{y} & =\frac{\partial h_{y}}{\partial\x}\\
 K & =PH_{y}^{\top}\left(R_{y}+HPH^{\top}\right)^{-1}\\
 P^{+} & =(I-KH_{y})P^{-}\\
-\hat{\x}^{+} & =\hat{\x}+K\left(\mathbf{z}_{y}-h_{y}\left(\hat{\x}\right)\right)
+\hat{\x}^{+} & =\hat{\x}\boxplus K\left(\mathbf{z}_{y}\boxminus h_{y}\left(\hat{\x}\right)\right)
 \end{aligned}
 \]
 
@@ -1734,8 +1734,8 @@ Position Jacobians
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\frac{\partial}{\partial v_{b/I}^{b}}\dot{p}_{bI}^{I} & =\frac{\partial}{\partial v_{b/I}^{b}}\left(R^{\top}\left(q_{I}^{b}\right)v_{bI}^{b}\right)\\
- & =R^{\top}\left(q_{I}^{b}\right)
+\begin{aligned}\frac{\partial}{\partial v_{b/I}^{b}}\dot{p}_{bI}^{I} & =\frac{\partial}{\partial v_{b/I}^{b}}\left(R\left(q_{I}^{b}\right)v_{bI}^{b}\right)\\
+ & =R\left(q_{I}^{b}\right)
 \end{aligned}
 \]
 
@@ -1747,8 +1747,8 @@ Position Jacobians
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\frac{\partial}{\partial q_{I}^{b}}\dot{p}_{bI}^{I} & =\frac{\partial}{\partial q_{I}^{b}}\left(R^{\top}\left(q_{I}^{b}\right)v_{bI}^{b}\right)\\
- & =-\left\lfloor R\left(q_{a}^{b}\right)v_{bI}^{b}\right\rfloor 
+\begin{aligned}\frac{\partial}{\partial q_{I}^{b}}\dot{p}_{bI}^{I} & =\frac{\partial}{\partial q_{I}^{b}}\left(R\left(q_{I}^{b}\right)v_{bI}^{b}\right)\\
+ & =-\left\lfloor R\left(q_{I}^{b}\right)v_{bI}^{b}\right\rfloor 
 \end{aligned}
 \]
 
@@ -1906,10 +1906,9 @@ Bearing Quaternion Jacobians
 \begin_inset Formula 
 \[
 \begin{aligned}\dfrac{\partial}{\partial q_{c}^{\zeta_{i}}}\dot{q}_{c}^{\zeta_{i}} & =\dfrac{\partial}{\partial q_{c}^{\zeta_{i}}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/i}^{c}+\omega_{c/i}^{c}\right)\right)\\
- & =\dfrac{\partial}{\partial q_{c}^{\zeta_{i}}}\left(T_{\zeta}^{\top}\left(-\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right)\right)\\
- & =-T_{\zeta}^{\top}\left\lfloor -\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right\rfloor T_{\zeta}\dfrac{\partial}{\partial q_{c}^{\zeta_{i}}}\left(-\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right)\\
- & =-T_{\zeta}^{\top}\left\lfloor -\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right\rfloor \left(-\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \right)T_{\zeta}\\
- & =-T_{\zeta}^{\top}\left(\left\lfloor \omega_{c/i}^{c}-\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}\right\rfloor +\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \right)T_{\zeta}
+ & =-T_{\zeta}^{\top}\left\lfloor \rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right\rfloor T_{\zeta}\dfrac{\partial}{\partial q_{c}^{\zeta_{i}}}\left(-\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right)\\
+ & =-T_{\zeta}^{\top}\left\lfloor \rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right\rfloor \left(-\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \right)T_{\zeta}\\
+ & =-T_{\zeta}^{\top}\left(\left\lfloor \omega_{c/i}^{c}+\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}\right\rfloor +\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \right)T_{\zeta}
 \end{aligned}
 \]
 
@@ -2609,13 +2608,13 @@ Attitude Measurement
 \end_layout
 
 \begin_layout Standard
-If we employ an some measurement of body-fixed velocity, 
+If we employ an some measurement of attitude, 
 \end_layout
 
 \begin_layout Standard
 \begin_inset Formula 
 \[
-h_{v}\left(x,u,\eta_{v}\right)=v_{b/I}^{b}+\eta_{v}
+h_{q}\left(x,u,\eta_{v}\right)=q_{I}^{b}+\eta_{q}
 \]
 
 \end_inset
@@ -2626,7 +2625,7 @@ h_{v}\left(x,u,\eta_{v}\right)=v_{b/I}^{b}+\eta_{v}
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\frac{\partial h_{v}}{\partial v_{b/i}^{b}}=I\in\mathbb{R}^{3\times3}
+\frac{\partial h_{q}}{\partial q_{I}^{b}}=I\in\mathbb{R}^{3\times3}
 \]
 
 \end_inset

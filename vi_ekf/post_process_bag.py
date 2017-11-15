@@ -7,13 +7,13 @@ from generate_data import generate_data
 from bag_loader import read_bag
 
 # read_bag('data/simulated_waypoints.bag')
-data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
+# data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
 
 # generate_data()
-# data = cPickle.load(open('generated_data.pkl', 'rb'))
+data = cPickle.load(open('generated_data.pkl', 'rb'))
 
 start = 1.0
-end = 7.0
+end = 30.0
 truth_start_index = np.argmax(data['truth_NED']['t'] > start)
 
 
@@ -53,7 +53,7 @@ est_t = []
 alt_index = 0
 alt_zhat = []
 alt_zhat_t = []
-while data['alt']['t'][alt_index] < start:
+while data['truth_NED']['t'][alt_index] < start:
     alt_index += 1
 
 acc_index = 0
@@ -114,8 +114,8 @@ for i, t in enumerate(tqdm(data['imu_data']['t'])):
     # Update Step
     # TODO: Measurement throttling, Delayed Update
 
-    while data['alt']['t'][alt_index] <= t:
-        alt_zhat.append(ekf.update(data['alt']['alt'][alt_index], 'alt', R_alt, passive=True))
+    while data['truth_NED']['t'][alt_index] <= t:
+        alt_zhat.append(ekf.update(data['truth_NED']['pos'][alt_index, 2, None], 'alt', R_alt, passive=True))
         alt_zhat_t.append(t)
         alt_index += 1
 
@@ -151,6 +151,7 @@ for i, t in enumerate(tqdm(data['imu_data']['t'])):
     # if i % 30 == 0 and True:
     #     q_I_b = Quaternion(xhat[6:10])
     #     plot_cube(q_I_b, est_zeta[-1], data['features']['zeta'][i])
+quit()
 
 # convert lists to np arrays
 est_t = np.array(est_t)
@@ -178,8 +179,8 @@ depth_zhat_t = np.array(depth_zhat_t)
 plot_side_by_side('pos', xPOS, xPOS+3, est_t, estimate, cov=cov, truth_t=data['truth_NED']['t'], truth=data['truth_NED']['pos'], labels=['x','y','z'])
 plot_side_by_side('vel', xVEL, xVEL+3, est_t, estimate, cov=cov, truth_t=data['truth_NED']['t'], truth=data['truth_NED']['vel'], labels=['x','y','z'])
 plot_side_by_side('att', xATT, xATT+4, est_t, estimate, cov=None, truth_t=data['truth_NED']['t'], truth=data['truth_NED']['att'], labels=['w','x','y','z'])
-plot_side_by_side('gyro_bias', xB_G, xB_G+3, est_t, estimate, cov=cov, truth_t=data['imu_gyro_bias']['t'], truth=data['imu_gyro_bias']['v'], labels=['x','y','z'])
-plot_side_by_side('acc_bias', xB_A, xB_A+3, est_t, estimate, cov=cov, truth_t=data['imu_acc_bias']['t'], truth=data['imu_acc_bias']['v'], labels=['x','y','z'])
+# plot_side_by_side('gyro_bias', xB_G, xB_G+3, est_t, estimate, cov=cov, truth_t=data['imu_gyro_bias']['t'], truth=data['imu_gyro_bias']['v'], labels=['x','y','z'])
+# plot_side_by_side('acc_bias', xB_A, xB_A+3, est_t, estimate, cov=cov, truth_t=data['imu_acc_bias']['t'], truth=data['imu_acc_bias']['v'], labels=['x','y','z'])
 plot_side_by_side('mu', xMU, xMU+1, est_t, estimate, cov=cov, truth_t=None, truth=None, labels=['mu'])
 
 # Plot features

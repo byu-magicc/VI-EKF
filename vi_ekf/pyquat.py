@@ -1,8 +1,5 @@
 import numpy as np
 
-def norm(v):
-    return np.sqrt(np.sum(v*v))
-
 cross_matrix = np.array([[[0, 0, 0],
                           [0, 0, -1.0],
                           [0, 1.0, 0]],
@@ -35,18 +32,14 @@ def skew(v):
     assert v.shape == (3, 1)
     return cross_matrix.dot(v).squeeze()
 
-
-
+def norm(v):
+    return np.sqrt(np.sum(v*v))
 
 class Quaternion():
-    def __init__(self, *args):
-        if len(args) == 0:
-            self.arr = np.array([[1., 0., 0., 0.]]).T
-        elif isinstance(args[0], np.ndarray):
-            assert args[0].shape == (4,1)
-            self.arr = args[0]
-        elif len(args[0]) == 4:
-            self.arr = np.array([args[0]]).T
+    def __init__(self, v):
+        assert isinstance(v, np.ndarray)
+        assert v.shape == (4,1)
+        self.arr = v
 
     def __str__(self):
         return "[ " + str(self.arr[0,0]) + ", " + str(self.arr[1,0]) + "i, " \
@@ -64,7 +57,20 @@ class Quaternion():
         return q_new.boxplus(other)
 
     def __iadd__(self, other):
-        return self.boxplus(other)
+        assert other.shape == (3, 1)
+        delta = other.copy()
+
+        norm_delta = norm(delta)
+
+        # If we aren't going to run into numerical issues
+        if norm_delta > 1e-4:
+            v = np.sin(norm_delta / 2.) * (delta / norm_delta)
+            self.arr = qmat_matrix.dot(np.vstack((np.cos(norm_delta / 2.0), v))).squeeze().dot(self.arr)
+        else:
+            delta /= 2.0
+            self.arr = qmat_matrix.dot(np.vstack((np.ones((1, 1)), delta))).squeeze().dot(self.arr)
+            self.arr /= norm(self.arr)
+        return self
 
     def __sub__(self, other):
         return self.log(other.inverse.otimes(self))
@@ -87,7 +93,7 @@ class Quaternion():
 
     @property
     def elements(self):
-        return self.arr.copy()
+        return self.arr
 
     @property
     def R(self):
@@ -112,18 +118,18 @@ class Quaternion():
 
     @staticmethod
     def qexp(v):
-        # assert v.shape == (3,1)
+        assert v.shape == (3,1)
         v = v.copy()
 
         norm_v = norm(v)
         # If we aren't going to run into numerical issues
-        # if norm_v > 1e-4:
-        #     v = np.sin(norm_v / 2.) * v / norm_v
-        #     exp_quat = Quaternion([np.cos(norm_v / 2.0), v[0, 0], v[1, 0], v[2, 0]])
-        # else:
-        v = v / 2.0
-        exp_quat = Quaternion([1.0, v[0, 0], v[1, 0], v[2, 0]])
-        exp_quat.normalize()
+        if norm_v > 1e-4:
+            v = np.sin(norm_v / 2.) * v / norm_v
+            exp_quat = Quaternion(np.array([[np.cos(norm_v / 2.0), v[0, 0], v[1, 0], v[2, 0]]]).T)
+        else:
+            v /= 2.0
+            exp_quat = Quaternion(np.array([[1.0, v[0, 0], v[1, 0], v[2, 0]]]).T)
+            exp_quat.normalize()
         return exp_quat
 
     @staticmethod
@@ -136,7 +142,6 @@ class Quaternion():
 
         return 2.0*np.arctan2(norm_v, w)*v/norm_v
 
-
     def copy(self):
         q_copy = Quaternion(self.arr.copy())
         return q_copy
@@ -146,29 +151,15 @@ class Quaternion():
 
     def rot(self, v):
         assert v.shape == (3,1)
-        v = v.copy()
-
-        w = self.arr[0,0]
-        x = self.arr[1,0]
-        y = self.arr[2,0]
-        z = self.arr[3,0]
-
-        return np.array([[(1.0 - 2.0*y*y - 2.0*z*z) * v[0,0] + (2.0*(x*y + w*z))*v[1,0] + 2.0*(x*z - w*y)*v[2,0]],
-                         [(2.0*(x*y - w*z)) * v[0,0] + (1.0 - 2.0*x*x - 2.0*z*z) * v[1,0] + 2.0*(y*z + w*x)*v[2,0]],
-                         [(2.0*(x*z + w*y)) * v[0,0] + 2.0*(y*z - w*x)*v[1,0] + (1.0 - 2.0*x*x - 2.0*y*y)*v[2,0]]])
+        skew_xyz = skew(self.arr[1:])
+        t = 2.0 * skew_xyz.dot(v)
+        return v + self.arr[0,0] * t + skew_xyz.dot(t)
 
     def invrot(self, v):
         assert v.shape == (3,1)
-        v = v.copy()
-
-        w = self.arr[0,0]
-        x = -self.arr[1,0]
-        y = -self.arr[2,0]
-        z = -self.arr[3,0]
-
-        return np.array([[(1.0 - 2.0*y*y - 2.0*z*z) * v[0,0] + (2.0*(x*y + w*z))*v[1,0] + 2.0*(x*z - w*y)*v[2,0]],
-                         [(2.0*(x*y - w*z)) * v[0,0] + (1.0 - 2.0*x*x - 2.0*z*z) * v[1,0] + 2.0*(y*z + w*x)*v[2,0]],
-                         [(2.0*(x*z + w*y)) * v[0,0] + 2.0*(y*z - w*x)*v[1,0] + (1.0 - 2.0*x*x - 2.0*y*y)*v[2,0]]])
+        skew_xyz = skew(self.arr[1:])
+        t = 2.0 * skew_xyz.dot(v)
+        return v - self.arr[0,0] * t + skew_xyz.dot(t)
 
     def inv(self):
         self.arr[1:] *= -1.0
@@ -179,59 +170,40 @@ class Quaternion():
         inverted[1:] *= -1.0
         return Quaternion(inverted)
 
-    def from_two_unit_vectors(self, u, v):
-        # assert u.shape == (3,1)
-        # assert v.shape == (3,1)
+    @staticmethod
+    def from_two_unit_vectors(u, v):
+        assert u.shape == (3,1)
+        assert v.shape == (3,1)
         u = u.copy()
         v = v.copy()
 
+        arr = np.array([[1., 0., 0., 0.]]).T
+
         d = u.T.dot(v).squeeze()
-        if d >= 1.0:
-            self.arr = np.array([[1., 0., 0., 0.]]).T
-        else:
+        if d < 1.0:
             invs = (2.0*(1.0+d))**-0.5
             xyz = skew(u).dot(v)*invs.squeeze()
-            self.arr[0,0]=0.5/invs
-            self.arr[1:,:] = xyz
-            self.normalize()
-        return self
+            arr[0,0]=0.5/invs
+            arr[1:,:] = xyz
+            arr /= norm(arr)
+        return Quaternion(arr)
 
     def otimes(self, q):
-        # assert isinstance(q, Quaternion)
-        # q = q.copy()
-
-        w = self.arr[0,0]
-        x = self.arr[1,0]
-        y = self.arr[2,0]
-        z = self.arr[3,0]
-        q_new = Quaternion([w * q.w - x * q.x - y * q.y - z * q.z,
-                              w * q.x + x * q.w - y * q.z + z * q.y,
-                              w * q.y + x * q.z + y * q.w - z * q.x,
-                              w * q.z - x * q.y + y * q.x + z * q.w])
-
-        # q_try = Quaternion(qmat_matrix.dot(q.arr).squeeze().dot(self.arr))
-
+        q_new = Quaternion(qmat_matrix.dot(q.arr).squeeze().dot(self.arr).copy())
         return q_new
 
     def boxplus(self, delta):
-        # assert delta.shape == (3,1)
+        assert delta.shape == (3,1)
         delta = delta.copy()
 
-        # norm_delta = norm(delta)
+        norm_delta = norm(delta)
 
         # If we aren't going to run into numerical issues
-        # if norm_delta > 1e-4:
-        #     v = np.sin(norm_delta / 2.) * (delta / norm_delta)
-        #     dquat = Quaternion([np.cos(norm_delta/2.0), v[0,0], v[1,0], v[2,0]])
-        #     self *= dquat
-        # else:
-        v = (delta / 2.0)
-        # dquat = Quaternion([1.0, v[0,0], v[1,0], v[2,0]])
-        # self *= dquat
-        self.arr = qmat_matrix.dot(np.vstack((np.ones((1,1)), v))).squeeze().dot(self.arr)
-        self.arr /= norm(self.arr)
-        return self
-
-if __name__ == '__main__':
-    q = Quaternion(np.array([[1, 0, 0, 0]]).T)
-    print q
+        if norm_delta > 1e-4:
+            v = np.sin(norm_delta / 2.) * (delta / norm_delta)
+            out_arr = qmat_matrix.dot(np.vstack((np.cos(norm_delta/2.0), v))).squeeze().dot(self.arr)
+        else:
+            delta /= 2.0
+            out_arr = qmat_matrix.dot(np.vstack((np.ones((1,1)), delta))).squeeze().dot(self.arr)
+            out_arr /= norm(out_arr)
+        return Quaternion(out_arr)

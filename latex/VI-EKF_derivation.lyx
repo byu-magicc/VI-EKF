@@ -2271,7 +2271,7 @@ X & Y & Z\end{array}\right]^{\top}$
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\frac{\partial h_{\zeta_{i}}}{\partial q_{c}^{\zeta}}=-\left\lfloor \zeta\right\rfloor T_{\zeta}
+\frac{\partial h_{\zeta_{i}}}{\partial q_{c}^{\zeta}}=-T_{\zeta}^{\top}\left\lfloor \zeta\right\rfloor T_{\zeta}
 \]
 
 \end_inset

@@ -95,6 +95,8 @@ class Quaternion():
     def elements(self):
         return self.arr
 
+    # Calculates the rotation matrix equivalent.  If you are performing a rotation,
+    # is is much faster to use rot or invrot
     @property
     def R(self):
         w = self.arr[0,0]
@@ -116,6 +118,8 @@ class Quaternion():
                          [[2.*xy + 2.*wz], [1. - 2.*xx - 2.*zz], [2.*yz - 2.*wx]],
                          [[2.*xz - 2.*wy], [2.*yz + 2.*wx], [1. - 2.*xx - 2.*yy]]]).squeeze()
 
+    # Calculates the quaternion exponential map for a 3-vector.
+    # Returns a quaternion
     @staticmethod
     def qexp(v):
         assert v.shape == (3,1)
@@ -149,14 +153,16 @@ class Quaternion():
     def normalize(self):
         self.arr /= norm(self.arr)
 
+    # Perform an active rotation on v (same as q.R.T.dot(v), but faster)
     def rot(self, v):
-        assert v.shape == (3,1)
+        assert v.shape[0] == 3
         skew_xyz = skew(self.arr[1:])
         t = 2.0 * skew_xyz.dot(v)
         return v + self.arr[0,0] * t + skew_xyz.dot(t)
 
+    # Perform a passive rotation on v (same as q.R.dot(v), but faster)
     def invrot(self, v):
-        assert v.shape == (3,1)
+        assert v.shape[0] == 3
         skew_xyz = skew(self.arr[1:])
         t = 2.0 * skew_xyz.dot(v)
         return v - self.arr[0,0] * t + skew_xyz.dot(t)

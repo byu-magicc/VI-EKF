@@ -509,7 +509,7 @@ class VI_EKF():
         ZETA_i = dxZ+3*i
         RHO_i = dxZ+3*i+2
         dhdx = np.zeros((2,dxZ+3*self.len_features))
-        dhdx[:,dxVEL:dxVEL+3] = self.focal_len*rho*I_2x3.dot(sk_ez).dot(sk_zeta)
+        dhdx[:,dxVEL:dxVEL+3] = -self.focal_len*rho*I_2x3.dot(sk_ez).dot(sk_zeta)
         dhdx[:,ZETA_i:ZETA_i+2] = -self.focal_len*rho*I_2x3.dot(sk_ez).dot(sk_vel).dot(sk_zeta).dot(T_zeta(q_c_z))
         dhdx[:,RHO_i,None] = -self.focal_len*I_2x3.dot(sk_ez).dot(sk_zeta).dot(vel)
         dhdx[:,dxB_G:dxB_G+3] = self.focal_len*I_2x3.dot(sk_ez).dot(R_b_c - rho*sk_zeta.dot(R_b_c).dot(skew(self.p_b_c)))

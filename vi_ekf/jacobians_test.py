@@ -101,6 +101,7 @@ def htest(fn, **kwargs):
         x_prime = ekf.boxplus(x, (I[i] * epsilon)[:, None])
         if 'type' in kwargs.keys() and kwargs['type'] == 'feat':
             q_zeta = kwargs['q_zeta']
+            q_zeta[1:] *= -1.0
             T_z = T_zeta(q_zeta)
             z = fn(x_prime, **kwargs)[0]
             if norm(z - x0) < 1e-16:
@@ -154,21 +155,21 @@ if __name__ == '__main__':
         x0[xMU] = 0.2
 
         # Add noise to the state
-        x0[xPOS:xPOS + 3] += np.random.normal(0, 100, (3, 1))
-        x0[xVEL:xVEL + 3] += np.random.normal(0, 25, (3, 1))
-        x0[xB_A:xB_A + 3] += np.random.uniform(-1, 1, (3, 1))
-        x0[xB_G:xB_G + 3] += np.random.uniform(-0.5, 0.5, (3, 1))
-        x0[xMU,0] += np.random.uniform(-0.1, 0.1, 1)
+        # x0[xPOS:xPOS + 3] += np.random.normal(0, 100, (3, 1))
+        # x0[xVEL:xVEL + 3] += np.random.normal(0, 25, (3, 1))
+        # x0[xB_A:xB_A + 3] += np.random.uniform(-1, 1, (3, 1))
+        # x0[xB_G:xB_G + 3] += np.random.uniform(-0.5, 0.5, (3, 1))
+        # x0[xMU,0] += np.random.uniform(-0.1, 0.1, 1)
 
         # Add noise to non-vector attitude states
-        x0[xATT:xATT + 4] = (Quaternion(x0[xATT:xATT + 4]) + np.random.normal(0, 1, (3,1))).elements
+        # x0[xATT:xATT + 4] = (Quaternion(x0[xATT:xATT + 4]) + np.random.normal(0, 1, (3,1))).elements
 
         ekf = VI_EKF(x0)
 
         # Initialize Random Features
         for j in range(1):
             zeta = np.random.randn(3)[:, None]
-            zeta = np.array([[0, 0, 1.0]]).T
+            zeta = np.array([[0, 1.0, 1.0]]).T
             zeta /= scipy.linalg.norm(zeta)
             depth = np.abs(np.random.randn(1))[0]
             depth = 1.0

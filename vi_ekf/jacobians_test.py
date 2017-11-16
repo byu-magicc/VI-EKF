@@ -69,6 +69,10 @@ def dfdx_test(x, u, ekf):
         num_errors += print_error(rho_key, 'dxB_G', a_dfdx, d_dfdx)
         num_errors += print_error(rho_key, zeta_key, a_dfdx, d_dfdx)
         num_errors += print_error(rho_key, rho_key, a_dfdx, d_dfdx)
+
+    if np.abs(d_dfdx - a_dfdx).sum() > 1e-4:
+        print (bcolors.FAIL + 'Error in Jacobian dfdx that is not caught by blocks')
+        num_errors += 1
     return num_errors
 
 def dfdu_test(x, u, ekf):
@@ -89,6 +93,10 @@ def dfdu_test(x, u, ekf):
         rho_key = 'dxZETA_' + str(i)
         num_errors += print_error(zeta_key,'uG', a_dfdu, d_dfdu)
         num_errors += print_error(rho_key,'uG', a_dfdu, d_dfdu)
+
+    if np.abs(d_dfdu - a_dfdu).sum() > 1e-4:
+        print (bcolors.FAIL + 'Error in overall Jacobian {} that is not caught by blocks: {}\n{}\n'.format('dfdu', bcolors.ENDC, d_dfdu - a_dfdu))
+        num_errors += 1
     return num_errors
 
 def htest(fn, **kwargs):
@@ -123,6 +131,11 @@ def htest(fn, **kwargs):
             print (bcolors.FAIL + 'Error in %s, %s, \nBLOCK_ERROR:\n%s\n ANALYTICAL:\n%s\n FD:\n%s\n'
                 % (fn.__name__, key, block_error, analytical[:,item[0]:item[1]], finite_difference[:, item[0]:item[1]]))
             print (bcolors.ENDC)
+
+    if np.abs(error).sum() > 1e-4:
+        print (bcolors.FAIL + 'Error in overall Jacobian {} that is not caught by blocks: {}\n{}\n'.format(fn.__name__, bcolors.ENDC, error))
+        num_errors += 1
+
     return num_errors
 
 def all_h_tests(x, u, ekf):
@@ -148,7 +161,7 @@ if __name__ == '__main__':
                              [0.0],
                              [0.0]])
     errors = 0
-    for i in tqdm(range(1)):
+    for i in range(1):
         # Set nominal Values for x0
         x0 = np.zeros((xZ, 1))
         x0[xATT] = 1

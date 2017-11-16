@@ -70,9 +70,11 @@ def dfdx_test(x, u, ekf):
         num_errors += print_error(rho_key, zeta_key, a_dfdx, d_dfdx)
         num_errors += print_error(rho_key, rho_key, a_dfdx, d_dfdx)
 
+    # This test ensures that the entire jacobian is correct, not just the blocks you test manually
     if np.abs(d_dfdx - a_dfdx).sum() > 1e-4:
         print (bcolors.FAIL + 'Error in Jacobian dfdx that is not caught by blocks')
         num_errors += 1
+        
     return num_errors
 
 def dfdu_test(x, u, ekf):
@@ -94,6 +96,7 @@ def dfdu_test(x, u, ekf):
         num_errors += print_error(zeta_key,'uG', a_dfdu, d_dfdu)
         num_errors += print_error(rho_key,'uG', a_dfdu, d_dfdu)
 
+    # This test ensures that the entire jacobian is correct, not just the blocks you test manually
     if np.abs(d_dfdu - a_dfdu).sum() > 1e-4:
         print (bcolors.FAIL + 'Error in overall Jacobian {} that is not caught by blocks: {}\n{}\n'.format('dfdu', bcolors.ENDC, d_dfdu - a_dfdu))
         num_errors += 1
@@ -132,6 +135,7 @@ def htest(fn, **kwargs):
                 % (fn.__name__, key, block_error, analytical[:,item[0]:item[1]], finite_difference[:, item[0]:item[1]]))
             print (bcolors.ENDC)
 
+    # This test ensures that the entire jacobian is correct, not just the blocks you test manually
     if np.abs(error).sum() > 1e-4:
         print (bcolors.FAIL + 'Error in overall Jacobian {} that is not caught by blocks: {}\n{}\n'.format(fn.__name__, bcolors.ENDC, error))
         num_errors += 1

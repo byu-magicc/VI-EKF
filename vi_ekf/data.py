@@ -1,6 +1,7 @@
 import cPickle
 import numpy as np
-
+import data_loader
+import cv2
 
 class Data(object):
     def __init__(self):
@@ -16,9 +17,9 @@ class Data(object):
         index_for_target = []
         current_index = 0
         for t in target_time:
-            while source_time[current_index] < t:
+            while current_index < len(source_time) and source_time[current_index] <= t:
                 current_index += 1
-            index_for_target.append(current_index)
+            index_for_target.append(current_index - 1)
 
         assert len(index_for_target) == len(target_time)
 
@@ -79,7 +80,7 @@ class FakeData(Data):
         self.time = self.data['imu_data']['t'][self.s:]
 
         self.truth_indexer = self.indexer(self.time, self.data['truth_NED']['t'])
-        self.imu_indexer = self.indexer(self.time, self.time)
+        self.imu_indexer = self.indexer(self.time, self.data['imu_data']['t'])
         self.feature_indexer = self.indexer(self.time, self.data['features']['t'])
 
     @property
@@ -110,9 +111,66 @@ class FakeData(Data):
         return len(self.time)
 
 
-#TODO: I still need to finish this
 class ETHData(Data):
-    pass
+    def __init__(self, start=-1, end=np.inf):
+        super(ETHData, self).__init__()
+        self.data = data_loader.load_data('/mnt/pccfs/not_backed_up/eurocmav/V1_01_easy/mav0')
+        self.time = np.unique(np.concatenate([self.data['imu'][:, 0],
+                                              self.data['truth'][:, 0],
+                                              self.data['cam_time']]))
+        self.time = self.time[(self.time > start) & (self.time < end)]
+
+        self.truth_indexer = self.indexer(self.time, self.data['truth'][:, 0])
+        self.imu_indexer = self.indexer(self.time, self.data['imu'][:, 0])
+        self.feature_indexer = self.indexer(self.time, self.data['cam_time'])
+
+        self.undistort = data_loader.make_undistort_funtion(intrinsics=self.data['cam0_sensor']['intrinsics'],
+                                                            resolution=self.data['cam0_sensor']['resolution'],
+                                                            distortion_coefficients=self.data['cam0_sensor']['distortion_coefficients'])
+
+    def compute_features(self, filename):
+        image = cv2.imread(filename, 0)
+        image = self.undistort(image)
+
+        # return zetas, and ids
+        return [], []
+
+    @property
+    def x0(self):
+        return np.concatenate([self.data['truth'][self.truth_indexer[0], 1:4, None],
+                               self.data['truth'][self.truth_indexer[0], 8:11, None],
+                               self.data['truth'][self.truth_indexer[0], 4:8, None],
+                               np.zeros((3, 1)),
+                               np.zeros((3, 1)),
+                               0.2*np.ones((1, 1))], axis=0)
+
+    def __getitem__(self, i):
+        if i >= len(self):
+            raise IndexError
+
+        t = self.time[i]
+        dt = self.time[0] if i == 0 else (self.time[i] - self.time[i - 1])
+        pos, vel, att, gyro, acc = None, None, None, None, None
+        zetas, ids = [], []
+
+        if self.truth_indexer[i] - self.truth_indexer[i - 1] != 0:
+            pos = self.data['truth'][self.truth_indexer[i], 1:4, None]
+            vel = self.data['truth'][self.truth_indexer[i], 8:11, None]
+            att = self.data['truth'][self.truth_indexer[i], 4:8, None]
+
+        if self.imu_indexer[i] - self.imu_indexer[i - 1] != 0:
+            gyro = self.data['imu'][self.imu_indexer[i], 1:4, None]
+            acc = self.data['imu'][self.imu_indexer[i], 4:7, None]
+
+        if self.feature_indexer[i] - self.feature_indexer[i - 1] != 0:
+            zetas, ids = self.compute_features(self.data['cam0_frame_filenames'][self.feature_indexer[i]])
+
+        depths = [None] * len(zetas)
+
+        return t, dt, pos, vel, att, gyro, acc, zetas, depths, ids
+
+    def __len__(self):
+        return len(self.time)
 
 if __name__ == '__main__':
     d = FakeData()

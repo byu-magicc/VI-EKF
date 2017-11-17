@@ -33,7 +33,6 @@ def make_undistort_funtion(intrinsics, resolution, distortion_coefficients):
 
 def load_data(folder, show_image=False, start=0, end=-1):
     # First, load IMU data
-    print "reading imu"
     csvfile = open(folder+'/imu0/data.csv', 'rb')
     imu_data = []
     reader = csv.reader(csvfile)
@@ -43,10 +42,10 @@ def load_data(folder, show_image=False, start=0, end=-1):
     imu_data = np.array(imu_data)
 
     # rotate IMU data into the NED frame\
-    q_IMU = Quaternion([0.5, 0.5, 0.5, 0.5])
+    q_IMU = Quaternion(np.array([0.5, 0.5, 0.5, 0.5])[:, None])
     for row in imu_data:
-        row[1:4] = q_IMU.rotate(row[1:4])
-        row[4:7] = q_IMU.rotate(row[4:7])
+        row[1:4] = q_IMU.rot(row[1:4])
+        row[4:7] = q_IMU.rot(row[4:7])
 
     t0 = imu_data[0,0]
     imu_data[:,0] -= t0
@@ -58,7 +57,6 @@ def load_data(folder, show_image=False, start=0, end=-1):
     image_time = []
     csvfile = open(folder + '/cam0/data.csv', 'rb')
     reader = csv.reader(csvfile)
-    print "reading images"
     for i, row in tqdm(enumerate(reader)):
         if i > 0:
             image_time.append((float(row[0]) - t0) / 1e9)
@@ -75,7 +73,6 @@ def load_data(folder, show_image=False, start=0, end=-1):
     ground_truth = []
     csvfile = open(folder + '/state_groundtruth_estimate0/data.csv', 'rb')
     reader = csv.reader(csvfile)
-    print "reading truth"
     for i, row in tqdm(enumerate(reader)):
         if i > 0:
             ground_truth.append([float(item) for item in row])
@@ -87,10 +84,10 @@ def load_data(folder, show_image=False, start=0, end=-1):
 
     for row in ground_truth:
         row[1:4] = R_NWU_NED.dot(row[1:4])
-        row[4:8] = q_IMU * Quaternion(row[4:8]).elements
+        row[4:8] = (q_IMU * Quaternion(row[4:8, None])).elements[:, 0]
         row[8:11] = R_NWU_NED.dot(row[8:11])
-        row[11:14] = q_IMU.rotate(row[11:14])
-        row[14:17] = q_IMU.rotate(row[14:17])
+        row[11:14] = q_IMU.rot(row[11:14])
+        row[14:17] = q_IMU.rot(row[14:17])
 
     # chop data
     imu_data = imu_data[imu_data[:,0] > start, :]
@@ -106,13 +103,10 @@ def load_data(folder, show_image=False, start=0, end=-1):
         images1 = [f for f, t in zip(images1, image_time < end) if t]
         image_time = image_time[image_time < end]
 
-    print "done reading data"
-
     with open(folder + '/cam0/sensor.yaml', 'r') as stream:
         try:
             data = yaml.load(stream)
 
-            print(data['intrinsics'])
             cam0_sensor = {
                 'resolution': np.array(data['resolution']),
                 'intrinsics': np.array(data['intrinsics']),

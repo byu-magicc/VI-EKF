@@ -39,6 +39,7 @@ for i, (t, dt, pos, vel, att, gyro, acc, zetas, depths, ids) in enumerate(tqdm(d
 # convert the list of tuples of data into indvidual lists of data
 history = zip(*[[d for d in instance] for instance in history])
 
+
 # replace Nones with nan arrays, create nan arrays for each data type, and convert to numpy arrays
 prototype = [next(np.array(item) for item in dt if item is not None) * np.nan for dt in history]
 history = [[inst if inst is not None else prototype[i] for inst in dt] for i, dt in enumerate(history)]

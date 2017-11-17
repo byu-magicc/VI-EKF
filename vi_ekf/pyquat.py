@@ -205,11 +205,10 @@ class Quaternion():
         norm_delta = norm(delta)
 
         # If we aren't going to run into numerical issues
-        if norm_delta > 1e-4:
-            v = np.sin(norm_delta / 2.) * (delta / norm_delta)
-            out_arr = qmat_matrix.dot(np.vstack((np.cos(norm_delta/2.0), v))).squeeze().dot(self.arr)
-        else:
-            delta /= 2.0
-            out_arr = qmat_matrix.dot(np.vstack((np.ones((1,1)), delta))).squeeze().dot(self.arr)
-            out_arr /= norm(out_arr)
+        # if norm_delta > 1e-4:
+        #     v = np.sin(norm_delta / 2.) * (delta / norm_delta)
+        #     out_arr = qmat_matrix.dot(np.vstack((np.cos(norm_delta/2.0), v))).squeeze().dot(self.arr)
+        # else:
+        out_arr = qmat_matrix.dot(np.vstack((np.ones((1,1)), delta/2.0))).squeeze().dot(self.arr)
+        out_arr /= norm(out_arr)
         return Quaternion(out_arr)

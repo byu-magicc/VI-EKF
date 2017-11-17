@@ -4,7 +4,7 @@ import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
 
-def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None, truth=None, labels=None, skip=10):
+def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None, truth=None, labels=None, skip=10, save=False):
     estimate = estimate[:, start:end]
     if isinstance(cov, np.ndarray):
         cov_copy = cov[:, start:end, start:end].copy()
@@ -30,7 +30,8 @@ def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None
         if i == 0:
             plt.title(title)
 
-    plt.savefig('plots/'+title+'.png')
+    if save:
+        plt.savefig('plots/'+title+'.png')
 
 def plot_cube(q_I_b, zetas, zeta_truth):
 
@@ -64,9 +65,9 @@ def plot_cube(q_I_b, zetas, zeta_truth):
      facecolors='grey', linewidths=1, edgecolors='r', alpha=.25))
 
     for i, (z, z_t) in enumerate(zip(zetas, zeta_truth)):
-        z_NWU = q_I_b.R.T.dot(z[:, None])
+        z_NWU = q_I_b.R.T.dot(z)
         ax.plot([0, z_NWU[0]], [0, z_NWU[1]], [0, z_NWU[2]], '-b', label="est")
-        zt_NWU = q_I_b.R.T.dot(z_t[:, None])
+        zt_NWU = q_I_b.R.T.dot(z_t)
         ax.plot([0, zt_NWU[0]], [0, zt_NWU[1]], [0, zt_NWU[2]], '-r', label="truth")
         if i == 0:
             plt.legend()

@@ -182,6 +182,7 @@ class VI_EKF():
 
         # Feature Points need a slightly modified update process because of the non-vectorness of the measurement
         zhat, H = self.measurement_functions[measurement_type](self.x, **kwargs)
+
         K = self.P.dot(H.T).dot(scipy.linalg.inv(R + H.dot(self.P).dot(H.T)))
 
         if not passive_update:
@@ -217,12 +218,13 @@ class VI_EKF():
     # Used to initialize a new feature.  Returns the feature id associated with this feature
     def init_feature(self, zeta, depth):
         assert zeta.shape == (3, 1) and abs(1.0 - norm(zeta)) < 1e-5
+        assert depth.shape == (1, 1)
 
         self.len_features += 1
         self.feature_ids.append(self.next_feature_id)
         self.next_feature_id += 1
         quat_0 = Quaternion.from_two_unit_vectors(zeta, self.khat).elements
-        self.x = np.vstack((self.x, quat_0, np.array([[1./depth]]))) # add 5 states to the state vector
+        self.x = np.vstack((self.x, quat_0, 1./depth)) # add 5 states to the state vector
 
         # Add three states to the process noise matrix
         self.Qx = scipy.linalg.block_diag(self.Qx, self.Qx_feat)

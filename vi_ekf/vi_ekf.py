@@ -270,8 +270,8 @@ class VI_EKF():
 
         pdot = q_I_b.rot(vel)
         vdot = skew(vel).dot(omega) - mu*vel + acc_z + q_I_b.rot(self.gravity)
-        pdot = np.zeros((3,1))
-        vdot = np.zeros((3, 1))
+        # pdot = np.zeros((3,1))
+        # vdot = np.zeros((3, 1))
         qdot = omega
 
         feat_dot = np.zeros((3*self.len_features, 1))

@@ -38,7 +38,7 @@ R_depth = 0.01
 # R_alt = data['R_alt']
 
 
-for i in range(1):
+for i in range(2):
     ekf.init_feature(data['features']['zeta'][truth_start_index,i,:,None], data['features']['depth'][truth_start_index,i,None,None])
 
 prev_time = 0
@@ -148,9 +148,9 @@ for i, t in enumerate(tqdm(data['imu_data']['t'])):
         depth_index += 1
 
 
-    if i % 30 == 0 and True:
-        q_I_b = Quaternion(xhat[6:10])
-        plot_cube(q_I_b, est_zeta[-1], data['features']['zeta'][i])
+    # if i % 30 == 0 and True:
+    #     q_I_b = Quaternion(xhat[6:10])
+    #     plot_cube(q_I_b, est_zeta[-1], data['features']['zeta'][i])
 
 # convert lists to np arrays
 est_t = np.array(est_t)

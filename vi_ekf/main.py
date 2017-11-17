@@ -6,7 +6,7 @@ from plot_helper import plot_cube, plot_side_by_side
 from data import FakeData
 from pyquat import Quaternion
 
-data = FakeData()
+data = FakeData(start=0.0, end=5.0)
 data.__test__()
 
 ekf = viekf.VI_EKF(data.x0)
@@ -34,8 +34,8 @@ for i, (t, dt, pos, vel, att, gyro, acc, zetas, depths, ids) in enumerate(tqdm(d
     history.append([t, x_hat, P, alt_hat, acc_hat, att_hat, pos_hat, zeta_hats,
                       depth_hats, pos, vel, att, gyro, acc, zetas, depths])
 
-    if i % 30 == 0 and True:
-        plot_cube(Quaternion(x_hat[6:10]), zeta_hats, zetas)
+    # if i % 30 == 0 and True:
+    #     plot_cube(Quaternion(x_hat[6:10]), zeta_hats, zetas)
 
 # TODO: replace "nones" with arrays of the right shape filled with np.nan
 # convert the list of tuples of data into indvidual lists of data in numpy form and plot
@@ -44,7 +44,7 @@ history = zip(*[[np.array(d) for d in instance] for instance in history])
  all_depth_hats, all_pos, all_vel, all_att, all_gyro, all_acc, all_zetas, all_depths) = list(map(np.array, history))
 
 # plot
-if False:
+if True:
     plot_side_by_side('pos', viekf.xPOS, viekf.xPOS+3, time, all_x_hat, cov=all_P, truth_t=time, truth=all_pos, labels=['x', 'y', 'z'])
     plot_side_by_side('vel', viekf.xVEL, viekf.xVEL+3, time, all_x_hat, cov=all_P, truth_t=time, truth=all_vel, labels=['x', 'y', 'z'])
     plot_side_by_side('att', viekf.xATT, viekf.xATT+4, time, all_x_hat, cov=None, truth_t=time, truth=all_att, labels=['w', 'x', 'y', 'z'])

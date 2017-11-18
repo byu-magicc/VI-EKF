@@ -23,16 +23,22 @@ for i, (t, dt, pos, vel, att, gyro, acc, zetas, depths, ids) in enumerate(tqdm(d
     pos_hat = ekf.update(pos, 'pos', data.R['pos'], passive=True) if pos is not None else None
 
     # feature updates
+    if len(ids) > 0:
+        ekf.keep_only_features(ids)
+
     zeta_hats, depth_hats = [], []
-    for zeta, depth, id in zip(zetas, depths, ids):
+    for zeta, id in zip(zetas, ids):
         zeta_hats.append(ekf.update(zeta, 'feat', data.R['zeta'], passive=True, i=id))
+
+    for depth, id in zip(depths, ids):
         depth_hats.append(ekf.update(depth, 'depth', data.R['depth'], passive=True, i=id))
 
+    # store data for plotting
     history.append([t, x_hat, P, alt_hat, acc_hat, att_hat, pos_hat, zeta_hats,
                       depth_hats, pos, vel, att, gyro, acc, zetas, depths])
 
-    # every 1/30th of a second, update zeta cube
-    if time.time() - last > 1/30. and x_hat is not None and len(zeta_hats) > 0 and len(zetas) > 0:
+    # every 1/60th of a second, update zeta cube
+    if time.time() - last > 1/10. and x_hat is not None and len(zeta_hats) > 0 and len(zetas) > 0:
         plot_cube(Quaternion(x_hat[6:10]), zeta_hats, zetas)
         last = time.time()
 

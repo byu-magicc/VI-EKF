@@ -29,7 +29,7 @@ def make_undistort_funtion(intrinsics, resolution, distortion_coefficients):
     def undistort(image):
         return cv2.undistort(image, A, distortion_coefficients, None, Ap)
 
-    return undistort
+    return undistort, Ap
 
 def load_data(folder, show_image=False, start=0, end=-1):
     # First, load IMU data

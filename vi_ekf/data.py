@@ -2,6 +2,7 @@ import cPickle
 import numpy as np
 import data_loader
 import cv2
+import klt_tracker
 
 class Data(object):
     def __init__(self):
@@ -67,9 +68,10 @@ class Data(object):
             assert (gyro.shape == (3, 1)) if gyro is not None else True
             assert (acc.shape == (3, 1)) if acc is not None else True
             assert (len(zetas) == len(ids)) if len(zetas) > 0 else True
+            assert (len(depths) == len(ids)) if len(depths) > 0 else True
             assert zetas[0].shape == (3, 1) if len(zetas) > 0 else True, zetas[0].shape
-            assert depths[0].shape == (1, 1) if len(zetas) > 0 else True, depths[0].shape
-            assert all([type(id) == int for id in ids])
+            assert depths[0].shape == (1, 1) if len(depths) > 0 else True, depths[0].shape
+            assert all([type(id) == int or type(id) == np.int64 for id in ids]), type(ids[0])
 
 
 class FakeData(Data):
@@ -124,16 +126,26 @@ class ETHData(Data):
         self.imu_indexer = self.indexer(self.time, self.data['imu'][:, 0])
         self.feature_indexer = self.indexer(self.time, self.data['cam_time'])
 
-        self.undistort = data_loader.make_undistort_funtion(intrinsics=self.data['cam0_sensor']['intrinsics'],
+        self.tracker = klt_tracker.KLT_tracker(25)
+        self.undistort, P = data_loader.make_undistort_funtion(intrinsics=self.data['cam0_sensor']['intrinsics'],
                                                             resolution=self.data['cam0_sensor']['resolution'],
                                                             distortion_coefficients=self.data['cam0_sensor']['distortion_coefficients'])
 
-    def compute_features(self, filename):
-        image = cv2.imread(filename, 0)
-        image = self.undistort(image)
+        self.inverse_projection = np.linalg.inv(P)
 
-        # return zetas, and ids
-        return [], []
+    def compute_features(self, image):
+        image = self.undistort(image)[..., None]
+
+        zetas, ids = [], []
+        lambdas, ids = self.tracker.load_image(image)
+
+        if lambdas is not None and len(lambdas) > 0:
+            lambdas = np.pad(lambdas[:, 0], [(0, 0), (0, 1)], 'constant', constant_values=0)
+
+            zetas = self.inverse_projection.dot(lambdas.T).T[..., None]
+            zetas /= np.sqrt((zetas * zetas).sum(axis=1, keepdims=True))
+
+        return list(zetas), list(ids)
 
     @property
     def x0(self):
@@ -151,7 +163,7 @@ class ETHData(Data):
         t = self.time[i]
         dt = self.time[0] if i == 0 else (self.time[i] - self.time[i - 1])
         pos, vel, att, gyro, acc = None, None, None, None, None
-        zetas, ids = [], []
+        zetas, ids, depths = [], [], []
 
         if self.truth_indexer[i] - self.truth_indexer[i - 1] != 0:
             pos = self.data['truth'][self.truth_indexer[i], 1:4, None]
@@ -163,14 +175,26 @@ class ETHData(Data):
             acc = self.data['imu'][self.imu_indexer[i], 4:7, None]
 
         if self.feature_indexer[i] - self.feature_indexer[i - 1] != 0:
-            zetas, ids = self.compute_features(self.data['cam0_frame_filenames'][self.feature_indexer[i]])
-
-        depths = [None] * len(zetas)
+            image = cv2.imread(self.data['cam0_frame_filenames'][self.feature_indexer[i]], cv2.IMREAD_GRAYSCALE)
+            zetas, ids = self.compute_features(image)
 
         return t, dt, pos, vel, att, gyro, acc, zetas, depths, ids
 
     def __len__(self):
         return len(self.time)
+
+    def __test__(self):
+        image = np.zeros([480, 752, 1]).astype(np.uint8)
+        size = 100
+        image[480//2 - size:480//2 + size, 752//2 - size:752//2 + size] = 255
+        zeta, id = self.compute_features(image)
+
+        assert len(zeta) == 4
+        assert len(zeta) == len(id), (len(zeta), len(id))
+        assert False, 'we should manually calculate and check the correct zetas'
+
+        super(ETHData, self).__test__()
+
 
 if __name__ == '__main__':
     d = FakeData()

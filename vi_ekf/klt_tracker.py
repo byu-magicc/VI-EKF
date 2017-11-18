@@ -1,4 +1,3 @@
-import rospy
 import cv2
 import numpy as np
 
@@ -92,11 +91,13 @@ class KLT_tracker:
             # draw the features and ids
             for id, point in zip(self.features[1], self.features[0]):
                 x, y = point.ravel()
-                img = cv2.circle(img, (x, y), 5, self.color[id % self.num_features].tolist(), -1)
-                img = cv2.putText(img, str(id), (x, y), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0))
+                cv2.circle(img, (x, y), 5, self.color[id % self.num_features].tolist(), -1)
+                cv2.putText(img, str(id), (x, y), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0))
 
             cv2.imshow("Image window", img)
             cv2.waitKey(1)
+
+        return self.features
 
 if __name__ == '__main__':
     cap = cv2.VideoCapture(0)

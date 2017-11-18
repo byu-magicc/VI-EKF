@@ -78,6 +78,10 @@ class VI_EKF():
         # The next feature id to be assigned to a feature
         self.next_feature_id = 0
 
+        # Set of initialized feature ids
+        self.initialized_features = set()
+        self.global_to_local_feature_id = {}
+
         # A map which corresponds to which feature id is occupying which index in the state vector np array
         self.feature_ids = []
 
@@ -180,6 +184,10 @@ class VI_EKF():
 
         passive_update = passive
 
+        if measurement_type == 'feat':
+            if kwargs['i'] not in self.initialized_features:
+                self.init_feature(z, np.array([[1.0]]), id=kwargs['i'])
+
         # Feature Points need a slightly modified update process because of the non-vectorness of the measurement
         zhat, H = self.measurement_functions[measurement_type](self.x, **kwargs)
 
@@ -190,11 +198,12 @@ class VI_EKF():
 
         if measurement_type == 'feat':
             # For features, we have to do boxminus on the weird space between quaternions
-            i = kwargs['i']
+            i = self.global_to_local_feature_id[kwargs['i']]
             xZETA_i = xZ + 5 * i
             T_z = T_zeta(self.x[xZETA_i:xZETA_i + 4])
             zhat_x_z = skew(zhat).dot(z)
             residual = T_z.T.dot(np.arccos(zhat.T.dot(z)) * zhat_x_z / norm(zhat_x_z))
+
         elif measurement_type == 'att':
             residual = Quaternion(z) - Quaternion(zhat)
         else:
@@ -216,7 +225,7 @@ class VI_EKF():
         self.x[xB_G:xB_G+3] = b_a
 
     # Used to initialize a new feature.  Returns the feature id associated with this feature
-    def init_feature(self, zeta, depth):
+    def init_feature(self, zeta, depth, id):
         assert zeta.shape == (3, 1) and abs(1.0 - norm(zeta)) < 1e-5
         assert depth.shape == (1, 1)
 
@@ -235,12 +244,17 @@ class VI_EKF():
         self.G = np.zeros((dxZ + 3 * self.len_features, 4))
         self.I_big = np.eye(dxZ+3*self.len_features)
 
+        self.initialized_features.add(id)
+        self.global_to_local_feature_id[id] = self.next_feature_id - 1
+
         return self.next_feature_id - 1
 
     # Used to remove a feature from the EKF.  Removes the feature from the features array and
     # Clears the associated rows and columns from the covariance.  The covariance matrix will
     # now be 3x3 smaller than before and the feature array will be 5 smaller
-    def clear_feature(self, feature_id):
+    def clear_feature(self, id):
+        self.initialized_features.remove(id)
+        feature_id = self.global_to_local_feature_id[id]
         feature_index = self.feature_ids.index(feature_id)
         mask = np.ones(len(self.x), dtype=bool)
         mask[[xZ+feature_index+i for i in range(5)]] = False
@@ -253,6 +267,12 @@ class VI_EKF():
         self.A = np.zeros((dxZ + 3 * self.len_features, dxZ + 3 * self.len_features))
         self.G = np.zeros((dxZ+3*self.len_features, 4))
         self.I_big = np.eye(dxZ + 3 * self.len_features)
+
+
+    def keep_only_features(self, features):
+        features_to_clear = self.initialized_features.difference(set(features))
+        for f in features_to_clear:
+            self.clear_feature(f)
 
     # Determines the derivative of state x given inputs u
     # the returned value of f is a delta state, delta features, and therefore is a different
@@ -452,7 +472,7 @@ class VI_EKF():
     # Feature model for feature index i
     # Returns estimated measurement (3x1) and Jacobian (3 x 16+3N)
     def h_feat(self, x, **kwargs):
-        i = kwargs['i']
+        i = self.global_to_local_feature_id[kwargs['i']]
         assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int)
         q_c_z = x[xZ+i*5:xZ+i*5+4]
 

@@ -226,7 +226,7 @@ class VI_EKF():
 
     # Used to initialize a new feature.  Returns the feature id associated with this feature
     def init_feature(self, zeta, depth, id):
-        assert zeta.shape == (3, 1) and abs(1.0 - norm(zeta)) < 1e-5
+        assert zeta.shape == (3, 1) and abs(1.0 - norm(zeta)) < 1e-3
         assert depth.shape == (1, 1)
 
         self.len_features += 1

@@ -188,9 +188,9 @@ if __name__ == '__main__':
             zeta = np.random.randn(3)[:, None]
             zeta = np.array([[0, 1.0, 1.0]]).T
             zeta /= scipy.linalg.norm(zeta)
-            depth = np.abs(np.random.randn(1))[0]
-            depth = 1.0
-            ekf.init_feature(zeta, depth * 10)
+            depth = np.abs(np.random.randn(1))[:,None]
+            depth = np.ones((1,1))
+            ekf.init_feature(zeta, depth * 10, j)
 
         # Initialize Inputs
         acc = nominal_acc + np.random.normal(0, 1, (3,1))

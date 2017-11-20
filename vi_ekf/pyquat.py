@@ -32,8 +32,8 @@ def skew(v):
     assert v.shape == (3, 1)
     return cross_matrix.dot(v).squeeze()
 
-def norm(v):
-    return np.sqrt(np.sum(v*v))
+def norm(v, axis=None):
+    return np.sqrt(np.sum(v*v, axis=axis))
 
 class Quaternion():
     def __init__(self, v):
@@ -156,9 +156,14 @@ class Quaternion():
     # Perform an active rotation on v (same as q.R.T.dot(v), but faster)
     def rot(self, v):
         assert v.shape[0] == 3
+        start_norm = norm(v, axis=0)
         skew_xyz = skew(self.arr[1:])
         t = 2.0 * skew_xyz.dot(v)
-        return v + self.arr[0,0] * t + skew_xyz.dot(t)
+        out = v + self.arr[0,0] * t + skew_xyz.dot(t)
+        out_norm = norm(out, axis=0)
+        if ((out_norm - start_norm) > 1e-3).any():
+            debug = 1
+        return out
 
     # Perform a passive rotation on v (same as q.R.dot(v), but faster)
     def invrot(self, v):

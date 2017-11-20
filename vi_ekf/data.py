@@ -60,6 +60,7 @@ class Data(object):
             assert time == t, (time, t, dt)
             assert all([gyro is None, acc is None]) or not all([gyro is None, acc is None])
             assert type(zetas) == type(depths) == type(ids) == list
+            assert len(zetas) == len(depths) == len(ids)
             assert type(t) == float or type(t) == np.float64, type(t)
             assert type(dt) == float or type(t) == np.float64, type(t)
             assert ((pos.shape == (3, 1)) if pos is not None else True), pos.shape
@@ -67,8 +68,6 @@ class Data(object):
             assert (att.shape == (4, 1)) if att is not None else True
             assert (gyro.shape == (3, 1)) if gyro is not None else True
             assert (acc.shape == (3, 1)) if acc is not None else True
-            assert (len(zetas) == len(ids)) if len(zetas) > 0 else True
-            assert (len(depths) == len(ids)) if len(depths) > 0 else True
             assert zetas[0].shape == (3, 1) if len(zetas) > 0 else True, zetas[0].shape
             assert depths[0].shape == (1, 1) if len(depths) > 0 else True, depths[0].shape
             assert all([type(id) == int or type(id) == np.int64 for id in ids]), type(ids[0])
@@ -114,24 +113,24 @@ class FakeData(Data):
 
 
 class ETHData(Data):
-    def __init__(self, start=-1, end=np.inf):
+    def __init__(self, filename='/mnt/pccfs/not_backed_up/eurocmav/V1_01_easy/mav0', start=-1, end=np.inf, sim_features=False):
         super(ETHData, self).__init__()
-        self.data = data_loader.load_data('/mnt/pccfs/not_backed_up/eurocmav/V1_01_easy/mav0')
-        self.time = np.unique(np.concatenate([self.data['imu'][:, 0],
-                                              self.data['truth'][:, 0],
-                                              self.data['cam_time']]))
+        self.data = data_loader.load_data(filename, start, end, sim_features)
+        self.time = np.unique(np.concatenate([self.data['imu'][:, 0]]))
+                                              # self.data['truth'][:, 0],
+                                              # self.data['feat_time']]))
         self.time = self.time[(self.time > start) & (self.time < end)]
 
         self.truth_indexer = self.indexer(self.time, self.data['truth'][:, 0])
         self.imu_indexer = self.indexer(self.time, self.data['imu'][:, 0])
-        self.feature_indexer = self.indexer(self.time, self.data['cam_time'])
+        self.feature_indexer = self.indexer(self.time, self.data['feat_time'])
 
-        self.tracker = klt_tracker.KLT_tracker(25)
-        self.undistort, P = data_loader.make_undistort_funtion(intrinsics=self.data['cam0_sensor']['intrinsics'],
-                                                            resolution=self.data['cam0_sensor']['resolution'],
-                                                            distortion_coefficients=self.data['cam0_sensor']['distortion_coefficients'])
+        # self.tracker = klt_tracker.KLT_tracker(25)
+        # self.undistort, P = data_loader.make_undistort_funtion(intrinsics=self.data['cam0_sensor']['intrinsics'],
+        #                                                     resolution=self.data['cam0_sensor']['resolution'],
+        #                                                     distortion_coefficients=self.data['cam0_sensor']['distortion_coefficients'])
 
-        self.inverse_projection = np.linalg.inv(P)
+        # self.inverse_projection = np.linalg.inv(P)
 
     def compute_features(self, image):
         image = self.undistort(image)[..., None]
@@ -165,18 +164,25 @@ class ETHData(Data):
         pos, vel, att, gyro, acc = None, None, None, None, None
         zetas, ids, depths = [], [], []
 
-        if self.truth_indexer[i] - self.truth_indexer[i - 1] != 0:
-            pos = self.data['truth'][self.truth_indexer[i], 1:4, None]
-            vel = self.data['truth'][self.truth_indexer[i], 8:11, None]
-            att = self.data['truth'][self.truth_indexer[i], 4:8, None]
+        # if self.truth_indexer[i] - self.truth_indexer[i - 1] != 0:
+        pos = self.data['truth'][self.truth_indexer[i], 1:4, None]
+        vel = self.data['truth'][self.truth_indexer[i], 8:11, None]
+        att = self.data['truth'][self.truth_indexer[i], 4:8, None]
 
         if self.imu_indexer[i] - self.imu_indexer[i - 1] != 0:
             gyro = self.data['imu'][self.imu_indexer[i], 1:4, None]
             acc = self.data['imu'][self.imu_indexer[i], 4:7, None]
 
         if self.feature_indexer[i] - self.feature_indexer[i - 1] != 0:
-            image = cv2.imread(self.data['cam0_frame_filenames'][self.feature_indexer[i]], cv2.IMREAD_GRAYSCALE)
-            zetas, ids = self.compute_features(image)
+            ids = list(self.data['ids'][self.feature_indexer[i], :])
+            zetas = []
+            depths = []
+            for i, l in enumerate(ids):
+                zetas.append(self.data['zetas'][i][self.feature_indexer[i], :, None])
+                depths.append(self.data['depths'][i][self.feature_indexer[i], :, None])
+
+            # image = cv2.imread(self.data['cam0_frame_filenames'][self.feature_indexer[i]], cv2.IMREAD_GRAYSCALE)
+            # zetas, ids = self.compute_features(image)
 
         return t, dt, pos, vel, att, gyro, acc, zetas, depths, ids
 
@@ -184,14 +190,14 @@ class ETHData(Data):
         return len(self.time)
 
     def __test__(self):
-        image = np.zeros([480, 752, 1]).astype(np.uint8)
-        size = 100
-        image[480//2 - size:480//2 + size, 752//2 - size:752//2 + size] = 255
-        zeta, id = self.compute_features(image)
-
-        assert len(zeta) == 4
-        assert len(zeta) == len(id), (len(zeta), len(id))
-        assert False, 'we should manually calculate and check the correct zetas'
+        # image = np.zeros([480, 752, 1]).astype(np.uint8)
+        # size = 100
+        # image[480//2 - size:480//2 + size, 752//2 - size:752//2 + size] = 255
+        # zeta, id = self.compute_features(image)
+        #
+        # assert len(zeta) == 4
+        # assert len(zeta) == len(id), (len(zeta), len(id))
+        # assert False, 'we should manually calculate and check the correct zetas'
 
         super(ETHData, self).__test__()
 

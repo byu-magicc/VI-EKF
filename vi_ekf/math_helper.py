@@ -1,8 +1,8 @@
 from pyquat import Quaternion
 import numpy as np
 
-def norm(v):
-    return np.sqrt(np.sum(v*v))
+def norm(v, axis=None):
+    return np.sqrt(np.sum(v*v, axis=axis))
 
 cross_matrix = np.array([[[0, 0, 0],
                           [0, 0, -1.0],

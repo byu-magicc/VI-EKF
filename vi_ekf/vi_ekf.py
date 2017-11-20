@@ -170,12 +170,15 @@ class VI_EKF():
         self.x = self.boxplus(self.x, xdot*dt)
 
         # Propagate Uncertainty
-        A = self.dfdx(self.x, u)
-        G = self.dfdu(self.x)
+        # A = self.dfdx(self.x, u)
+        # G = self.dfdu(self.x)
 
         # TODO: Convert to proper noise introduction (instead of additive noise on all states)
-        Pdot = A.dot(self.P) + self.P.dot(A.T) + G.dot(self.Qu).dot(G.T) + self.Qx
-        self.P += Pdot*dt
+        # Pdot = A.dot(self.P) + self.P.dot(A.T) + G.dot(self.Qu).dot(G.T) + self.Qx
+        # self.P += Pdot*dt
+
+        # if np.isnan(self.P).any():
+        #     debug = 1
 
         return self.x.copy(), self.P.copy()
 
@@ -190,11 +193,6 @@ class VI_EKF():
 
         # Feature Points need a slightly modified update process because of the non-vectorness of the measurement
         zhat, H = self.measurement_functions[measurement_type](self.x, **kwargs)
-
-        K = self.P.dot(H.T).dot(scipy.linalg.inv(R + H.dot(self.P).dot(H.T)))
-
-        if not passive_update:
-            self.P = (self.I_big - K.dot(H)).dot(self.P)
 
         if measurement_type == 'feat':
             # For features, we have to do boxminus on the weird space between quaternions
@@ -212,17 +210,20 @@ class VI_EKF():
         # Residual Saturation
         # residual[residual > 0.1] = 0.1
         # residual[residual < -0.1] = -0.1
-
-        # TODO: Do residual saturation here
         if not passive_update:
+            try:
+                K = self.P.dot(H.T).dot(scipy.linalg.inv(R + H.dot(self.P).dot(H.T)))
+            except:
+                debug = 1
+            self.P = (self.I_big - K.dot(H)).dot(self.P)
             self.x = self.boxplus(self.x, K.dot(residual))
         return zhat
 
     # Used for overriding imu biases, Not to be used in real life
     def set_imu_bias(self, b_g, b_a):
-        assert b_g.shape == (3,1) and b_a.shape(3,1)
-        self.x[xB_A:xB_A+3] = b_g
-        self.x[xB_G:xB_G+3] = b_a
+        assert b_g.shape == (3,1) and b_a.shape == (3,1)
+        self.x[xB_G:xB_G+3] = b_g
+        self.x[xB_A:xB_A+3] = b_a
 
     # Used to initialize a new feature.  Returns the feature id associated with this feature
     def init_feature(self, zeta, depth, id):
@@ -289,7 +290,7 @@ class VI_EKF():
         mu = x[xMU, 0]
 
         pdot = q_I_b.rot(vel)
-        vdot = skew(vel).dot(omega) - mu*vel + acc_z + q_I_b.rot(self.gravity)
+        vdot = skew(vel).dot(omega) - mu*I_2x3.T.dot(I_2x3).dot(vel) + acc_z + q_I_b.rot(self.gravity)
         # pdot = np.zeros((3,1))
         # vdot = np.zeros((3, 1))
         qdot = omega
@@ -329,7 +330,7 @@ class VI_EKF():
         omega = u[uG:uG+3] - x[xB_G:xB_G+3]
         mu = x[xMU, None]
 
-
+        self.A *= 0.0
 
         # Position Partials
         self.A[dxPOS:dxPOS+3, dxVEL:dxVEL+3] = q_I_b.R
@@ -380,6 +381,10 @@ class VI_EKF():
             self.A[dxRHO_i, dxZETA_i:dxZETA_i+2] = rho2*vel_c_i.T.dot(skew_zeta).dot(T_z)
             self.A[dxRHO_i, dxRHO_i] = 2*rho*zeta.T.dot(vel_c_i).squeeze()
 
+        if np.isnan(self.A).any():
+            debug = 1
+
+
         return self.A
 
     # Calculates the jacobian of the state dynamics with respect to the input noise.
@@ -390,6 +395,8 @@ class VI_EKF():
 
         vel = x[xVEL:xVEL+3]
         q_I_b = Quaternion(x[xATT:xATT+4])
+
+        self.G *= 0.0
 
         # State partials
         self.G[dxVEL:dxATT, uA, None] = self.khat
@@ -410,6 +417,9 @@ class VI_EKF():
 
             self.G[dxZETA_i:dxZETA_i+2, uG:uG+3] = T_zeta(q_zeta).T.dot(R_b_c - rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c))
             self.G[dxRHO_i, uG:] = rho*rho*zeta.T.dot(R_b_c).dot(skew_p_b_c)
+
+        if np.isnan(self.G).any():
+            debug = 1
 
         return self.G
 

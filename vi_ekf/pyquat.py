@@ -27,6 +27,17 @@ qmat_matrix = np.array([[[1.0, 0, 0, 0],
                          [0, 1.0, 0, 0],
                          [1.0, 0, 0, 0]]])
 
+def quat_arr_to_euler(array):
+    assert array.shape[0] == 4
+    w = array[0,:]
+    x = array[1,:]
+    y = array[2,:]
+    z = array[3,:]
+    return np.array([np.arctan2(2.0 * (w * x + y * z), 1. - 2. * (x * x + y * y)),
+                     np.arcsin(2.0 * (w * y - z * x)),
+                     np.arctan2(2.0 * (w * z + x * y), 1. - 2. * (y * y + z * z))])
+
+
 
 def skew(v):
     assert v.shape == (3, 1)
@@ -95,6 +106,17 @@ class Quaternion():
     def elements(self):
         return self.arr
 
+    @property
+    def euler(self):
+        w = self.arr[0, 0]
+        x = self.arr[1, 0]
+        y = self.arr[2, 0]
+        z = self.arr[3, 0]
+        return np.array([[np.arctan2(2.0*(w*x + y*z), 1. - 2.*(x*x + y*y))],
+                         [np.arcsin(2.0*(w*y - z*x))],
+                         [np.arctan2(2.0*(w*z + x*y), 1. - 2.*(y*y + z*z))]])
+
+
     # Calculates the rotation matrix equivalent.  If you are performing a rotation,
     # is is much faster to use rot or invrot
     @property
@@ -161,7 +183,7 @@ class Quaternion():
         t = 2.0 * skew_xyz.dot(v)
         out = v + self.arr[0,0] * t + skew_xyz.dot(t)
         out_norm = norm(out, axis=0)
-        if ((out_norm - start_norm) > 1e-3).any():
+        if ((out_norm - start_norm) > 1e-3*start_norm).any():
             debug = 1
         return out
 
@@ -198,6 +220,37 @@ class Quaternion():
             arr[1:,:] = xyz
             arr /= norm(arr)
         return Quaternion(arr)
+
+    @staticmethod
+    def from_R(m):
+        q = np.zeros((4,1))
+        tr = np.trace(m)
+
+        if tr > 0:
+            S = np.sqrt(tr+1.0) * 2.
+            q[0] = 0.25 * S
+            q[1] = (m[2,1] - m[1,2]) / S
+            q[2] = (m[0,2] - m[2,0]) / S
+            q[3] = (m[1,0] - m[0,1]) / S
+        elif (m[0,0] > m[1,1]) and (m[0,0] > m[2,2]):
+            S = np.sqrt(1.0 + m[0,0] - m[1,1] - m[2,2]) * 2.
+            q[0] = (m[2,1] - m[1,2]) / S
+            q[1] = 0.25 * S
+            q[2] = (m[0,1] + m[1,0]) / S
+            q[3] = (m[0,2] + m[2,0]) / S
+        elif m[1,1] > m[2,2]:
+            S = np.sqrt(1.0 + m[1,1] - m[0,0] - m[2,2]) * 2.
+            q[0] = (m[0,2] - m[2,0]) / S
+            q[1] = (m[0,1] + m[1,0]) / S
+            q[2] = 0.25 * S
+            q[3] = (m[1,2] + m[2,1]) / S
+        else:
+            S = np.sqrt(1.0 + m[2,2] - m[0,0] - m[1,1]) * 2.
+            q[0] = (m[1,0] - m[0,1]) / S
+            q[1] = (m[0,2] + m[2,0]) / S
+            q[2] = (m[1,2] + m[2,1]) / S
+            q[3] = 0.25 * S
+        return Quaternion(q)
 
     def otimes(self, q):
         q_new = Quaternion(qmat_matrix.dot(q.arr).squeeze().dot(self.arr).copy())

@@ -3,6 +3,7 @@ import numpy as np
 import data_loader
 import cv2
 import klt_tracker
+import cPickle
 
 class Data(object):
     def __init__(self):
@@ -52,10 +53,10 @@ class Data(object):
 
     def __test__(self):
         assert self.x0.shape == (17,1), self.x0.shape
-        time = 0
+        time = self.start
         for x in self:
-            assert len(x) == 10
-            t, dt, pos, vel, att, gyro, acc, zetas, depths, ids = x
+            assert len(x) == 12
+            t, dt, pos, vel, att, gyro, acc, b_w, b_a, zetas, depths, ids = x
             time += dt
             assert time == t, (time, t, dt)
             assert all([gyro is None, acc is None]) or not all([gyro is None, acc is None])
@@ -68,6 +69,8 @@ class Data(object):
             assert (att.shape == (4, 1)) if att is not None else True
             assert (gyro.shape == (3, 1)) if gyro is not None else True
             assert (acc.shape == (3, 1)) if acc is not None else True
+            assert (b_w.shape == (3, 1)) if acc is not None else True
+            assert (b_a.shape == (3, 1)) if acc is not None else True
             assert zetas[0].shape == (3, 1) if len(zetas) > 0 else True, zetas[0].shape
             assert depths[0].shape == (1, 1) if len(depths) > 0 else True, depths[0].shape
             assert all([type(id) == int or type(id) == np.int64 for id in ids]), type(ids[0])
@@ -113,9 +116,14 @@ class FakeData(Data):
 
 
 class ETHData(Data):
-    def __init__(self, filename='/mnt/pccfs/not_backed_up/eurocmav/V1_01_easy/mav0', start=-1, end=np.inf, sim_features=False):
+    def __init__(self, filename='/mnt/pccfs/not_backed_up/eurocmav/V1_01_easy/mav0', start=-1, end=np.inf, sim_features=False, load_new=False):
         super(ETHData, self).__init__()
-        self.data = data_loader.load_data(filename, start, end, sim_features)
+        if load_new:
+            self.data = data_loader.load_data(filename, start, end, sim_features)
+            cPickle.dump(self.data, open('data/generated_data.pkl', 'wb'))
+        else:
+            self.data = cPickle.load(open('data/generated_data.pkl', 'rb'))
+
         self.time = np.unique(np.concatenate([self.data['imu'][:, 0]]))
                                               # self.data['truth'][:, 0],
                                               # self.data['feat_time']]))
@@ -124,6 +132,7 @@ class ETHData(Data):
         self.truth_indexer = self.indexer(self.time, self.data['truth'][:, 0])
         self.imu_indexer = self.indexer(self.time, self.data['imu'][:, 0])
         self.feature_indexer = self.indexer(self.time, self.data['feat_time'])
+        self.start = start
 
         # self.tracker = klt_tracker.KLT_tracker(25)
         # self.undistort, P = data_loader.make_undistort_funtion(intrinsics=self.data['cam0_sensor']['intrinsics'],
@@ -151,16 +160,16 @@ class ETHData(Data):
         return np.concatenate([self.data['truth'][self.truth_indexer[0], 1:4, None],
                                self.data['truth'][self.truth_indexer[0], 8:11, None],
                                self.data['truth'][self.truth_indexer[0], 4:8, None],
-                               np.zeros((3, 1)),
-                               np.zeros((3, 1)),
-                               0.2*np.ones((1, 1))], axis=0)
+                               self.data['truth'][self.truth_indexer[0], 14:17, None],
+                               self.data['truth'][self.truth_indexer[0], 11:14, None],
+                               2.5*0.2*np.ones((1, 1))], axis=0)
 
     def __getitem__(self, i):
         if i >= len(self):
             raise IndexError
 
         t = self.time[i]
-        dt = self.time[0] if i == 0 else (self.time[i] - self.time[i - 1])
+        dt = self.time[0] - self.start if i == 0 else (self.time[i] - self.time[i - 1])
         pos, vel, att, gyro, acc = None, None, None, None, None
         zetas, ids, depths = [], [], []
 
@@ -168,6 +177,9 @@ class ETHData(Data):
         pos = self.data['truth'][self.truth_indexer[i], 1:4, None]
         vel = self.data['truth'][self.truth_indexer[i], 8:11, None]
         att = self.data['truth'][self.truth_indexer[i], 4:8, None]
+        b_w = self.data['truth'][self.truth_indexer[i], 11:14, None]
+        b_a = self.data['truth'][self.truth_indexer[i], 14:17, None]
+
 
         if self.imu_indexer[i] - self.imu_indexer[i - 1] != 0:
             gyro = self.data['imu'][self.imu_indexer[i], 1:4, None]
@@ -184,7 +196,7 @@ class ETHData(Data):
             # image = cv2.imread(self.data['cam0_frame_filenames'][self.feature_indexer[i]], cv2.IMREAD_GRAYSCALE)
             # zetas, ids = self.compute_features(image)
 
-        return t, dt, pos, vel, att, gyro, acc, zetas, depths, ids
+        return t, dt, pos, vel, att, gyro, acc, b_w, b_a, zetas, depths, ids
 
     def __len__(self):
         return len(self.time)

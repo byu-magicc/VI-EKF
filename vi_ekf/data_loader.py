@@ -11,9 +11,14 @@ import yaml
 R_NWU_NED = np.array([[1, 0, 0],
                       [0, -1, 0],
                       [0, 0, -1]])
-R_IMU = np.array([[0, 0, 1],
-                  [0, 1, 0],
-                  [-1, 0, 0]])
+# R_IMU = np.array([[0, 0, 1],
+#                   [0, 1, 0],
+#                   [-1, 0, 0]]).T
+R_IMU = np.array([[ 0.33638, -0.01749,  0.94156],
+                  [ 0.02078,  0.99972,  0.01114],
+                  [-0.9415 ,  0.01582,  0.33665]])
+q_IMU = Quaternion.from_R(R_NWU_NED.dot(R_IMU))
+
 
 def load_from_file(filename):
     data = np.load(filename)
@@ -42,11 +47,9 @@ def load_data(folder, start=0, end=np.inf, sim_features=False, show_image=False)
             imu_data.append([float(item) for item in row])
     imu_data = np.array(imu_data)
 
-    # rotate IMU data into the NED frame\
-    q_IMU = Quaternion(np.array([0.5, 0.5, 0.5, 0.5])[:, None])
-    for row in imu_data:
-        row[1:4] = q_IMU.rot(row[1:4])
-        row[4:7] = q_IMU.rot(row[4:7])
+    # rotate IMU data into the NED frame
+    imu_data[:,1:4] = (q_IMU.rot(imu_data[:,1:4].T)).T
+    imu_data[:,4:7] = (q_IMU.rot(imu_data[:,4:7].T)).T
 
     t0 = imu_data[0,0]
     imu_data[:,0] -= t0
@@ -64,12 +67,12 @@ def load_data(folder, start=0, end=np.inf, sim_features=False, show_image=False)
     ground_truth[:, 0] /= 1e9
 
     # rotate ground_truth into the right frame
+    ground_truth[:,1:4] = (q_IMU.rot(ground_truth[:,1:4].T)).T
+    ground_truth[:,8:11] = (q_IMU.rot(ground_truth[:,8:11].T)).T
     for row in ground_truth:
-        row[1:4] = R_NWU_NED.dot(row[1:4])
         row[4:8] = (q_IMU * Quaternion(row[4:8, None])).elements[:, 0]
-        row[8:11] = R_NWU_NED.dot(row[8:11])
-        row[11:14] = q_IMU.rot(row[11:14])
-        row[14:17] = q_IMU.rot(row[14:17])
+    ground_truth[:,11:14] = (q_IMU.rot(ground_truth[:,11:14].T)).T
+    ground_truth[:,14:17] = (q_IMU.rot(ground_truth[:,14:17].T)).T
 
     if sim_features:
         # Simulate Landmark Measurements
@@ -154,6 +157,7 @@ def load_data(folder, start=0, end=np.inf, sim_features=False, show_image=False)
         out_dict['cam0_frame_filenames'] = images0
         out_dict['cam1_frame_filenames'] = images1
         out_dict['cam_time'] = image_time
+
     return out_dict
 
 

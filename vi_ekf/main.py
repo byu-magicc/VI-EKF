@@ -8,7 +8,7 @@ from pyquat import Quaternion, quat_arr_to_euler
 import time
 from math_helper import  norm
 
-data = ETHData(filename='data/V1_01_easy/mav0', start=2.0, end=30.0, sim_features=True, load_new=True)
+data = ETHData(filename='data/V1_01_easy/mav0', start=2.0, end=30.0, sim_features=True, load_new=False)
 data.__test__()
 
 ekf = viekf.VI_EKF(data.x0)
@@ -31,8 +31,8 @@ for i, (t, dt, pos, vel, att, gyro, acc, b_w, b_a, zetas, depths, ids) in enumer
         ekf.keep_only_features(ids)
 
     zeta_hats, depth_hats = [], []
-    for zeta, id in zip(zetas, ids):
-        zeta_hats.append(ekf.update(zeta, 'feat', data.R['zeta'], passive=True, i=id))
+    for zeta, depth, id in zip(zetas, depths, ids):
+        zeta_hats.append(ekf.update(zeta, 'feat', data.R['zeta'], passive=True, i=id, depth=depth))
 
     for depth, id in zip(depths, ids):
         depth_hats.append(ekf.update(depth, 'depth', data.R['depth'], passive=True, i=id))

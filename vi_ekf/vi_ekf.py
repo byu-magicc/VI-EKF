@@ -65,7 +65,7 @@ class VI_EKF():
         self.P0_feat = np.diag([0.01, 0.01, 0.1]) # x, y, and 1/depth
 
         # gravity vector
-        self.gravity = np.array([[0, 0, 9.80665]]).T
+        self.gravity = np.array([[0, 0, -9.80665]]).T
 
         # Unit vectors in the x, y, and z directions (used a lot for projection functions)
         self.ihat = np.array([[1, 0, 0]]).T
@@ -189,7 +189,7 @@ class VI_EKF():
 
         if measurement_type == 'feat':
             if kwargs['i'] not in self.initialized_features:
-                self.init_feature(z, np.array([[1.0]]), id=kwargs['i'])
+                self.init_feature(z, id=kwargs['i'], depth=(kwargs['depth'] if 'depth' in kwargs else np.array([[1.0]])))
 
         # Feature Points need a slightly modified update process because of the non-vectorness of the measurement
         zhat, H = self.measurement_functions[measurement_type](self.x, **kwargs)
@@ -226,7 +226,7 @@ class VI_EKF():
         self.x[xB_A:xB_A+3] = b_a
 
     # Used to initialize a new feature.  Returns the feature id associated with this feature
-    def init_feature(self, zeta, depth, id):
+    def init_feature(self, zeta, id, depth=None):
         assert zeta.shape == (3, 1) and abs(1.0 - norm(zeta)) < 1e-3
         assert depth.shape == (1, 1)
 
@@ -290,7 +290,7 @@ class VI_EKF():
         mu = x[xMU, 0]
 
         pdot = q_I_b.rot(vel)
-        vdot = skew(vel).dot(omega) - mu*I_2x3.T.dot(I_2x3).dot(vel) + acc_z + q_I_b.rot(self.gravity)
+        vdot = skew(vel).dot(omega) - mu*I_2x3.T.dot(I_2x3).dot(vel) + acc_z + q_I_b.invrot(self.gravity)
         # pdot = np.zeros((3,1))
         # vdot = np.zeros((3, 1))
         qdot = omega

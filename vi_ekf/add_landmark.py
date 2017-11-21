@@ -22,7 +22,7 @@ def add_landmark(truth, landmarks):
         dist = norm(delta_pose, axis=1)
         q = Quaternion(truth[i,4:8,None])
 
-        feature_array[i,bearing_mask] = np.reshape((q.rot((delta_pose/dist[:,None]).T)), (1, -1), order='f')
+        feature_array[i,bearing_mask] = np.reshape((q.R.dot((delta_pose/dist[:,None]).T)), (1, -1), order='f')
         # if abs(1. - norm(np.reshape(feature_array[i,bearing_mask], (3, -1), order='f'), axis=0) > 1e-5).any():
         #     debug = 1
         feature_array[i,depth_mask] = dist

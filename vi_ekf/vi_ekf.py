@@ -170,15 +170,15 @@ class VI_EKF():
         self.x = self.boxplus(self.x, xdot*dt)
 
         # Propagate Uncertainty
-        # A = self.dfdx(self.x, u)
-        # G = self.dfdu(self.x)
+        A = self.dfdx(self.x, u)
+        G = self.dfdu(self.x)
 
         # TODO: Convert to proper noise introduction (instead of additive noise on all states)
-        # Pdot = A.dot(self.P) + self.P.dot(A.T) + G.dot(self.Qu).dot(G.T) + self.Qx
-        # self.P += Pdot*dt
+        Pdot = A.dot(self.P) + self.P.dot(A.T) + G.dot(self.Qu).dot(G.T) + self.Qx
+        self.P += Pdot*dt
 
-        # if np.isnan(self.P).any():
-        #     debug = 1
+        if np.isnan(self.P).any():
+            debug = 1
 
         return self.x.copy(), self.P.copy()
 

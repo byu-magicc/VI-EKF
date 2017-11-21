@@ -4,10 +4,13 @@ import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
 
-def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None, truth=None, labels=None, skip=1, save=True):
+def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None, truth=None, labels=None, skip=1, save=True, cov_bounds=None):
     estimate = estimate[:, start:end]
+    if cov_bounds == None:
+        cov_bounds = (start,end)
+
     if isinstance(cov, np.ndarray):
-        cov_copy = cov[:, start:end, start:end].copy()
+        cov_copy = cov[:, cov_bounds[0]:cov_bounds[1], cov_bounds[0]:cov_bounds[1]].copy()
 
     start_t = est_t[0]
     end_t = est_t[-1]
@@ -22,8 +25,8 @@ def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None
         plt.subplot(end-start, 1, i + 1)
         plt.plot(est_t[::skip], estimate[::skip, i], label=labels[i] + 'hat')
         if isinstance(cov, np.ndarray):
-            plt.plot(est_t[::skip], estimate[::skip, i] + 2 * cov_copy[::skip, i, i, None], 'k-', alpha=0.5)
-            plt.plot(est_t[::skip], estimate[::skip, i] - 2 * cov_copy[::skip, i, i, None], 'k-', alpha=0.5)
+            plt.plot(est_t[::skip], estimate[::skip, i].flatten() + 2 * cov_copy[::skip, i, i].flatten(), 'k-', alpha=0.5)
+            plt.plot(est_t[::skip], estimate[::skip, i].flatten() - 2 * cov_copy[::skip, i, i].flatten(), 'k-', alpha=0.5)
         if isinstance(truth, np.ndarray):
             plt.plot(truth_t_copy[::skip], truth_copy[::skip, i], label=labels[i])
         plt.legend()

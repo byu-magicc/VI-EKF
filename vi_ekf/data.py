@@ -189,9 +189,9 @@ class ETHData(Data):
             ids = list(self.data['ids'][self.feature_indexer[i], :])
             zetas = []
             depths = []
-            for i, l in enumerate(ids):
-                zetas.append(self.data['zetas'][i][self.feature_indexer[i], :, None])
-                depths.append(self.data['depths'][i][self.feature_indexer[i], :, None])
+            for feat, l in enumerate(ids):
+                zetas.append(self.data['zetas'][feat][self.feature_indexer[i], :, None])
+                depths.append(self.data['depths'][feat][self.feature_indexer[i], :, None])
 
             # image = cv2.imread(self.data['cam0_frame_filenames'][self.feature_indexer[i]], cv2.IMREAD_GRAYSCALE)
             # zetas, ids = self.compute_features(image)

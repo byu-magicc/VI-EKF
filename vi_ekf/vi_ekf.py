@@ -381,7 +381,7 @@ class VI_EKF():
             self.A[dxRHO_i, dxZETA_i:dxZETA_i+2] = rho2*vel_c_i.T.dot(skew_zeta).dot(T_z)
             self.A[dxRHO_i, dxRHO_i] = 2*rho*zeta.T.dot(vel_c_i).squeeze()
 
-        if np.isnan(self.A).any():
+        if np.isnan(self.A).any() or (self.A > 1e50).any():
             debug = 1
 
 

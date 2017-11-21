@@ -136,9 +136,9 @@ class Quaternion():
         yz = y*z
         zz = z*z
 
-        return np.array([[[1. - 2.*yy - 2.*zz], [2.*xy - 2.*wz], [2.*xz + 2.*wy]],
-                         [[2.*xy + 2.*wz], [1. - 2.*xx - 2.*zz], [2.*yz - 2.*wx]],
-                         [[2.*xz - 2.*wy], [2.*yz + 2.*wx], [1. - 2.*xx - 2.*yy]]]).squeeze()
+        return np.array([[1. - 2.*yy - 2.*zz, 2.*xy + 2.*wz, 2.*xz - 2.*wy],
+                         [2.*xy - 2.*wz, 1. - 2.*xx - 2.*zz, 2.*yz + 2.*wx],
+                         [2.*xz + 2.*wy, 2.*yz - 2.*wx, 1. - 2.*xx - 2.*yy]])
 
     # Calculates the quaternion exponential map for a 3-vector.
     # Returns a quaternion

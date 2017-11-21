@@ -116,7 +116,7 @@ class VI_EKF():
         zetas = np.zeros((self.len_features, 3))
         for i in range(self.len_features):
             qzeta = self.x[xZ + 5 * i:xZ + 5 * i + 4, :]  # 4-vector quaternion
-            zetas[i] = Quaternion(qzeta).R.T[:,2].copy()  # 3-vector pointed at the feature in the camera frame
+            zetas[i] = Quaternion(qzeta).rot(self.khat)  # 3-vector pointed at the feature in the camera frame
         return zetas
 
     # Returns the quaternion which
@@ -304,7 +304,7 @@ class VI_EKF():
 
             q_zeta = x[xZETA_i:xZETA_i+4,:]
             rho = x[xRHO_i,0]
-            zeta = Quaternion(q_zeta).rot(self.khat)
+            zeta = Quaternion(q_zeta).invrot(self.khat)
             vel_c_i = self.q_b_c.invrot(vel + skew(omega).dot(self.p_b_c))
             omega_c_i = self.q_b_c.invrot(omega)
 
@@ -337,11 +337,11 @@ class VI_EKF():
         self.A[dxPOS:dxPOS+3, dxATT:dxATT+3] = -skew(q_I_b.rot(vel))
 
         # Velocity Partials
-        self.A[dxVEL:dxVEL+3, dxVEL:dxVEL+3] = -skew(omega) - mu * I_3x3
-        self.A[dxVEL:dxVEL+3, dxATT:dxATT+3] = -skew(q_I_b.rot(self.gravity))
+        self.A[dxVEL:dxVEL+3, dxVEL:dxVEL+3] = -skew(omega) - mu*I_2x3.T.dot(I_2x3)
+        self.A[dxVEL:dxVEL+3, dxATT:dxATT+3] = skew(q_I_b.invrot(self.gravity))
         self.A[dxVEL:dxVEL+3, dxB_A:dxB_A+3] = -self.khat.dot(self.khat.T)
         self.A[dxVEL:dxVEL+3, dxB_G:dxB_G+3] = -skew(vel)
-        self.A[dxVEL:dxVEL+3, dxMU, None] = -vel
+        self.A[dxVEL:dxVEL+3, dxMU, None] = -I_2x3.T.dot(I_2x3).dot(vel)
 
         # Attitude Partials
         self.A[dxATT:dxATT+3, dxB_G:dxB_G+3] = -I_3x3
@@ -399,8 +399,9 @@ class VI_EKF():
         self.G *= 0.0
 
         # State partials
-        self.G[dxVEL:dxATT, uA, None] = self.khat
-        self.G[dxVEL:dxATT, uG:] = skew(vel)
+        self.G[dxVEL:dxVEL+3, uA, None] = self.khat
+        self.G[dxVEL:dxVEL+3, uG:uG+3] = skew(vel)
+        self.G[dxATT:dxATT+3, uG:uG+3] = I_3x3
 
         # Feature Partials
         for i in range(self.len_features):
@@ -409,7 +410,7 @@ class VI_EKF():
 
             q_zeta = x[i * 5 + xZ:i * 5 + 4 + xZ, :]
             rho = x[i * 5 + 4 + xZ, 0]
-            zeta = Quaternion(q_zeta).rot(self.khat)
+            zeta = Quaternion(q_zeta).invrot(self.khat)
 
             skew_zeta = skew(zeta)
             R_b_c = self.q_b_c.R
@@ -484,13 +485,14 @@ class VI_EKF():
     def h_feat(self, x, **kwargs):
         i = self.global_to_local_feature_id[kwargs['i']]
         assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int)
+        dxZETA_i = dxZ + i * 3
         q_c_z = x[xZ+i*5:xZ+i*5+4]
 
         h = Quaternion(q_c_z).invrot(self.khat)
 
         dhdx = np.zeros((2, dxZ+3*self.len_features))
         T_z = T_zeta(q_c_z)
-        dhdx[:, dxZ+i*3:dxZ+i*3+2] = -T_z.T.dot(skew(h)).dot(T_z)
+        dhdx[:, dxZETA_i:dxZETA_i+2] = -T_z.T.dot(skew(h)).dot(T_z)
 
         return h, dhdx
 

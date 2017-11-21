@@ -52,6 +52,7 @@ def dfdx_test(x, u, ekf):
 
     num_errors += print_error('dxPOS', 'dxVEL', a_dfdx, d_dfdx)
     num_errors += print_error('dxPOS', 'dxATT', a_dfdx, d_dfdx)
+    num_errors += print_error('dxVEL', 'dxVEL', a_dfdx, d_dfdx)
     num_errors += print_error('dxVEL', 'dxATT', a_dfdx, d_dfdx)
     num_errors += print_error('dxVEL', 'dxB_A', a_dfdx, d_dfdx)
     num_errors += print_error('dxVEL', 'dxB_G', a_dfdx, d_dfdx)
@@ -71,8 +72,10 @@ def dfdx_test(x, u, ekf):
         num_errors += print_error(rho_key, rho_key, a_dfdx, d_dfdx)
 
     # This test ensures that the entire jacobian is correct, not just the blocks you test manually
-    if np.abs(d_dfdx - a_dfdx).sum() > 1e-4:
+    if ((d_dfdx - a_dfdx) > 1e-4).any():
         print (bcolors.FAIL + 'Error in Jacobian dfdx that is not caught by blocks')
+        print (bcolors.FAIL + 'error: \n {} \n{}'.format(a_dfdx - d_dfdx, bcolors.ENDC))
+        print (bcolors.BOLD + 'Indexes: {}'.format(np.argwhere(np.abs(a_dfdx - d_dfdx) > 1e-4)))
         num_errors += 1
         
     return num_errors
@@ -89,6 +92,7 @@ def dfdu_test(x, u, ekf):
 
     num_errors += print_error('dxVEL','uA', a_dfdu, d_dfdu)
     num_errors += print_error('dxVEL','uG', a_dfdu, d_dfdu)
+    num_errors += print_error('dxATT', 'uG', a_dfdu, d_dfdu)
 
     for i in range(ekf.len_features):
         zeta_key = 'dxZETA_' + str(i)
@@ -98,6 +102,7 @@ def dfdu_test(x, u, ekf):
 
     # This test ensures that the entire jacobian is correct, not just the blocks you test manually
     if np.abs(d_dfdu - a_dfdu).sum() > 1e-4:
+        print(bcolors.BOLD + 'Indexes: {} {}'.format(np.argwhere(np.abs(a_dfdu - d_dfdu) > 1e-4), bcolors.ENDC))
         print (bcolors.FAIL + 'Error in overall Jacobian {} that is not caught by blocks: {}\n{}\n'.format('dfdu', bcolors.ENDC, d_dfdu - a_dfdu))
         num_errors += 1
     return num_errors
@@ -112,8 +117,9 @@ def htest(fn, **kwargs):
         x_prime = ekf.boxplus(x, (I[i] * epsilon)[:, None])
         if 'type' in kwargs.keys() and kwargs['type'] == 'feat':
             q_zeta = kwargs['q_zeta']
-            q_zeta[1:] *= -1.0
-            T_z = T_zeta(q_zeta)
+            q_inv = q_zeta.copy()
+            q_inv[1:3] *= -1.0
+            T_z = T_zeta(q_inv)
             z = fn(x_prime, **kwargs)[0]
             if norm(z - x0) < 1e-16:
                 continue
@@ -129,28 +135,30 @@ def htest(fn, **kwargs):
         if item[1] > error.shape[1]:
             continue
         block_error = error[:,item[0]:item[1]]
-        if np.max(block_error) > 1e-4:
+        if (np.abs(block_error) > 1e-4).any():
             num_errors += 1
             print (bcolors.FAIL + 'Error in %s, %s, \nBLOCK_ERROR:\n%s\n ANALYTICAL:\n%s\n FD:\n%s\n'
                 % (fn.__name__, key, block_error, analytical[:,item[0]:item[1]], finite_difference[:, item[0]:item[1]]))
             print (bcolors.ENDC)
 
     # This test ensures that the entire jacobian is correct, not just the blocks you test manually
-    if np.abs(error).sum() > 1e-4:
-        print (bcolors.FAIL + 'Error in overall Jacobian {} that is not caught by blocks: {}\n{}\n'.format(fn.__name__, bcolors.ENDC, error))
+    if (np.abs(error) > 1e-4).any():
+        print(bcolors.FAIL + 'Error in overall Jacobian {} {}\n'.format(fn.__name__, bcolors.ENDC))
+        print(bcolors.BOLD + 'Indexes: {} {}'.format(np.argwhere(np.abs(error) > 1e-4), bcolors.ENDC))
+        print(error)
         num_errors += 1
 
     return num_errors
 
 def all_h_tests(x, u, ekf):
     num_errors = 0
-    num_errors += htest(ekf.h_acc)
-    num_errors += htest(ekf.h_alt)
+    # num_errors += htest(ekf.h_acc)
+    # num_errors += htest(ekf.h_alt)
     for i in range(ekf.len_features):
         num_errors += htest(ekf.h_feat, i=i, type='feat', q_zeta=x[xZ+5*i:xZ+5*i+4])
-        num_errors += htest(ekf.h_depth, i=i)
-        num_errors += htest(ekf.h_inv_depth, i=i)
-        htest(ekf.h_pixel_vel, i=i, u=u)
+        # num_errors += htest(ekf.h_depth, i=i)
+        # num_errors += htest(ekf.h_inv_depth, i=i)
+        # htest(ekf.h_pixel_vel, i=i, u=u)
     return num_errors
 
 if __name__ == '__main__':
@@ -190,7 +198,7 @@ if __name__ == '__main__':
             zeta /= scipy.linalg.norm(zeta)
             depth = np.abs(np.random.randn(1))[:,None]
             depth = np.ones((1,1))
-            ekf.init_feature(zeta, depth * 10, j)
+            ekf.init_feature(zeta, j, depth=depth * 10)
 
         # Initialize Inputs
         acc = nominal_acc + np.random.normal(0, 1, (3,1))

@@ -80,8 +80,8 @@ euler_hat = quat_arr_to_euler(all_x_hat[:, viekf.xATT:viekf.xATT+4].squeeze().T)
 
 # plot
 if True:
-    plot_side_by_side('x_pos', viekf.xPOS, viekf.xPOS+3, tm, all_x_hat, cov=all_P, truth_t=tm, truth=all_pos, labels=['x', 'y', 'z'])
-    plot_side_by_side('x_vel', viekf.xVEL, viekf.xVEL+3, tm, all_x_hat, cov=all_P, truth_t=tm, truth=all_vel, labels=['x', 'y', 'z'])
+    plot_side_by_side('x_pos', viekf.xPOS, viekf.xPOS+3, tm, all_x_hat, cov=None, truth_t=tm, truth=all_pos, labels=['x', 'y', 'z'])
+    plot_side_by_side('x_vel', viekf.xVEL, viekf.xVEL+3, tm, all_x_hat, cov=None, truth_t=tm, truth=all_vel, labels=['x', 'y', 'z'])
     plot_side_by_side('x_att', viekf.xATT, viekf.xATT+4, tm, all_x_hat, cov=None, truth_t=tm, truth=all_att, labels=['w', 'x', 'y', 'z'])
     plot_side_by_side('x_euler', 0, 3, tm, euler_hat, cov=None, truth_t=tm, truth=euler, labels=[r'$\phi$', r'$\rho$', r'$\psi$'])
     plot_side_by_side('x_b_g', viekf.xB_G, viekf.xB_G + 3, tm, all_x_hat, cov=all_P, truth_t=tm, truth=all_b_w, labels=['x', 'y', 'z'], cov_bounds=(viekf.dxB_G,viekf.dxB_G+3))

@@ -9,7 +9,7 @@ from generate_data import generate_data
 # read_bag('data/simulated_waypoints.bag')
 # data = cPickle.load(open('simulated_waypoints.pkl', 'rb'))
 
-#generate_data()
+generate_data()
 data = cPickle.load(open('generated_data.pkl', 'rb'))
 
 start = 1.0

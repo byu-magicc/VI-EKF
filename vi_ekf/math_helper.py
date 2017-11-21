@@ -23,5 +23,7 @@ def skew(v):
 e_x_e_y = np.array([[1., 0, 0], [0, 1., 0]]).T
 def T_zeta(q_zeta):
     assert q_zeta.shape == (4,1)
+    # Rotate onto the coordinate frame aligned with the feature vector
+    # (This is where the Lie Group is linearized about)
     return Quaternion(q_zeta).invrot(e_x_e_y)
 

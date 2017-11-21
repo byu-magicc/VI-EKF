@@ -136,9 +136,9 @@ class Quaternion():
         yz = y*z
         zz = z*z
 
-        return np.array([[1. - 2.*yy - 2.*zz, 2.*xy + 2.*wz, 2.*xz - 2.*wy],
-                         [2.*xy - 2.*wz, 1. - 2.*xx - 2.*zz, 2.*yz + 2.*wx],
-                         [2.*xz + 2.*wy, 2.*yz - 2.*wx, 1. - 2.*xx - 2.*yy]])
+        return np.array([[1. - 2.*yy - 2.*zz, 2.*xy - 2.*wz, 2.*xz + 2.*wy],
+                         [2.*xy + 2.*wz, 1. - 2.*xx - 2.*zz, 2.*yz - 2.*wx],
+                         [2.*xz - 2.*wy, 2.*yz + 2.*wx, 1. - 2.*xx - 2.*yy]])
 
     # Calculates the quaternion exponential map for a 3-vector.
     # Returns a quaternion
@@ -175,7 +175,7 @@ class Quaternion():
     def normalize(self):
         self.arr /= norm(self.arr)
 
-    # Perform an active rotation on v (same as q.R.T.dot(v), but faster)
+    # Perform a passive rotation on v (same as q.R.dot(v), but faster) CONFIRMED
     def rot(self, v):
         assert v.shape[0] == 3
         start_norm = norm(v, axis=0)
@@ -187,7 +187,7 @@ class Quaternion():
             debug = 1
         return out
 
-    # Perform a passive rotation on v (same as q.R.dot(v), but faster)
+    # Perform an active rotation on v (same as q.R.T.dot(v), but faster) CONFIRMED
     def invrot(self, v):
         assert v.shape[0] == 3
         skew_xyz = skew(self.arr[1:])

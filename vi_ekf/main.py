@@ -8,7 +8,7 @@ from pyquat import Quaternion, quat_arr_to_euler
 import time
 from math_helper import  norm
 
-data = ETHData(filename='data/V1_01_easy/mav0', start=2.0, end=30.0, sim_features=True, load_new=True)
+data = ETHData(filename='data/V2_03_difficult/mav0', start=2.0, end=30.0, sim_features=True, load_new=True)
 data.__test__()
 
 ekf = viekf.VI_EKF(data.x0)

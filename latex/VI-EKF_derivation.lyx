@@ -1756,7 +1756,15 @@ y_{\omega}
 \begin_inset Formula 
 \begin{equation}
 \begin{aligned}\dot{p}_{bI}^{I} & =R^{\top}\left(q_{I}^{b}\right)v_{bI}^{b}\\
-v_{b/I}^{b} & =\left\lfloor v_{b/I}^{b}\right\rfloor \left(y_{\omega}-\beta_{\omega}\right)+R\left(q_{I}^{b}\right)g+\hat{k}\hat{k}^{\top}\left(y_{a}-\beta_{a}\right)-\mu_{t}v_{b/I}^{b}+\eta_{v}\\
+v_{b/I}^{b} & =\left\lfloor v_{b/I}^{b}\right\rfloor \left(y_{\omega}-\beta_{\omega}\right)+R\left(q_{I}^{b}\right)g+\left[\begin{array}{ccc}
+0 & 0 & 0\\
+0 & 0 & 0\\
+0 & 0 & 1
+\end{array}\right]\left(y_{a}-\beta_{a}\right)-\mu_{t}\left[\begin{array}{ccc}
+1 & 0 & 0\\
+0 & 1 & 0\\
+0 & 0 & 0
+\end{array}\right]v_{b/I}^{b}+\eta_{v}\\
 \dot{q}_{I}^{b} & =y_{\omega}-\beta_{\omega}\\
 \dot{\beta}_{a} & =\eta_{\beta_{a}}\\
 \dot{\beta}_{\omega} & =\eta_{\beta_{\boldsymbol{\omega}}}\\
@@ -1824,7 +1832,11 @@ Velocity Jacobians
 \[
 \begin{aligned}\frac{\partial}{\partial v_{b/I}^{b}}v_{b/I}^{b} & =\frac{\partial}{\partial v_{b/I}^{b}}\left(\left\lfloor v_{b/I}^{b}\right\rfloor \left(y_{\omega}-\beta_{\omega}\right)+R\left(q_{I}^{b}\right)g+\hat{k}\hat{k}^{\top}\left(y_{a}-\beta_{a}\right)-\mu v_{b/I}^{b}+\eta_{v}\right)\\
  & =\frac{\partial}{\partial v_{b/I}^{b}}\left(-\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor \left(v_{b/I}^{b}\right)-\mu v_{b/I}^{b}\right)\\
- & =-\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor -\mu I
+ & =-\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor -\mu\left[\begin{array}{ccc}
+1 & 0 & 0\\
+0 & 1 & 0\\
+0 & 0 & 0
+\end{array}\right]
 \end{aligned}
 \]
 
@@ -1877,7 +1889,11 @@ Velocity Jacobians
 \begin_inset Formula 
 \[
 \begin{aligned}\frac{\partial}{\partial\mu}v_{b/I}^{b} & =\frac{\partial}{\partial\beta_{\omega}}\left(\left\lfloor v_{b/I}^{b}\right\rfloor \left(y_{\omega}-\beta_{\omega}\right)+R\left(q_{I}^{b}\right)g+\hat{k}\hat{k}^{\top}\left(y_{a}-\beta_{a}\right)-\mu v_{b/I}^{b}+\eta_{v}\right)\\
- & =v_{b/I}^{b}
+ & =\left[\begin{array}{ccc}
+1 & 0 & 0\\
+0 & 1 & 0\\
+0 & 0 & 0
+\end{array}\right]v_{b/I}^{b}
 \end{aligned}
 \]
 
@@ -2054,6 +2070,20 @@ Input Jacobians
 \begin_layout Standard
 Now, we want the jacobian for mapping 
 \begin_inset Formula $G=\frac{\partial\dot{\boldsymbol{x}}}{\partial\boldsymbol{u}}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\begin{aligned}\frac{\partial}{\partial y_{w}} & \dot{q}_{I}^{b}\end{aligned}
+ & =\frac{\partial}{\partial y_{w}}\left(y_{\omega}-\beta_{\omega}\right)\\
+ & =-I_{3\times3}
+\end{aligned}
+\]
+
 \end_inset
 
 

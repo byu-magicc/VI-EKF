@@ -64,8 +64,8 @@ class VI_EKF():
         # Initial Covariance estimate for new features
         self.P0_feat = np.diag([0.01, 0.01, 0.1]) # x, y, and 1/depth
 
-        # gravity vector
-        self.gravity = np.array([[0, 0, -9.80665]]).T
+        # gravity vector (NED)
+        self.gravity = np.array([[0, 0, 9.80665]]).T
 
         # Unit vectors in the x, y, and z directions (used a lot for projection functions)
         self.ihat = np.array([[1, 0, 0]]).T
@@ -289,8 +289,8 @@ class VI_EKF():
         acc_z = np.array([[0, 0, y_acc_z]]).T
         mu = x[xMU, 0]
 
-        pdot = q_I_b.rot(vel)
-        vdot = skew(vel).dot(omega) - mu*I_2x3.T.dot(I_2x3).dot(vel) + acc_z + q_I_b.invrot(self.gravity)
+        pdot = q_I_b.invrot(vel)
+        vdot = skew(vel).dot(omega) - mu*I_2x3.T.dot(I_2x3).dot(vel) + acc_z + q_I_b.rot(self.gravity)
         # pdot = np.zeros((3,1))
         # vdot = np.zeros((3, 1))
         qdot = omega

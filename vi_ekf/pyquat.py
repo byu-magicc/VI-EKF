@@ -16,15 +16,15 @@ qmat_matrix = np.array([[[1.0, 0, 0, 0],
                          [0, 0, 0, -1.0]],
                         [[0, 1.0, 0, 0],
                          [1.0, 0, 0, 0],
-                         [0, 0, 0, -1.0],
-                         [0, 0, 1.0, 0]],
-                        [[0, 0, 1.0, 0],
                          [0, 0, 0, 1.0],
+                         [0, 0, -1.0, 0]],
+                        [[0, 0, 1.0, 0],
+                         [0, 0, 0, -1.0],
                          [1.0, 0, 0, 0],
-                         [0, -1.0, 0, 0]],
+                         [0, 1.0, 0, 0]],
                         [[0, 0, 0, 1.0],
-                         [0, 0, -1.0, 0],
-                         [0, 1.0, 0, 0],
+                         [0, 0, 1.0, 0],
+                         [0, -1.0, 0, 0],
                          [1.0, 0, 0, 0]]])
 
 def quat_arr_to_euler(array):
@@ -56,6 +56,9 @@ class Quaternion():
         return "[ " + str(self.arr[0,0]) + ", " + str(self.arr[1,0]) + "i, " \
                + str(self.arr[2,0]) + "j, " + str(self.arr[3,0]) + "k ]"
 
+    def __repr__(self):
+        return self.__str__()
+
     def __mul__(self, other):
         return self.otimes(other)
 
@@ -71,16 +74,16 @@ class Quaternion():
         assert other.shape == (3, 1)
         delta = other.copy()
 
-        norm_delta = norm(delta)
+        # norm_delta = norm(delta)
 
         # If we aren't going to run into numerical issues
-        if norm_delta > 1e-4:
-            v = np.sin(norm_delta / 2.) * (delta / norm_delta)
-            self.arr = qmat_matrix.dot(np.vstack((np.cos(norm_delta / 2.0), v))).squeeze().dot(self.arr)
-        else:
-            delta /= 2.0
-            self.arr = qmat_matrix.dot(np.vstack((np.ones((1, 1)), delta))).squeeze().dot(self.arr)
-            self.arr /= norm(self.arr)
+        # if norm_delta > 1e-4:
+        #     v = np.sin(norm_delta / 2.) * (delta / norm_delta)
+        #     self.arr = qmat_matrix.dot(np.vstack((np.cos(norm_delta / 2.0), v))).squeeze().dot(self.arr)
+        # else:
+        arrdot = 0.5*qmat_matrix.dot(np.vstack((np.zeros((1, 1)), delta))).squeeze().dot(self.arr)
+        self.arr += arrdot
+        self.arr /= norm(self.arr)
         return self
 
     def __sub__(self, other):
@@ -260,13 +263,15 @@ class Quaternion():
         assert delta.shape == (3,1)
         delta = delta.copy()
 
-        norm_delta = norm(delta)
+        # norm_delta = norm(delta)
 
         # If we aren't going to run into numerical issues
         # if norm_delta > 1e-4:
         #     v = np.sin(norm_delta / 2.) * (delta / norm_delta)
         #     out_arr = qmat_matrix.dot(np.vstack((np.cos(norm_delta/2.0), v))).squeeze().dot(self.arr)
         # else:
-        out_arr = qmat_matrix.dot(np.vstack((np.ones((1,1)), delta/2.0))).squeeze().dot(self.arr)
+        arrdot = 0.5*qmat_matrix.dot(np.vstack((np.zeros((1,1)), delta))).squeeze().dot(self.arr)
+        out_arr = self.arr
+        out_arr += arrdot
         out_arr /= norm(out_arr)
         return Quaternion(out_arr)

@@ -51,33 +51,33 @@ def dfdx_test(x, u, ekf):
         x_prime = ekf.boxplus(x, (I[i] * epsilon)[:, None])
         d_dfdx[:, i] = ((ekf.f(x_prime, u) - x0) / epsilon)[:, 0]
 
-    # num_errors += print_error('dxPOS', 'dxVEL', a_dfdx, d_dfdx)
-    # num_errors += print_error('dxPOS', 'dxATT', a_dfdx, d_dfdx)
-    # num_errors += print_error('dxVEL', 'dxVEL', a_dfdx, d_dfdx)
+    num_errors += print_error('dxPOS', 'dxVEL', a_dfdx, d_dfdx)
+    num_errors += print_error('dxPOS', 'dxATT', a_dfdx, d_dfdx)
+    num_errors += print_error('dxVEL', 'dxVEL', a_dfdx, d_dfdx)
     num_errors += print_error('dxVEL', 'dxATT', a_dfdx, d_dfdx)
-    # num_errors += print_error('dxVEL', 'dxB_A', a_dfdx, d_dfdx)
-    # num_errors += print_error('dxVEL', 'dxB_G', a_dfdx, d_dfdx)
-    # num_errors += print_error('dxVEL', 'dxMU', a_dfdx, d_dfdx)
+    num_errors += print_error('dxVEL', 'dxB_A', a_dfdx, d_dfdx)
+    num_errors += print_error('dxVEL', 'dxB_G', a_dfdx, d_dfdx)
+    num_errors += print_error('dxVEL', 'dxMU', a_dfdx, d_dfdx)
 
-    # for i in range(ekf.len_features):
-        # zeta_key = 'dxZETA_' + str(i)
-        # rho_key = 'dxZETA_' + str(i)
+    for i in range(ekf.len_features):
+        zeta_key = 'dxZETA_' + str(i)
+        rho_key = 'dxZETA_' + str(i)
 
-        # num_errors += print_error(zeta_key, 'dxVEL', a_dfdx, d_dfdx)
-        # num_errors += print_error(zeta_key, 'dxB_G', a_dfdx, d_dfdx)
-        # num_errors += print_error(zeta_key, zeta_key, a_dfdx, d_dfdx)
-        # num_errors += print_error(zeta_key, rho_key, a_dfdx, d_dfdx)
-        # num_errors += print_error(rho_key, 'dxVEL', a_dfdx, d_dfdx)
-        # num_errors += print_error(rho_key, 'dxB_G', a_dfdx, d_dfdx)
-        # num_errors += print_error(rho_key, zeta_key, a_dfdx, d_dfdx)
-        # num_errors += print_error(rho_key, rho_key, a_dfdx, d_dfdx)
+        num_errors += print_error(zeta_key, 'dxVEL', a_dfdx, d_dfdx)
+        num_errors += print_error(zeta_key, 'dxB_G', a_dfdx, d_dfdx)
+        num_errors += print_error(zeta_key, zeta_key, a_dfdx, d_dfdx)
+        num_errors += print_error(zeta_key, rho_key, a_dfdx, d_dfdx)
+        num_errors += print_error(rho_key, 'dxVEL', a_dfdx, d_dfdx)
+        num_errors += print_error(rho_key, 'dxB_G', a_dfdx, d_dfdx)
+        num_errors += print_error(rho_key, zeta_key, a_dfdx, d_dfdx)
+        num_errors += print_error(rho_key, rho_key, a_dfdx, d_dfdx)
 
     # This test ensures that the entire jacobian is correct, not just the blocks you test manually
-    # if (abs(d_dfdx - a_dfdx) > 1e-4).any():
-    #     print (bcolors.FAIL + 'Error in Jacobian dfdx that is not caught by blocks')
-    #     print (bcolors.FAIL + 'error: \n {} \n{}'.format(a_dfdx - d_dfdx, bcolors.ENDC))
-    #     print (bcolors.BOLD + 'Indexes: {}'.format(np.argwhere(np.abs(a_dfdx - d_dfdx) > 1e-4)))
-    #     num_errors += 1
+    if (abs(d_dfdx - a_dfdx) > 1e-4).any():
+        print (bcolors.FAIL + 'Error in Jacobian dfdx that is not caught by blocks')
+        print (bcolors.FAIL + 'error: \n {} \n{}'.format(a_dfdx - d_dfdx, bcolors.ENDC))
+        print (bcolors.BOLD + 'Indexes: {}'.format(np.argwhere(np.abs(a_dfdx - d_dfdx) > 1e-4)))
+        num_errors += 1
         
     return num_errors
 
@@ -113,7 +113,7 @@ def htest(fn, **kwargs):
     z0, analytical = fn(x, **kwargs)
     finite_difference = np.zeros_like(analytical)
     I = np.eye(finite_difference.shape[1])
-    epsilon = 1e-6
+    epsilon = 1e-7
     for i in range(finite_difference.shape[1]):
         x_prime = ekf.boxplus(x, (I[i] * epsilon)[:, None])
         if 'type' in kwargs.keys() and kwargs['type'] == 'feat':
@@ -122,19 +122,22 @@ def htest(fn, **kwargs):
         else:
             finite_difference[:, i] = ((fn(x_prime, **kwargs)[0] - z0) / epsilon)[:, 0]
 
+    # The Feature Jacobian is really sensitive
+    err_thresh = 5e-2 if 'type' in kwargs.keys() and kwargs['type'] == 'feat' else 1e-4
+
     error = analytical - finite_difference
     for key, item in indexes.iteritems():
         if item[1] > error.shape[1]:
             continue
         block_error = error[:,item[0]:item[1]]
-        if (np.abs(block_error) > 1e-4).any():
+        if (np.abs(block_error) > err_thresh).any():
             num_errors += 1
             print (bcolors.FAIL + 'Error in %s, %s, \nBLOCK_ERROR:\n%s\n ANALYTICAL:\n%s\n FD:\n%s\n'
                 % (fn.__name__, key, block_error, analytical[:,item[0]:item[1]], finite_difference[:, item[0]:item[1]]))
             print (bcolors.ENDC)
 
     # This test ensures that the entire jacobian is correct, not just the blocks you test manually
-    if (np.abs(error) > 1e-4).any():
+    if (np.abs(error) > err_thresh).any():
         print(bcolors.FAIL + 'Error in overall Jacobian {} {}\n'.format(fn.__name__, bcolors.ENDC))
         print(bcolors.BOLD + 'Indexes: {} {}'.format(np.argwhere(np.abs(error) > 1e-4), bcolors.ENDC))
         print(error)
@@ -144,13 +147,13 @@ def htest(fn, **kwargs):
 
 def all_h_tests(x, u, ekf):
     num_errors = 0
-    # num_errors += htest(ekf.h_acc)
-    # num_errors += htest(ekf.h_alt)
+    num_errors += htest(ekf.h_acc)
+    num_errors += htest(ekf.h_alt)
     for i in range(ekf.len_features):
         num_errors += htest(ekf.h_feat, i=i, type='feat', q_zeta=x[xZ+5*i:xZ+5*i+4])
-        # num_errors += htest(ekf.h_depth, i=i)
-        # num_errors += htest(ekf.h_inv_depth, i=i)
-        # htest(ekf.h_pixel_vel, i=i, u=u)
+        num_errors += htest(ekf.h_depth, i=i)
+        num_errors += htest(ekf.h_inv_depth, i=i)
+        htest(ekf.h_pixel_vel, i=i, u=u)
     return num_errors
 
 if __name__ == '__main__':
@@ -205,8 +208,8 @@ if __name__ == '__main__':
 
         # Check Jacobians
         errors += dfdx_test(x, u, ekf)
-        # errors += dfdu_test(x, u, ekf)
-        # errors += all_h_tests(x, u, ekf)
+        errors += dfdu_test(x, u, ekf)
+        errors += all_h_tests(x, u, ekf)
 
     if errors == 0:
         print(bcolors.OKGREEN + "[PASSED]" + bcolors.ENDC)

@@ -372,7 +372,7 @@ class VI_EKF():
             # Bearing Quaternion Partials
             self.A[dxZETA_i:dxZETA_i+2, dxVEL:dxVEL+3] = rho*T_z.T.dot(skew_zeta).dot(R_b_c)
             self.A[dxZETA_i:dxZETA_i+2, dxB_G:dxB_G+3] = T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(skew(self.p_b_c)) - R_b_c)
-            self.A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = T_z.T.dot(rho*skew(skew_vel_c.dot(zeta) + omega_c_i) + (-rho*skew_vel_c.dot(skew_zeta))).dot(T_z)
+            self.A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = -T_z.T.dot(skew(rho*skew_vel_c.dot(zeta) + omega_c_i) + (rho*skew_vel_c.dot(skew_zeta))).dot(T_z)
             self.A[dxZETA_i:dxZETA_i+2, dxRHO_i,None] = T_z.T.dot(skew_zeta).dot(vel_c_i)
 
             # Inverse Depth Partials

@@ -174,8 +174,8 @@ if __name__ == '__main__':
         # Add noise to the state
         x0[xPOS:xPOS + 3] += np.random.normal(0, 100, (3, 1))
         x0[xVEL:xVEL + 3] += np.random.normal(0, 25, (3, 1))
-        # x0[xB_A:xB_A + 3] += np.random.uniform(-1, 1, (3, 1))
-        # x0[xB_G:xB_G + 3] += np.random.uniform(-0.5, 0.5, (3, 1))
+        x0[xB_A:xB_A + 3] += np.random.uniform(-1, 1, (3, 1))
+        x0[xB_G:xB_G + 3] += np.random.uniform(-0.5, 0.5, (3, 1))
         # x0[xMU,0] += np.random.uniform(-0.1, 0.1, 1)
 
         # Add noise to non-vector attitude states

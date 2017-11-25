@@ -176,7 +176,7 @@ if __name__ == '__main__':
         x0[xVEL:xVEL + 3] += np.random.normal(0, 25, (3, 1))
         x0[xB_A:xB_A + 3] += np.random.uniform(-1, 1, (3, 1))
         x0[xB_G:xB_G + 3] += np.random.uniform(-0.5, 0.5, (3, 1))
-        # x0[xMU,0] += np.random.uniform(-0.1, 0.1, 1)
+        x0[xMU,0] += np.random.uniform(-0.1, 0.1, 1)
 
         # Add noise to non-vector attitude states
         # x0[xATT:xATT + 4] = (Quaternion(x0[xATT:xATT + 4]) + np.random.normal(0, 1, (3,1))).elements
@@ -193,8 +193,8 @@ if __name__ == '__main__':
             ekf.init_feature(zeta, j, depth=depth * 10)
 
         # Initialize Inputs
-        acc = nominal_acc #+ np.random.normal(0, 1, (3,1))
-        gyro = nominal_gyro #+ np.random.normal(0, 1.0, (3, 1))
+        acc = nominal_acc + np.random.normal(0, 1, (3,1))
+        gyro = nominal_gyro + np.random.normal(0, 1.0, (3, 1))
 
         x = ekf.x
         u = np.vstack([acc[2], gyro])

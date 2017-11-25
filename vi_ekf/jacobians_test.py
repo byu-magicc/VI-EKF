@@ -30,7 +30,7 @@ def print_error(row_idx, col_idx, analytical, fd):
     error_mat = analytical - fd
     row = indexes[row_idx]
     col = indexes[col_idx]
-    if scipy.linalg.norm(error_mat[row[0]:row[1], col[0]:col[1]]) > 1e-4:
+    if (np.abs(error_mat[row[0]:row[1], col[0]:col[1]]) > 1e-3).any():
         print (bcolors.FAIL + 'Error in Jacobian %s, %s, \nBLOCK_ERROR:\n%s\n ANALYTICAL:\n%s\n FD:\n%s\n' \
         % (row_idx, col_idx, error_mat[row[0]:row[1], col[0]:col[1]], analytical[row[0]:row[1], col[0]:col[1]], \
            fd[row[0]:row[1], col[0]:col[1]]))
@@ -45,39 +45,39 @@ def dfdx_test(x, u, ekf):
     a_dfdx = ekf.dfdx(x, u)
     d_dfdx = np.zeros_like(a_dfdx)
     I = np.eye(d_dfdx.shape[0])
-    epsilon = 1e-8
+    epsilon = 1e-6
 
     for i in range(d_dfdx.shape[0]):
         x_prime = ekf.boxplus(x, (I[i] * epsilon)[:, None])
         d_dfdx[:, i] = ((ekf.f(x_prime, u) - x0) / epsilon)[:, 0]
 
-    num_errors += print_error('dxPOS', 'dxVEL', a_dfdx, d_dfdx)
-    num_errors += print_error('dxPOS', 'dxATT', a_dfdx, d_dfdx)
-    num_errors += print_error('dxVEL', 'dxVEL', a_dfdx, d_dfdx)
+    # num_errors += print_error('dxPOS', 'dxVEL', a_dfdx, d_dfdx)
+    # num_errors += print_error('dxPOS', 'dxATT', a_dfdx, d_dfdx)
+    # num_errors += print_error('dxVEL', 'dxVEL', a_dfdx, d_dfdx)
     num_errors += print_error('dxVEL', 'dxATT', a_dfdx, d_dfdx)
-    num_errors += print_error('dxVEL', 'dxB_A', a_dfdx, d_dfdx)
-    num_errors += print_error('dxVEL', 'dxB_G', a_dfdx, d_dfdx)
-    num_errors += print_error('dxVEL', 'dxMU', a_dfdx, d_dfdx)
+    # num_errors += print_error('dxVEL', 'dxB_A', a_dfdx, d_dfdx)
+    # num_errors += print_error('dxVEL', 'dxB_G', a_dfdx, d_dfdx)
+    # num_errors += print_error('dxVEL', 'dxMU', a_dfdx, d_dfdx)
 
-    for i in range(ekf.len_features):
-        zeta_key = 'dxZETA_' + str(i)
-        rho_key = 'dxZETA_' + str(i)
+    # for i in range(ekf.len_features):
+        # zeta_key = 'dxZETA_' + str(i)
+        # rho_key = 'dxZETA_' + str(i)
 
-        num_errors += print_error(zeta_key, 'dxVEL', a_dfdx, d_dfdx)
-        num_errors += print_error(zeta_key, 'dxB_G', a_dfdx, d_dfdx)
-        num_errors += print_error(zeta_key, zeta_key, a_dfdx, d_dfdx)
-        num_errors += print_error(zeta_key, rho_key, a_dfdx, d_dfdx)
-        num_errors += print_error(rho_key, 'dxVEL', a_dfdx, d_dfdx)
-        num_errors += print_error(rho_key, 'dxB_G', a_dfdx, d_dfdx)
-        num_errors += print_error(rho_key, zeta_key, a_dfdx, d_dfdx)
-        num_errors += print_error(rho_key, rho_key, a_dfdx, d_dfdx)
+        # num_errors += print_error(zeta_key, 'dxVEL', a_dfdx, d_dfdx)
+        # num_errors += print_error(zeta_key, 'dxB_G', a_dfdx, d_dfdx)
+        # num_errors += print_error(zeta_key, zeta_key, a_dfdx, d_dfdx)
+        # num_errors += print_error(zeta_key, rho_key, a_dfdx, d_dfdx)
+        # num_errors += print_error(rho_key, 'dxVEL', a_dfdx, d_dfdx)
+        # num_errors += print_error(rho_key, 'dxB_G', a_dfdx, d_dfdx)
+        # num_errors += print_error(rho_key, zeta_key, a_dfdx, d_dfdx)
+        # num_errors += print_error(rho_key, rho_key, a_dfdx, d_dfdx)
 
     # This test ensures that the entire jacobian is correct, not just the blocks you test manually
-    if ((d_dfdx - a_dfdx) > 1e-4).any():
-        print (bcolors.FAIL + 'Error in Jacobian dfdx that is not caught by blocks')
-        print (bcolors.FAIL + 'error: \n {} \n{}'.format(a_dfdx - d_dfdx, bcolors.ENDC))
-        print (bcolors.BOLD + 'Indexes: {}'.format(np.argwhere(np.abs(a_dfdx - d_dfdx) > 1e-4)))
-        num_errors += 1
+    # if (abs(d_dfdx - a_dfdx) > 1e-4).any():
+    #     print (bcolors.FAIL + 'Error in Jacobian dfdx that is not caught by blocks')
+    #     print (bcolors.FAIL + 'error: \n {} \n{}'.format(a_dfdx - d_dfdx, bcolors.ENDC))
+    #     print (bcolors.BOLD + 'Indexes: {}'.format(np.argwhere(np.abs(a_dfdx - d_dfdx) > 1e-4)))
+    #     num_errors += 1
         
     return num_errors
 
@@ -179,7 +179,7 @@ if __name__ == '__main__':
         x0[xMU,0] += np.random.uniform(-0.1, 0.1, 1)
 
         # Add noise to non-vector attitude states
-        # x0[xATT:xATT + 4] = (Quaternion(x0[xATT:xATT + 4]) + np.random.normal(0, 1, (3,1))).elements
+        x0[xATT:xATT + 4] = (Quaternion(x0[xATT:xATT + 4]) + np.random.normal(0, 1, (3,1))).elements
 
         ekf = VI_EKF(x0)
 
@@ -205,8 +205,8 @@ if __name__ == '__main__':
 
         # Check Jacobians
         errors += dfdx_test(x, u, ekf)
-        errors += dfdu_test(x, u, ekf)
-        errors += all_h_tests(x, u, ekf)
+        # errors += dfdu_test(x, u, ekf)
+        # errors += all_h_tests(x, u, ekf)
 
     if errors == 0:
         print(bcolors.OKGREEN + "[PASSED]" + bcolors.ENDC)

@@ -67,8 +67,7 @@ class Quaternion():
         return self
 
     def __add__(self, other):
-        q_new = Quaternion(self.arr.copy())
-        return q_new.boxplus(other)
+        return self.boxplus(other)
 
     def __iadd__(self, other):
         assert other.shape == (3, 1)
@@ -271,7 +270,6 @@ class Quaternion():
         #     out_arr = qmat_matrix.dot(np.vstack((np.cos(norm_delta/2.0), v))).squeeze().dot(self.arr)
         # else:
         arrdot = 0.5*qmat_matrix.dot(np.vstack((np.zeros((1,1)), delta))).squeeze().dot(self.arr)
-        out_arr = self.arr
-        out_arr += arrdot
+        out_arr = self.arr.copy() + arrdot
         out_arr /= norm(out_arr)
         return Quaternion(out_arr)

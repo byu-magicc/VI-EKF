@@ -2,13 +2,15 @@ import vi_ekf as viekf
 from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
-from plot_helper import plot_cube, plot_side_by_side
+from plot_helper import plot_cube, plot_side_by_side, init_plots
 from data import FakeData, ETHData
 from pyquat import Quaternion, quat_arr_to_euler
 import time
 from math_helper import  norm
 
-data = ETHData(filename='data/V2_03_difficult/mav0', start=2.0, end=30.0, sim_features=True, load_new=True)
+init_plots()
+
+data = ETHData(filename='data/V1_01_easy/mav0', start=5.0, end=30.0, sim_features=True, load_new=True)
 data.__test__()
 
 ekf = viekf.VI_EKF(data.x0)

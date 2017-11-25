@@ -2,6 +2,7 @@ from __future__ import print_function
 from vi_ekf import *
 import numpy as np
 from tqdm import tqdm
+from math_helper import q_feat_boxminus
 
 class bcolors:
     HEADER = '\033[95m'
@@ -109,26 +110,17 @@ def dfdu_test(x, u, ekf):
 
 def htest(fn, **kwargs):
     num_errors = 0
-    x0, analytical = fn(x, **kwargs)
+    z0, analytical = fn(x, **kwargs)
     finite_difference = np.zeros_like(analytical)
     I = np.eye(finite_difference.shape[1])
     epsilon = 1e-6
     for i in range(finite_difference.shape[1]):
         x_prime = ekf.boxplus(x, (I[i] * epsilon)[:, None])
         if 'type' in kwargs.keys() and kwargs['type'] == 'feat':
-            q_zeta = kwargs['q_zeta']
-            q_inv = q_zeta.copy()
-            q_inv[1:3] *= -1.0
-            T_z = T_zeta(q_inv)
-            z = fn(x_prime, **kwargs)[0]
-            if norm(z - x0) < 1e-16:
-                continue
-            else:
-                zhat_x_z = skew(x0).dot(z)
-                dx = T_z.T.dot(np.arccos(x0.T.dot(z)) * zhat_x_z / norm(zhat_x_z))
-                finite_difference[:, i] = (dx/epsilon)[:,0]
+            z_prime = fn(x_prime, **kwargs)[0]
+            finite_difference[:,i] = (q_feat_boxminus(z_prime, z0) / epsilon)[:,0]
         else:
-            finite_difference[:, i] = ((fn(x_prime, **kwargs)[0] - x0) / epsilon)[:, 0]
+            finite_difference[:, i] = ((fn(x_prime, **kwargs)[0] - z0) / epsilon)[:, 0]
 
     error = analytical - finite_difference
     for key, item in indexes.iteritems():
@@ -201,8 +193,8 @@ if __name__ == '__main__':
             ekf.init_feature(zeta, j, depth=depth * 10)
 
         # Initialize Inputs
-        acc = nominal_acc + np.random.normal(0, 1, (3,1))
-        gyro = nominal_gyro + np.random.normal(0, 1.0, (3, 1))
+        acc = nominal_acc #+ np.random.normal(0, 1, (3,1))
+        gyro = nominal_gyro #+ np.random.normal(0, 1.0, (3, 1))
 
         x = ekf.x
         u = np.vstack([acc[2], gyro])

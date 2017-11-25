@@ -2340,14 +2340,19 @@ X & Y & Z\end{array}\right]^{\top}$
 \end_inset
 
 .
- Therefore the measurement model becomes
+ We then use this to create a measurement of the quaternion to the bearing
+ vector 
+\begin_inset Formula $q_{c}^{\zeta_{i}}$
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}h_{\zeta_{i}}(x,u,\eta_{\zeta_{i}}) & =\zeta_{i}+\eta_{\zeta}\\
- & =R\left(q_{c}^{\zeta_{i}}\right)e_{z}
+\begin{aligned}h_{\zeta_{i}}(x,u,\eta_{\zeta_{i}}) & =q_{c}^{\zeta_{i}}\boxplus\eta_{\zeta}\\
+ & =q_{c}^{\zeta_{i}}
 \end{aligned}
 \]
 
@@ -2359,7 +2364,7 @@ X & Y & Z\end{array}\right]^{\top}$
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\frac{\partial h_{\zeta_{i}}}{\partial q_{c}^{\zeta}}=-T_{\zeta}^{\top}\left\lfloor \zeta\right\rfloor T_{\zeta}
+\frac{\partial h_{\zeta_{i}}}{\partial q_{c}^{\zeta_{i}}}=I_{2\times2}
 \]
 
 \end_inset

@@ -4,6 +4,12 @@ import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
 
+def init_plots():
+    # Set the colormap to 'jet'
+    plt.jet()
+    plt.set_cmap('jet')
+    plt.rcParams['image.cmap'] = 'jet'
+
 def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None, truth=None, labels=None, skip=1, save=True, cov_bounds=None):
     estimate = estimate[:, start:end]
     if cov_bounds == None:
@@ -21,14 +27,20 @@ def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None
         truth_copy = truth[(truth_t > start_t) & (truth_t < end_t)].copy()
 
     plt.figure(figsize=(18, 14))
+    colormap = plt.cm.jet
+    plt.gca().set_color_cycle([colormap(i) for i in np.linspace(0, 0.9, 2)])
+
     for i in range(end - start):
         plt.subplot(end-start, 1, i + 1)
+        if isinstance(truth, np.ndarray):
+            plt.plot(truth_t_copy[::skip], truth_copy[::skip, i], label=labels[i])
+
         plt.plot(est_t[::skip], estimate[::skip, i], label=labels[i] + 'hat')
+
         if isinstance(cov, np.ndarray):
             plt.plot(est_t[::skip], estimate[::skip, i].flatten() + 2 * cov_copy[::skip, i, i].flatten(), 'k-', alpha=0.5)
             plt.plot(est_t[::skip], estimate[::skip, i].flatten() - 2 * cov_copy[::skip, i, i].flatten(), 'k-', alpha=0.5)
-        if isinstance(truth, np.ndarray):
-            plt.plot(truth_t_copy[::skip], truth_copy[::skip, i], label=labels[i])
+
         plt.legend()
         if i == 0:
             plt.title(title)

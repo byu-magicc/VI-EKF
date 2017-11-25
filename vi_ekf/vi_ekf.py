@@ -334,12 +334,12 @@ class VI_EKF():
         self.A *= 0.0
 
         # Position Partials
-        self.A[dxPOS:dxPOS+3, dxVEL:dxVEL+3] = q_I_b.R.T
+        self.A[dxPOS:dxPOS+3, dxVEL:dxVEL+3] = q_I_b.R
         self.A[dxPOS:dxPOS+3, dxATT:dxATT+3] = skew(q_I_b.invrot(vel))
 
         # Velocity Partials
         self.A[dxVEL:dxVEL+3, dxVEL:dxVEL+3] = -skew(omega) - mu*I_2x3.T.dot(I_2x3)
-        self.A[dxVEL:dxVEL+3, dxATT:dxATT+3] = -q_I_b.R.dot(skew(self.gravity))
+        self.A[dxVEL:dxVEL+3, dxATT:dxATT+3] = -q_I_b.R.T.dot(skew(self.gravity))
         self.A[dxVEL:dxVEL+3, dxB_A:dxB_A+3] = -self.khat.dot(self.khat.T)
         self.A[dxVEL:dxVEL+3, dxB_G:dxB_G+3] = -skew(vel)
         self.A[dxVEL:dxVEL+3, dxMU, None] = -I_2x3.T.dot(I_2x3).dot(vel)

@@ -26,7 +26,7 @@ def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None
     if isinstance(truth, np.ndarray):
         truth_copy = truth[(truth_t > start_t) & (truth_t < end_t)].copy()
 
-    plt.figure(figsize=(18, 14))
+    plt.figure(figsize=(24, 18))
     colormap = plt.cm.jet
     plt.gca().set_color_cycle([colormap(i) for i in np.linspace(0, 0.9, 2)])
 

@@ -20,8 +20,8 @@ indexes = {'dxPOS': [0, 3],
            'dxB_A': [9, 12],
            'dxB_G': [12, 15],
            'dxMU': [15, 16],
-           'uA': [0, 1],
-           'uG': [1, 4]}
+           'uA': [0, 3],
+           'uG': [3, 6]}
 for i in range(50):
     indexes['dxZETA_'+str(i)] = [16+3*i, 16+3*i + 2]
     indexes['dxRHO_' + str(i)] = [16+3*i+2, 16+3*i+3]
@@ -116,11 +116,14 @@ def htest(fn, **kwargs):
     epsilon = 1e-7
     for i in range(finite_difference.shape[1]):
         x_prime = ekf.boxplus(x, (I[i] * epsilon)[:, None])
-        if 'type' in kwargs.keys() and kwargs['type'] == 'feat':
-            z_prime = fn(x_prime, **kwargs)[0]
-            finite_difference[:,i] = (q_feat_boxminus(z_prime, z0) / epsilon)[:,0]
+        z_prime = fn(x_prime, **kwargs)[0]
+        if 'type' in kwargs.keys():
+            if kwargs['type'] == 'feat':
+                finite_difference[:,i] = (q_feat_boxminus(z_prime, z0) / epsilon)[:,0]
+            elif kwargs['type'] == 'att':
+                finite_difference[:, i] = ((Quaternion(z_prime) - Quaternion(z0)) / epsilon)[:, 0]
         else:
-            finite_difference[:, i] = ((fn(x_prime, **kwargs)[0] - z0) / epsilon)[:, 0]
+            finite_difference[:, i] = ((z_prime - z0) / epsilon)[:, 0]
 
     # The Feature Jacobian is really sensitive
     err_thresh = 5e-2 if 'type' in kwargs.keys() and kwargs['type'] == 'feat' else 1e-4
@@ -148,9 +151,12 @@ def htest(fn, **kwargs):
 def all_h_tests(x, u, ekf):
     num_errors = 0
     num_errors += htest(ekf.h_acc)
+    num_errors += htest(ekf.h_pos)
+    num_errors += htest(ekf.h_vel)
     num_errors += htest(ekf.h_alt)
+    num_errors += htest(ekf.h_att, type='att')
     for i in range(ekf.len_features):
-        num_errors += htest(ekf.h_feat, i=i, type='feat', q_zeta=x[xZ+5*i:xZ+5*i+4])
+        num_errors += htest(ekf.h_feat, i=i, type='feat')
         num_errors += htest(ekf.h_depth, i=i)
         num_errors += htest(ekf.h_inv_depth, i=i)
         htest(ekf.h_pixel_vel, i=i, u=u)
@@ -191,16 +197,17 @@ if __name__ == '__main__':
             zeta = np.random.randn(3)[:, None]
             zeta = np.array([[0, 1.0, 1.0]]).T
             zeta /= scipy.linalg.norm(zeta)
+            qzeta = Quaternion.from_two_unit_vectors(zeta, np.array([[0, 0, 1.]]).T).elements
             depth = np.abs(np.random.randn(1))[:,None]
             depth = np.ones((1,1))
-            ekf.init_feature(zeta, j, depth=depth * 10)
+            ekf.init_feature(qzeta, j, depth=depth * 10)
 
         # Initialize Inputs
         acc = nominal_acc + np.random.normal(0, 1, (3,1))
         gyro = nominal_gyro + np.random.normal(0, 1.0, (3, 1))
 
         x = ekf.x
-        u = np.vstack([acc[2], gyro])
+        u = np.vstack([acc, gyro])
 
         # Print Test Configuration
         # print('x = %s' % x.T)

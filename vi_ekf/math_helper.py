@@ -18,7 +18,7 @@ e_z = np.array([[0, 0, 1.0]]).T
 
 # Creates the skew-symmetric matrix from v
 def skew(v):
-    assert v.shape == (3, 1)
+    assert v.shape[0] == 3
     return cross_matrix.dot(v).squeeze()
 
 # Creates 3x2 projection matrix onto the plane perpendicular to zeta
@@ -42,3 +42,21 @@ def q_feat_boxminus(q0, q1):
     else:
         return np.zeros((2,1))
 
+
+def q_array_from_two_unit_vectors(u, v):
+    assert u.shape[0] == 3
+    assert v.shape[0] == 3
+    u = u.copy()
+    v = v.copy()
+
+    num_arrays = u.shape[1]
+    arr = np.vstack((np.ones((1, num_arrays)), np.zeros((3, num_arrays))))
+
+    d = u.T.dot(v)
+
+    invs = (2.0*(1.0+d))**-0.5
+    xyz = np.transpose(skew(u), (2, 0, 1)).dot(v).squeeze()*invs
+    arr[0, :, None] = 0.5 / invs
+    arr[1:,:] = xyz.T
+    arr /= norm(arr, axis=0)
+    return arr

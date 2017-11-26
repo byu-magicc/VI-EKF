@@ -1,6 +1,6 @@
 import numpy as np
 from pyquat import Quaternion
-from math_helper import skew, T_zeta, norm
+from math_helper import skew, T_zeta, norm, q_feat_boxminus
 import scipy.linalg
 import cv2
 
@@ -21,7 +21,7 @@ xMU = 16
 xZ = 17
 
 uA = 0
-uG = 1
+uG = 3
 
 I_2x3 = np.array([[1, 0, 0],
                   [0, 1, 0]])
@@ -29,7 +29,7 @@ I_3x3 = np.eye(3)
 I_2x2 = np.eye(2)
 
 class VI_EKF():
-    def __init__(self, x0):
+    def __init__(self, x0, multirotor=True):
         assert x0.shape == (xZ, 1)
 
         # 17 main states + 5N feature states
@@ -38,29 +38,29 @@ class VI_EKF():
 
         # Process noise matrix for the 16 main delta states
         self.Qx = np.diag([0.000, 0.000, 0.000,     # pos
-                           0.00, 0.00, 0.00,        # vel
+                           0.001, 0.001, 0.001,     # vel
                            0.000, 0.000, 0.000,     # att
-                           0.0001, 0.0001, 0.0001,  # b_acc
-                           0.0001, 0.0001, 0.0001,  # b_omega
-                           0.001])                  # mu
+                           1e-9, 1e-9, 1e-9,  # b_acc
+                           1e-9, 1e-9, 1e-9,  # b_omega
+                           0.000])                  # mu
 
         # process noise matrix for the features (assumed all the same) 3x3
         self.Qx_feat = np.diag([0.000, 0.000, 0.00]) # x, y, and 1/depth
 
         # Process noise assumed from inputs (mechanized sensors)
-        self.Qu = np.diag([0.001,                    # y_acc
+        self.Qu = np.diag([0.005,                      # y_acc
                            0.0001, 0.0001, 0.0001])    # y_omega
 
 
 
         # State covariances.  Size is (16 + 3N) x (16 + 3N) where N is the number of
         # features currently being tracked
-        self.P = np.diag([0.001, 0.001, 0.001,      # pos
-                           0.001, 0.001, 0.001,        # vel
+        self.P = np.diag([0.0001, 0.0001, 0.0001,   # pos
+                           0.01, 0.01, 0.01,        # vel
                            0.001, 0.001, 0.001,     # att
-                           0.000001, 0.000001, 0.000001,  # b_acc
-                           0.0000001, 0.0000001, 0.0000001,  # b_omega
-                           0.0001])                  # mu
+                           1e-7, 1e-7, 1e-7,        # b_acc
+                           1e-7, 1e-7, 1e-7,        # b_omega
+                           1e-4])                   # mu
 
         # Initial Covariance estimate for new features
         self.P0_feat = np.diag([0.01, 0.01, 0.1]) # x, y, and 1/depth
@@ -98,6 +98,7 @@ class VI_EKF():
         self.measurement_functions['alt'] = self.h_alt
         self.measurement_functions['att'] = self.h_att
         self.measurement_functions['pos'] = self.h_pos
+        self.measurement_functions['vel'] = self.h_vel
         self.measurement_functions['feat'] = self.h_feat
         self.measurement_functions['pixel_vel'] = self.h_pixel_vel
         self.measurement_functions['depth'] = self.h_depth
@@ -105,19 +106,21 @@ class VI_EKF():
 
         # Matrix Workspace
         self.A = np.zeros((dxZ, dxZ))
-        self.G = np.zeros((dxZ, 4))
+        self.G = np.zeros((dxZ, 6))
         self.I_big = np.eye(dxZ)
+
+        self.use_drag_term = False
 
     # Returns the depth to all features
     def get_depth(self):
         return 1./self.x[xZ+4::5]
 
     # Returns the estimated bearing vector to all features
-    def get_zeta(self):
-        zetas = np.zeros((self.len_features, 3))
+    def get_zetas(self):
+        zetas = np.zeros((3, self.len_features))
         for i in range(self.len_features):
             qzeta = self.x[xZ + 5 * i:xZ + 5 * i + 4, :]  # 4-vector quaternion
-            zetas[i] = Quaternion(qzeta).rot(self.khat)  # 3-vector pointed at the feature in the camera frame
+            zetas[:, i, None] = Quaternion(qzeta).rot(self.khat)  # 3-vector pointed at the feature in the camera frame
         return zetas
 
     # Returns the quaternion which
@@ -188,37 +191,37 @@ class VI_EKF():
 
         passive_update = passive
 
+        # If we haven't seen this feature before, then initialize it
         if measurement_type == 'feat':
             if kwargs['i'] not in self.initialized_features:
                 self.init_feature(z, id=kwargs['i'], depth=(kwargs['depth'] if 'depth' in kwargs else np.array([[1.0]])))
 
-        # Feature Points need a slightly modified update process because of the non-vectorness of the measurement
         zhat, H = self.measurement_functions[measurement_type](self.x, **kwargs)
 
+        # Calculate residual in the proper manner
         if measurement_type == 'feat':
-            # For features, we have to do boxminus on the weird space between quaternions
-            i = self.global_to_local_feature_id[kwargs['i']]
-            xZETA_i = xZ + 5 * i
-            T_z = T_zeta(self.x[xZETA_i:xZETA_i + 4])
-            zhat_x_z = skew(zhat).dot(z)
-            residual = T_z.T.dot(np.arccos(zhat.T.dot(z)) * zhat_x_z / norm(zhat_x_z))
-
+            residual = q_feat_boxminus(z, zhat)
         elif measurement_type == 'att':
             residual = Quaternion(z) - Quaternion(zhat)
+            if (abs(residual) > 1).any():
+                debug = 1
+                residual = Quaternion(z) - Quaternion(zhat)
         else:
             residual = z - zhat
 
         # Residual Saturation
         # residual[residual > 0.1] = 0.1
         # residual[residual < -0.1] = -0.1
+
+        # Perform state and covariance update
         if not passive_update:
             try:
                 K = self.P.dot(H.T).dot(scipy.linalg.inv(R + H.dot(self.P).dot(H.T)))
+                self.P = (self.I_big - K.dot(H)).dot(self.P)
+                self.x = self.boxplus(self.x, K.dot(residual))
             except:
                 debug = 1
-            self.P = (self.I_big - K.dot(H)).dot(self.P)
-            self.x = self.boxplus(self.x, K.dot(residual))
-        return zhat
+        return residual
 
     # Used for overriding imu biases, Not to be used in real life
     def set_imu_bias(self, b_g, b_a):
@@ -227,25 +230,25 @@ class VI_EKF():
         self.x[xB_A:xB_A+3] = b_a
 
     # Used to initialize a new feature.  Returns the feature id associated with this feature
-    def init_feature(self, zeta, id, depth=None):
-        assert zeta.shape == (3, 1) and abs(1.0 - norm(zeta)) < 1e-3
+    def init_feature(self, q_zeta, id, depth=None):
+        assert q_zeta.shape == (4, 1) and abs(1.0 - norm(q_zeta)) < 1e-3
         assert depth.shape == (1, 1)
 
         self.len_features += 1
         self.feature_ids.append(self.next_feature_id)
         self.next_feature_id += 1
-        quat_0 = Quaternion.from_two_unit_vectors(self.khat,zeta).elements
-        self.x = np.vstack((self.x, quat_0, 1./depth)) # add 5 states to the state vector
+        self.x = np.vstack((self.x, q_zeta, 1./depth)) # add 5 states to the state vector
 
         # Add three states to the process noise matrix
         self.Qx = scipy.linalg.block_diag(self.Qx, self.Qx_feat)
         self.P = scipy.linalg.block_diag(self.P, self.P0_feat)
 
-        # Set up the matrices to work with
+        # Adjust the matrix workspace allocation to fit this new feature
         self.A = np.zeros((dxZ + 3 * self.len_features, dxZ + 3 * self.len_features))
-        self.G = np.zeros((dxZ + 3 * self.len_features, 4))
+        self.G = np.zeros((dxZ + 3 * self.len_features, 6))
         self.I_big = np.eye(dxZ+3*self.len_features)
 
+        # Add this new feature to the feature id maps
         self.initialized_features.add(id)
         self.global_to_local_feature_id[id] = self.next_feature_id - 1
 
@@ -280,18 +283,21 @@ class VI_EKF():
     # the returned value of f is a delta state, delta features, and therefore is a different
     # size than the state and features and needs to be applied with boxplus
     def f(self, x, u):
-        assert x.shape == (xZ+5*self.len_features, 1) and u.shape == (4,1)
+        assert x.shape == (xZ+5*self.len_features, 1) and u.shape == (6,1)
 
         vel = x[xVEL:xVEL+3]
         q_I_b = Quaternion(x[xATT:xATT+4])
 
         omega = u[uG:uG+3] - x[xB_G:xB_G+3]
-        y_acc_z = u[uA, 0] - x[xB_A+2, 0]
-        acc_z = np.array([[0, 0, y_acc_z]]).T
+        acc = u[uA:uA+3] - x[xB_A:xB_A+3]
+        acc_z = np.array([[0, 0, acc[2,0]]]).T
         mu = x[xMU, 0]
 
         pdot = q_I_b.invrot(vel)
-        vdot = skew(vel).dot(omega) - mu*I_2x3.T.dot(I_2x3).dot(vel) + acc_z + q_I_b.rot(self.gravity)
+        if self.use_drag_term:
+            vdot = skew(vel).dot(omega) - mu*I_2x3.T.dot(I_2x3).dot(vel) + acc_z + q_I_b.rot(self.gravity)
+        else:
+            vdot = acc + q_I_b.rot(self.gravity)
         # pdot = np.zeros((3,1))
         # vdot = np.zeros((3, 1))
         qdot = omega
@@ -323,7 +329,7 @@ class VI_EKF():
     # Calculates the jacobian of the state dynamics with respect to the state.
     # this is used in propagating the state, and will return a matrix of size 16+3N x 16+3N
     def dfdx(self, x, u):
-        assert x.shape == (xZ+5*self.len_features, 1) and u.shape == (4,1)
+        assert x.shape == (xZ+5*self.len_features, 1) and u.shape == (6,1)
 
         vel = x[xVEL:xVEL+3]
         q_I_b = Quaternion(x[xATT:xATT+4])
@@ -338,11 +344,15 @@ class VI_EKF():
         self.A[dxPOS:dxPOS+3, dxATT:dxATT+3] = skew(q_I_b.invrot(vel))
 
         # Velocity Partials
-        self.A[dxVEL:dxVEL+3, dxVEL:dxVEL+3] = -skew(omega) - mu*I_2x3.T.dot(I_2x3)
+        if self.use_drag_term:
+            self.A[dxVEL:dxVEL+3, dxVEL:dxVEL+3] = -skew(omega) - mu*I_2x3.T.dot(I_2x3)
+            self.A[dxVEL:dxVEL + 3, dxB_A:dxB_A + 3] = -self.khat.dot(self.khat.T)
+            self.A[dxVEL:dxVEL + 3, dxB_G:dxB_G + 3] = -skew(vel)
+            self.A[dxVEL:dxVEL + 3, dxMU, None] = -I_2x3.T.dot(I_2x3).dot(vel)
+        else:
+            self.A[dxVEL:dxVEL + 3, dxB_A:dxB_A + 3] = -I_3x3
+
         self.A[dxVEL:dxVEL+3, dxATT:dxATT+3] = -q_I_b.R.T.dot(skew(self.gravity))
-        self.A[dxVEL:dxVEL+3, dxB_A:dxB_A+3] = -self.khat.dot(self.khat.T)
-        self.A[dxVEL:dxVEL+3, dxB_G:dxB_G+3] = -skew(vel)
-        self.A[dxVEL:dxVEL+3, dxMU, None] = -I_2x3.T.dot(I_2x3).dot(vel)
 
         # Attitude Partials
         self.A[dxATT:dxATT+3, dxB_G:dxB_G+3] = -I_3x3
@@ -400,8 +410,11 @@ class VI_EKF():
         self.G *= 0.0
 
         # State partials
-        self.G[dxVEL:dxVEL+3, uA, None] = self.khat
-        self.G[dxVEL:dxVEL+3, uG:uG+3] = skew(vel)
+        if self.use_drag_term:
+            self.G[dxVEL:dxVEL+3, uA:uA+3] = self.khat.dot(self.khat.T)
+            self.G[dxVEL:dxVEL + 3, uG:uG + 3] = skew(vel)
+        else:
+            self.G[dxVEL:dxVEL + 3, uA:uA + 3] = I_3x3
         self.G[dxATT:dxATT+3, uG:uG+3] = I_3x3
 
         # Feature Partials
@@ -459,7 +472,7 @@ class VI_EKF():
 
     # Attitude Model
     # Returns the estimated attitude measurement (4x1) and Jacobian (3 x 16+3N)
-    def h_att(self, x):
+    def h_att(self, x, **kwargs):
         assert x.shape == (xZ + 5 * self.len_features, 1)
 
         h = x[xATT:xATT + 4]
@@ -478,6 +491,18 @@ class VI_EKF():
 
         dhdx = np.zeros((3, dxZ + 3 * self.len_features))
         dhdx[:, dxPOS:dxPOS + 3] = I_3x3
+
+        return h, dhdx
+
+    # Velocity Model
+    # Returns the estimated Position measurement (3x1) and Jacobian (3 x 16+3N)
+    def h_vel(self, x):
+        assert x.shape == (xZ + 5 * self.len_features, 1)
+
+        h = x[xVEL:xVEL + 3]
+
+        dhdx = np.zeros((3, dxZ + 3 * self.len_features))
+        dhdx[:, dxVEL:dxVEL + 3] = I_3x3
 
         return h, dhdx
 
@@ -523,7 +548,7 @@ class VI_EKF():
     # Feature pixel velocity measurement
     # Returns estimated measurement (2x1) and Jacobian (2 x 16+3N)
     def h_pixel_vel(self, x, i, u):
-        assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int) and u.shape == (4, 1)
+        assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int) and u.shape == (6, 1)
 
         vel = x[xVEL:xVEL + 3]
         omega = u[uG:uG+3] - x[xB_G:xB_G+3]

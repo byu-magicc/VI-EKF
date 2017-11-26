@@ -10,11 +10,11 @@ from math_helper import  norm
 
 init_plots()
 
-data = ETHData(filename='data/V1_01_easy/mav0', start=5.0, end=30.0, sim_features=True, load_new=True)
+data = ETHData(filename='data/V1_01_easy/mav0', start=10.0, end=45.0, sim_features=True, load_new=True)
 data.__test__()
 
 ekf = viekf.VI_EKF(data.x0)
-ekf.x[viekf.xMU] = 1.0
+ekf.x[viekf.xMU] = 0.25
 last, history = time.time(), []
 
 for i, (t, dt, pos, vel, att, gyro, acc, b_w, b_a, zetas, depths, ids) in enumerate(tqdm(data)):
@@ -22,42 +22,45 @@ for i, (t, dt, pos, vel, att, gyro, acc, b_w, b_a, zetas, depths, ids) in enumer
 
     ekf.set_imu_bias(b_w, b_a)
 
-    # truth updates
-    alt_hat = ekf.update(pos[2], 'alt', data.R['alt'], passive=True) if pos is not None else None
-    acc_hat = ekf.update(acc[:2], 'acc', data.R['acc'], passive=True) if acc is not None else None
-    att_hat = ekf.update(att, 'att', data.R['att'], passive=True) if att is not None else None
-    pos_hat = ekf.update(pos, 'pos', data.R['pos'], passive=True) if pos is not None else None
+    # sensor updates
+    alt_res = ekf.update(-pos[2], 'alt', data.R['alt'], passive=True) if pos is not None else None
+    acc_res = ekf.update(acc[:2], 'acc', data.R['acc'], passive=True) if acc is not None else None
+
+    # Truth updates
+    att_res = ekf.update(att, 'att', data.R['att'], passive=True) if att is not None else None
+    pos_res = ekf.update(pos, 'pos', data.R['pos'], passive=True) if pos is not None else None
+    vel_res = ekf.update(vel, 'vel', data.R['vel'], passive=True) if vel is not None else None
 
     # feature updates
     if len(ids) > 0:
         ekf.keep_only_features(ids)
 
-    zeta_hats, depth_hats = [], []
+    zeta_res, depth_res = [], []
     for zeta, depth, id in zip(zetas, depths, ids):
-        zeta_hats.append(ekf.update(zeta, 'feat', data.R['zeta'], passive=True, i=id, depth=depth))
+        zeta_res.append(ekf.update(zeta, 'feat', data.R['zeta'], passive=True, i=id, depth=depth))
+        # zeta_res.append(None)
 
     for depth, id in zip(depths, ids):
-        depth_hats.append(ekf.update(depth, 'depth', data.R['depth'], passive=True, i=id))
-
+        depth_res.append(ekf.update(depth, 'depth', data.R['depth'], passive=True, i=id))
+        # depth_res.append(None)
     # store data for plotting
     history.append([t,
                     x_hat[:viekf.xZ], P[:viekf.dxZ, :viekf.dxZ], P[viekf.dxZ:, viekf.dxZ:] if P.shape[0] > 16 else None,
-                    alt_hat, acc_hat, att_hat, pos_hat, zeta_hats, depth_hats, pos, vel, att, b_w, b_a, gyro, acc, zetas, depths, ids])
+                    alt_res, acc_res, att_res, pos_res, vel_res, zeta_res, depth_res, pos, vel, att, b_w, b_a, gyro, acc, zetas, depths, ids, ekf.get_zetas()])
 
     # every 1/60th of a second, update zeta cube
-    if time.time() - last > 1/10. and x_hat is not None and len(zeta_hats) > 0 and len(zetas) > 0:
-        # plot_cube(Quaternion(x_hat[6:10]), zeta_hats, zetas)
+    if time.time() - last > 1/10. and x_hat is not None and len(zetas) > 0:
+        # plot_cube(Quaternion(x_hat[6:10]), ekf.get_zetas(), zetas)
         last = time.time()
 
 # convert the list of tuples of data into indvidual lists of data
 history = zip(*[[d for d in instance] for instance in history])
 
-
 # replace Nones with nan arrays, create nan arrays for each data type, and convert to numpy arrays
 prototype = [next(np.array(item) for item in dt if item is not None) * np.nan for dt in history]
 history = [[inst if inst is not None else prototype[i] for inst in dt] for i, dt in enumerate(history)]
-(tm, all_x_hat, all_P, all_feat_P, all_alt_hat, all_acc_hat, all_att_hat, all_pos_hat, all_zeta_hats,
- all_depth_hats, all_pos, all_vel, all_att, all_b_w, all_b_a, all_gyro, all_acc, all_zetas, all_depths, all_ids) = list(map(np.array, history))
+(tm, all_x_hat, all_P, all_feat_P, all_alt_res, all_acc_res, all_att_res, all_pos_res, all_vel_res, all_zeta_res,
+ all_depth_res, all_pos, all_vel, all_att, all_b_w, all_b_a, all_gyro, all_acc, all_zetas, all_depths, all_ids, all_zeta_hats) = list(map(np.array, history))
 
 
 
@@ -69,30 +72,31 @@ depth_hat_array = np.nan*np.ones((len(all_zetas), len(feature_ids)))
 zeta_array = np.nan*np.ones((len(all_zetas), 3*len(feature_ids)))
 depth_array = np.nan*np.ones((len(all_zetas), len(feature_ids)))
 cov_array = np.nan*np.ones((len(all_zetas), 3*len(feature_ids), 3))
-for i in range(len(all_zetas)):
-    for l in all_ids[i]:
-        zeta_hat_array[i,3*l:3*l+3,None] = all_zeta_hats[i][l]
-        zeta_array[i,3*l:3*l+3,None] = all_zetas[i][l]
-        cov_array[i, 3*l:3*l+3, :] = all_feat_P[i][l*3:l*3+3,l*3:l*3+3]
-        depth_hat_array[i,l] = all_depth_hats[i][l]
-        depth_array[i, l] = all_depths[i][l]
+# for i in range(len(all_zetas)):
+#     for l in all_ids[i]:
+        # zeta_hat_array[i,3*l:3*l+3,None] = all_zeta_hats[i][:,l]
+        # zeta_array[i,3*l:3*l+3,None] = all_zetas[i][l]
+        # cov_array[i, 3*l:3*l+3, :] = all_feat_P[i][l*3:l*3+3,l*3:l*3+3]
+        # depth_hat_array[i,l] = all_x_hat[i][l]
+        # depth_array[i, l] = all_depths[i][l]
 
 euler = quat_arr_to_euler(all_att.squeeze().T).T
 euler_hat = quat_arr_to_euler(all_x_hat[:, viekf.xATT:viekf.xATT+4].squeeze().T).T
 
 # plot
 if True:
-    plot_side_by_side('x_pos', viekf.xPOS, viekf.xPOS+3, tm, all_x_hat, cov=None, truth_t=tm, truth=all_pos, labels=['x', 'y', 'z'])
+    # plot_side_by_side('x_pos', viekf.xPOS, viekf.xPOS+3, tm, all_x_hat, cov=None, truth_t=tm, truth=all_pos, labels=['x', 'y', 'z'])
     plot_side_by_side('x_vel', viekf.xVEL, viekf.xVEL+3, tm, all_x_hat, cov=None, truth_t=tm, truth=all_vel, labels=['x', 'y', 'z'])
-    plot_side_by_side('x_att', viekf.xATT, viekf.xATT+4, tm, all_x_hat, cov=None, truth_t=tm, truth=all_att, labels=['w', 'x', 'y', 'z'])
+    # plot_side_by_side('x_att', viekf.xATT, viekf.xATT+4, tm, all_x_hat, cov=None, truth_t=tm, truth=all_att, labels=['w', 'x', 'y', 'z'])
     plot_side_by_side('x_euler', 0, 3, tm, euler_hat, cov=None, truth_t=tm, truth=euler, labels=[r'$\phi$', r'$\rho$', r'$\psi$'])
-    plot_side_by_side('x_b_g', viekf.xB_G, viekf.xB_G + 3, tm, all_x_hat, cov=all_P, truth_t=tm, truth=all_b_w, labels=['x', 'y', 'z'], cov_bounds=(viekf.dxB_G,viekf.dxB_G+3))
-    plot_side_by_side('x_b_a', viekf.xB_A, viekf.xB_A + 3, tm, all_x_hat, cov=all_P, truth_t=tm, truth=all_b_a, labels=['x', 'y', 'z'], cov_bounds=(viekf.dxB_A,viekf.dxB_A+3))
-    plot_side_by_side('x_mu', viekf.xMU, viekf.xMU+1, tm, all_x_hat, cov=all_P, truth_t=None, truth=None, labels=['mu'], cov_bounds=(viekf.dxMU,viekf.dxMU+1))
-    plot_side_by_side('z_alt', 0, 1, tm, all_alt_hat, truth_t=tm, truth=-all_pos[:,2], labels=['z_alt_'])
-    plot_side_by_side('z_att', 0, 4, tm, all_att_hat, truth_t=tm, truth=all_att, labels='z_att')
-    plot_side_by_side('z_acc', 0, 2, tm, all_acc_hat, truth_t=tm, truth=all_acc[:, :2], labels=['x', 'y'])
-    plot_side_by_side('z_pos', 0, 2, tm, all_pos_hat, truth_t=tm, truth=all_pos, labels=['x', 'y', 'z'])
+    # plot_side_by_side('x_b_g', viekf.xB_G, viekf.xB_G + 3, tm, all_x_hat, cov=all_P, truth_t=tm, truth=all_b_w, labels=['x', 'y', 'z'], cov_bounds=(viekf.dxB_G,viekf.dxB_G+3))
+    # plot_side_by_side('x_b_a', viekf.xB_A, viekf.xB_A + 3, tm, all_x_hat, cov=all_P, truth_t=tm, truth=all_b_a, labels=['x', 'y', 'z'], cov_bounds=(viekf.dxB_A,viekf.dxB_A+3))
+    # plot_side_by_side('x_mu', viekf.xMU, viekf.xMU+1, tm, all_x_hat, cov=all_P, truth_t=None, truth=None, labels=['mu'], cov_bounds=(viekf.dxMU,viekf.dxMU+1))
+    # plot_side_by_side('z_alt_residual', 0, 1, tm, all_alt_res, labels=['z_alt_res'])
+    # plot_side_by_side('z_att_residual', 0, 3, tm, all_att_res, labels='z_att_res')
+    # plot_side_by_side('z_acc_residual', 0, 2, tm, all_acc_res, labels=['x', 'y'])
+    # plot_side_by_side('z_pos_residual', 0, 3, tm, all_pos_res, labels=['x', 'y', 'z'])
+    # plot_side_by_side('z_vel_residual', 0, 3, tm, all_vel_res, labels=['x', 'y', 'z'])
     plot_side_by_side('u_gyro', 0, 3, tm, all_gyro, labels=['x', 'y', 'z'])
     plot_side_by_side('u_acc', 0, 3, tm, all_acc, labels=['x', 'y', 'z'])
 

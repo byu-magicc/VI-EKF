@@ -9,9 +9,10 @@ class Data(object):
     def __init__(self):
         self.time = np.linspace(0, 1, 100)
         self.R = {'alt': 0.01,
-                  'acc': np.diag([0.01, 0.01]),
-                  'att': np.diag([0.0001, 0.0001, 0.0001]),
-                  'pos': np.diag([0.0001,0.0001, 0.0001]),
+                  'acc': np.diag([0.5, 0.5]),
+                  'att': np.diag([0.001, 0.001, 0.001]),
+                  'vel': np.diag([0.001, 0.001, 0.001]),
+                  'pos': np.diag([0.01,0.01, 0.01]),
                   'zeta': np.diag([0.0001, 0.0001]),
                   'depth': 0.01}
 
@@ -71,7 +72,7 @@ class Data(object):
             assert (acc.shape == (3, 1)) if acc is not None else True
             assert (b_w.shape == (3, 1)) if acc is not None else True
             assert (b_a.shape == (3, 1)) if acc is not None else True
-            assert zetas[0].shape == (3, 1) if len(zetas) > 0 else True, zetas[0].shape
+            assert zetas[0].shape == (4, 1) if len(zetas) > 0 else True, zetas[0].shape
             assert depths[0].shape == (1, 1) if len(depths) > 0 else True, depths[0].shape
             assert all([type(id) == int or type(id) == np.int64 for id in ids]), type(ids[0])
 

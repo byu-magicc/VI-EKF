@@ -86,7 +86,10 @@ class Quaternion():
         return self
 
     def __sub__(self, other):
-        return self.log(other.inverse.otimes(self))
+        dq = other.inverse.otimes(self)
+        if dq.w < 0.0:
+            dq.arr *= -1.0
+        return self.log(dq)
 
     @property
     def w(self):

@@ -25,8 +25,8 @@ q_SEU_NED = Quaternion.from_R(R_SEU_NED)
 
 # Rotation from the IMU frame to the body frame
 R_IMU = np.array([[ 0.33638, -0.01749,  0.94156],
-                                [ 0.02078,  0.99972,  0.01114],
-                                [-0.9415 ,  0.01582,  0.33665]])
+                  [ 0.02078,  0.99972,  0.01114],
+                  [-0.9415 ,  0.01582,  0.33665]])
 q_IMU = Quaternion.from_R(R_IMU)
 
 # Rotation from Ground Truth plane to the Body frame
@@ -84,10 +84,12 @@ def load_data(folder, start=0, end=np.inf, sim_features=False, show_image=False)
 
     # rotate ground_truth into the right frame
     ground_truth[:,1:4] = q_IMU.rot(ground_truth[:,1:4].T).T
-    ground_truth[:,8:11] = q_IMU.rot(ground_truth[:,8:11].T).T
+    # ground_truth[:,8:11] = q_IMU.rot(ground_truth[:,8:11].T).T
     for row in ground_truth:
-        q_i = Quaternion(row[4:8,None])
-        row[4:8] = (q_NWU_NED*(q_IMU*q_i.inverse).inverse).elements[:, 0]
+        q_i = Quaternion(row[4:8,None]).copy()
+        row[4:8] = (q_NWU_NED*(q_i*q_IMU.inverse)).elements[:, 0]
+        # Rotate velocities into body frame
+        row[8:11] = q_NWU_NED.invrot(Quaternion(row[4:8,None]).rot(row[8:11].T)).T
         # print 't:', int(t0+row[0]*1e9), 'eul:', q_i.euler.T
     ground_truth[:,11:14] = q_IMU.rot(ground_truth[:,11:14].T).T
     ground_truth[:,14:17] = q_IMU.rot(ground_truth[:,14:17].T).T

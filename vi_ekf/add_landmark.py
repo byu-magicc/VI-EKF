@@ -5,7 +5,7 @@ from tqdm import tqdm
 from math_helper import norm, q_array_from_two_unit_vectors
 
 def add_landmark(truth, landmarks):
-    assert truth.shape[1] == 17 and landmarks.shape[1] == 3
+    assert truth.shape[1] > 7 and landmarks.shape[1] == 3
 
     feature_array = np.zeros((truth.shape[0], 1 + 5*len(landmarks)))
     # bearing = np.zeros((truth_pos.shape[0], len(landmarks), 3))

@@ -293,7 +293,7 @@ class VI_EKF():
         pdot = q_I_b.rot(vel)
         if self.use_drag_term:
             # vdot = skew(vel).dot(omega) - mu*I_2x3.T.dot(I_2x3).dot(vel) + acc_z + q_I_b.rot(self.gravity)
-            vdot =  acc_z + q_I_b.rot(self.gravity) - mu * I_2x3.T.dot(I_2x3).dot(vel)
+            vdot =  acc_z + q_I_b.invrot(self.gravity) - mu * I_2x3.T.dot(I_2x3).dot(vel)
         else:
             vdot = acc + q_I_b.rot(self.gravity)
         # pdot = np.zeros((3,1))

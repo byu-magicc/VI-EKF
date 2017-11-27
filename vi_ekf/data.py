@@ -1,6 +1,7 @@
 import cPickle
 import numpy as np
-import data_loader
+import eth_data_loader
+import rosbag_data_loader
 import cv2
 import klt_tracker
 import cPickle
@@ -56,8 +57,8 @@ class Data(object):
         assert self.x0.shape == (17,1), self.x0.shape
         time = self.start
         for x in self:
-            assert len(x) == 12
-            t, dt, pos, vel, att, gyro, acc, b_w, b_a, zetas, depths, ids = x
+            assert len(x) == 10
+            t, dt, pos, vel, att, gyro, acc, zetas, depths, ids = x
             time += dt
             assert time == t, (time, t, dt)
             assert all([gyro is None, acc is None]) or not all([gyro is None, acc is None])
@@ -70,8 +71,6 @@ class Data(object):
             assert (att.shape == (4, 1)) if att is not None else True
             assert (gyro.shape == (3, 1)) if gyro is not None else True
             assert (acc.shape == (3, 1)) if acc is not None else True
-            assert (b_w.shape == (3, 1)) if acc is not None else True
-            assert (b_a.shape == (3, 1)) if acc is not None else True
             assert zetas[0].shape == (4, 1) if len(zetas) > 0 else True, zetas[0].shape
             assert depths[0].shape == (1, 1) if len(depths) > 0 else True, depths[0].shape
             assert all([type(id) == int or type(id) == np.int64 for id in ids]), type(ids[0])
@@ -114,6 +113,101 @@ class FakeData(Data):
 
     def __len__(self):
         return len(self.time)
+
+class ROSbagData(Data):
+    def __init__(self, filename='truth_imu_flight.bag', start=-1, end=np.inf, sim_features=False, load_new=False):
+        super(ROSbagData, self).__init__()
+        if load_new:
+            self.data = rosbag_data_loader.load_data(filename, start, end, sim_features)
+            cPickle.dump(self.data, open('data/data.pkl', 'wb'))
+        else:
+            self.data = cPickle.load(open('data/data.pkl', 'rb'))
+
+        self.time = np.unique(np.concatenate([self.data['imu'][:, 0]]))
+                                              # self.data['truth'][:, 0],
+                                              # self.data['feat_time']]))
+        self.time = self.time[(self.time > start) & (self.time < end)]
+
+        self.truth_indexer = self.indexer(self.time, self.data['truth'][:, 0])
+        self.imu_indexer = self.indexer(self.time, self.data['imu'][:, 0])
+        self.feature_indexer = self.indexer(self.time, self.data['feat_time'])
+        self.start = start
+
+        # self.tracker = klt_tracker.KLT_tracker(25)
+        # self.undistort, P = data_loader.make_undistort_funtion(intrinsics=self.data['cam0_sensor']['intrinsics'],
+        #                                                     resolution=self.data['cam0_sensor']['resolution'],
+        #                                                     distortion_coefficients=self.data['cam0_sensor']['distortion_coefficients'])
+
+        # self.inverse_projection = np.linalg.inv(P)
+
+    def compute_features(self, image):
+        image = self.undistort(image)[..., None]
+
+        zetas, ids = [], []
+        lambdas, ids = self.tracker.load_image(image)
+
+        if lambdas is not None and len(lambdas) > 0:
+            lambdas = np.pad(lambdas[:, 0], [(0, 0), (0, 1)], 'constant', constant_values=0)
+
+            zetas = self.inverse_projection.dot(lambdas.T).T[..., None]
+            zetas /= np.sqrt((zetas * zetas).sum(axis=1, keepdims=True))
+
+        return list(zetas), list(ids)
+
+    @property
+    def x0(self):
+        return np.concatenate([self.data['truth'][self.truth_indexer[0], 1:4, None],
+                               self.data['truth'][self.truth_indexer[0], 8:11, None],
+                               self.data['truth'][self.truth_indexer[0], 4:8, None],
+                               np.zeros((3,1)),
+                               np.zeros((3,1)),
+                               2.5*0.2*np.ones((1, 1))], axis=0)
+
+    def __getitem__(self, i):
+        if i >= len(self):
+            raise IndexError
+
+        t = self.time[i]
+        dt = self.time[0] - self.start if i == 0 else (self.time[i] - self.time[i - 1])
+        pos, vel, att, gyro, acc = None, None, None, None, None
+        zetas, ids, depths = [], [], []
+
+        # if self.truth_indexer[i] - self.truth_indexer[i - 1] != 0:
+        pos = self.data['truth'][self.truth_indexer[i], 1:4, None]
+        vel = self.data['truth'][self.truth_indexer[i], 8:11, None]
+        att = self.data['truth'][self.truth_indexer[i], 4:8, None]
+
+        if self.imu_indexer[i] - self.imu_indexer[i - 1] != 0:
+            gyro = self.data['imu'][self.imu_indexer[i], 1:4, None]
+            acc = self.data['imu'][self.imu_indexer[i], 4:7, None]
+
+        if self.feature_indexer[i] - self.feature_indexer[i - 1] != 0:
+            ids = list(self.data['ids'][self.feature_indexer[i], :])
+            zetas = []
+            depths = []
+            for feat, l in enumerate(ids):
+                zetas.append(self.data['zetas'][feat][self.feature_indexer[i], :, None])
+                depths.append(self.data['depths'][feat][self.feature_indexer[i], :, None])
+
+            # image = cv2.imread(self.data['cam0_frame_filenames'][self.feature_indexer[i]], cv2.IMREAD_GRAYSCALE)
+            # zetas, ids = self.compute_features(image)
+
+        return t, dt, pos, vel, att, gyro, acc, zetas, depths, ids
+
+    def __len__(self):
+        return len(self.time)
+
+    def __test__(self):
+        # image = np.zeros([480, 752, 1]).astype(np.uint8)
+        # size = 100
+        # image[480//2 - size:480//2 + size, 752//2 - size:752//2 + size] = 255
+        # zeta, id = self.compute_features(image)
+        #
+        # assert len(zeta) == 4
+        # assert len(zeta) == len(id), (len(zeta), len(id))
+        # assert False, 'we should manually calculate and check the correct zetas'
+
+        super(ROSbagData, self).__test__()
 
 
 class ETHData(Data):

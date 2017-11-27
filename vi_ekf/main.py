@@ -3,24 +3,29 @@ from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 from plot_helper import plot_cube, plot_side_by_side, init_plots
-from data import FakeData, ETHData
+from data import FakeData, ETHData, ROSbagData
 from pyquat import Quaternion, quat_arr_to_euler
 import time
 from math_helper import  norm
 
 init_plots()
 
-data = ETHData(filename='data/V1_01_easy/mav0', start=5.0, end=120.0, sim_features=True, load_new=True)
+# data = ETHData(filename='data/V1_01_easy/mav0', start=5.0, end=120.0, sim_features=True, load_new=True)
+data = ROSbagData(filename='data/truth_imu_flight.bag', start=25.0, end=120.0, sim_features=True, load_new=False)
 data.__test__()
 
 ekf = viekf.VI_EKF(data.x0)
 ekf.x[viekf.xMU] = 1.0
 last, history = time.time(), []
 
-for i, (t, dt, pos, vel, att, gyro, acc, b_w, b_a, zetas, depths, ids) in enumerate(tqdm(data)):
-    x_hat, P = ekf.propagate(acc, gyro, dt) if (acc is not None and gyro is not None) else (None, None)
+for i, (t, dt, pos, vel, att, gyro, acc, zetas, depths, ids) in enumerate(tqdm(data)):
+    if acc is not None and gyro is not None:
+        x_hat, P = ekf.propagate(acc, gyro, dt)
+    else:
+        x_hat = ekf.x.copy()
+        P = ekf.P.copy()
 
-    ekf.set_imu_bias(b_w, b_a)
+    # ekf.set_imu_bias(b_w, b_a)
 
     # sensor updates
     alt_res = ekf.update(-pos[2], 'alt', data.R['alt'], passive=True) if pos is not None else None
@@ -44,9 +49,11 @@ for i, (t, dt, pos, vel, att, gyro, acc, b_w, b_a, zetas, depths, ids) in enumer
         depth_res.append(ekf.update(depth, 'depth', data.R['depth'], passive=True, i=id))
         # depth_res.append(None)
     # store data for plotting
+
     history.append([t,
-                    x_hat[:viekf.xZ], P[:viekf.dxZ, :viekf.dxZ], P[viekf.dxZ:, viekf.dxZ:] if P.shape[0] > 16 else None,
-                    alt_res, acc_res, att_res, pos_res, vel_res, zeta_res, depth_res, pos, vel, att, b_w, b_a, gyro, acc, zetas, depths, ids, ekf.get_zetas()])
+                x_hat[:viekf.xZ], P[:viekf.dxZ, :viekf.dxZ], P[viekf.dxZ:, viekf.dxZ:] if P.shape[0] > 16 else None,
+                alt_res, acc_res, att_res, pos_res, vel_res, zeta_res, depth_res, pos, vel, att, gyro, acc, zetas, depths, ids, ekf.get_zetas()])
+
 
     # every 1/60th of a second, update zeta cube
     if time.time() - last > 1/10. and x_hat is not None and len(zetas) > 0:
@@ -60,7 +67,7 @@ history = zip(*[[d for d in instance] for instance in history])
 prototype = [next(np.array(item) for item in dt if item is not None) * np.nan for dt in history]
 history = [[inst if inst is not None else prototype[i] for inst in dt] for i, dt in enumerate(history)]
 (tm, all_x_hat, all_P, all_feat_P, all_alt_res, all_acc_res, all_att_res, all_pos_res, all_vel_res, all_zeta_res,
- all_depth_res, all_pos, all_vel, all_att, all_b_w, all_b_a, all_gyro, all_acc, all_zetas, all_depths, all_ids, all_zeta_hats) = list(map(np.array, history))
+ all_depth_res, all_pos, all_vel, all_att, all_gyro, all_acc, all_zetas, all_depths, all_ids, all_zeta_hats) = list(map(np.array, history))
 
 
 
@@ -89,8 +96,8 @@ if True:
     plot_side_by_side('x_vel', viekf.xVEL, viekf.xVEL+3, tm, all_x_hat, cov=None, truth_t=tm, truth=all_vel, labels=['x', 'y', 'z'])
     plot_side_by_side('x_att', viekf.xATT, viekf.xATT+4, tm, all_x_hat, cov=None, truth_t=tm, truth=all_att, labels=['w', 'x', 'y', 'z'])
     plot_side_by_side('x_euler', 0, 3, tm, euler_hat, cov=None, truth_t=tm, truth=euler, labels=[r'$\phi$', r'$\rho$', r'$\psi$'])
-    plot_side_by_side('x_b_g', viekf.xB_G, viekf.xB_G + 3, tm, all_x_hat, cov=all_P, truth_t=tm, truth=all_b_w, labels=['x', 'y', 'z'], cov_bounds=(viekf.dxB_G,viekf.dxB_G+3))
-    plot_side_by_side('x_b_a', viekf.xB_A, viekf.xB_A + 3, tm, all_x_hat, cov=all_P, truth_t=tm, truth=all_b_a, labels=['x', 'y', 'z'], cov_bounds=(viekf.dxB_A,viekf.dxB_A+3))
+    plot_side_by_side('x_b_g', viekf.xB_G, viekf.xB_G + 3, tm, all_x_hat, cov=all_P, labels=['x', 'y', 'z'], cov_bounds=(viekf.dxB_G,viekf.dxB_G+3))
+    plot_side_by_side('x_b_a', viekf.xB_A, viekf.xB_A + 3, tm, all_x_hat, cov=all_P, labels=['x', 'y', 'z'], cov_bounds=(viekf.dxB_A,viekf.dxB_A+3))
     plot_side_by_side('x_mu', viekf.xMU, viekf.xMU+1, tm, all_x_hat, cov=all_P, truth_t=None, truth=None, labels=['mu'], cov_bounds=(viekf.dxMU,viekf.dxMU+1))
     plot_side_by_side('z_alt_residual', 0, 1, tm, all_alt_res, labels=['z_alt_res'])
     plot_side_by_side('z_att_residual', 0, 3, tm, all_att_res, labels='z_att_res')

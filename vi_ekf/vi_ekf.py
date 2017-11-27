@@ -48,7 +48,7 @@ class VI_EKF():
         self.Qx_feat = np.diag([0.000, 0.000, 0.00]) # x, y, and 1/depth
 
         # Process noise assumed from inputs (mechanized sensors)
-        self.Qu = np.diag([0.005,                      # y_acc
+        self.Qu = np.diag([0.005, 0.005, 0.005,        # y_acc
                            0.0001, 0.0001, 0.0001])    # y_omega
 
 
@@ -109,7 +109,7 @@ class VI_EKF():
         self.G = np.zeros((dxZ, 6))
         self.I_big = np.eye(dxZ)
 
-        self.use_drag_term = False
+        self.use_drag_term = True
 
     # Returns the depth to all features
     def get_depth(self):
@@ -169,7 +169,7 @@ class VI_EKF():
         assert y_acc.shape == (3, 1) and y_gyro.shape == (3, 1) and isinstance(dt, float)
 
         # Propagate State
-        u = np.vstack((y_acc[2], y_gyro))
+        u = np.vstack((y_acc, y_gyro))
         xdot = self.f(self.x, u)
         self.x = self.boxplus(self.x, xdot*dt)
 
@@ -215,12 +215,9 @@ class VI_EKF():
 
         # Perform state and covariance update
         if not passive_update:
-            try:
-                K = self.P.dot(H.T).dot(scipy.linalg.inv(R + H.dot(self.P).dot(H.T)))
-                self.P = (self.I_big - K.dot(H)).dot(self.P)
-                self.x = self.boxplus(self.x, K.dot(residual))
-            except:
-                debug = 1
+            K = self.P.dot(H.T).dot(scipy.linalg.inv(R + H.dot(self.P).dot(H.T)))
+            self.P = (self.I_big - K.dot(H)).dot(self.P)
+            self.x = self.boxplus(self.x, K.dot(residual))
         return residual
 
     # Used for overriding imu biases, Not to be used in real life
@@ -293,9 +290,10 @@ class VI_EKF():
         acc_z = np.array([[0, 0, acc[2,0]]]).T
         mu = x[xMU, 0]
 
-        pdot = q_I_b.invrot(vel)
+        pdot = q_I_b.rot(vel)
         if self.use_drag_term:
-            vdot = skew(vel).dot(omega) - mu*I_2x3.T.dot(I_2x3).dot(vel) + acc_z + q_I_b.rot(self.gravity)
+            # vdot = skew(vel).dot(omega) - mu*I_2x3.T.dot(I_2x3).dot(vel) + acc_z + q_I_b.rot(self.gravity)
+            vdot =  acc_z + q_I_b.rot(self.gravity) - mu * I_2x3.T.dot(I_2x3).dot(vel)
         else:
             vdot = acc + q_I_b.rot(self.gravity)
         # pdot = np.zeros((3,1))
@@ -345,9 +343,8 @@ class VI_EKF():
 
         # Velocity Partials
         if self.use_drag_term:
-            self.A[dxVEL:dxVEL+3, dxVEL:dxVEL+3] = -skew(omega) - mu*I_2x3.T.dot(I_2x3)
+            self.A[dxVEL:dxVEL+3, dxVEL:dxVEL+3] = - mu*I_2x3.T.dot(I_2x3)
             self.A[dxVEL:dxVEL + 3, dxB_A:dxB_A + 3] = -self.khat.dot(self.khat.T)
-            self.A[dxVEL:dxVEL + 3, dxB_G:dxB_G + 3] = -skew(vel)
             self.A[dxVEL:dxVEL + 3, dxMU, None] = -I_2x3.T.dot(I_2x3).dot(vel)
         else:
             self.A[dxVEL:dxVEL + 3, dxB_A:dxB_A + 3] = -I_3x3
@@ -412,7 +409,6 @@ class VI_EKF():
         # State partials
         if self.use_drag_term:
             self.G[dxVEL:dxVEL+3, uA:uA+3] = self.khat.dot(self.khat.T)
-            self.G[dxVEL:dxVEL + 3, uG:uG + 3] = skew(vel)
         else:
             self.G[dxVEL:dxVEL + 3, uA:uA + 3] = I_3x3
         self.G[dxATT:dxATT+3, uG:uG+3] = I_3x3
@@ -447,10 +443,10 @@ class VI_EKF():
         b_a = x[xB_A:xB_A + 3]
         mu = x[xMU, 0]
 
-        h = I_2x3.dot(-mu*vel + b_a)
+        h = I_2x3.dot(mu*vel + b_a)
 
         dhdx = np.zeros((2, dxZ+3*self.len_features))
-        dhdx[:,dxVEL:dxVEL+3] = -mu * I_2x3
+        dhdx[:,dxVEL:dxVEL+3] = mu * I_2x3
         dhdx[:,dxB_A:dxB_A+3] = I_2x3
         dhdx[:,dxMU,None] = I_2x3.dot(-vel)
 
@@ -461,12 +457,11 @@ class VI_EKF():
     def h_alt(self, x):
         assert x.shape == (xZ + 5 * self.len_features, 1)
 
-        pos = x[xPOS:xPOS + 3]
 
-        h = -self.khat.T.dot(pos)
+        h = -x[xPOS+2,:,None]
 
         dhdx = np.zeros((1, dxZ+3*self.len_features))
-        dhdx[0,dxPOS:dxPOS+3] = -self.khat.T
+        dhdx[0,dxPOS+2] = -1.0
 
         return h, dhdx
 

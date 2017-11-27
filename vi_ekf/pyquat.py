@@ -183,13 +183,9 @@ class Quaternion():
     # Perform an active rotation on v (same as q.R.T.dot(v), but faster) CONFIRMED
     def rot(self, v):
         assert v.shape[0] == 3
-        start_norm = norm(v, axis=0)
         skew_xyz = skew(self.arr[1:])
         t = 2.0 * skew_xyz.dot(v)
         out = v + self.arr[0,0] * t + skew_xyz.dot(t)
-        out_norm = norm(out, axis=0)
-        if ((out_norm - start_norm) > 1e-3*start_norm).any():
-            debug = 1
         return out
 
     # Perform a passive rotation on v (same as q.R.dot(v), but faster) CONFIRMED
@@ -234,26 +230,26 @@ class Quaternion():
         if tr > 0:
             S = np.sqrt(tr+1.0) * 2.
             q[0] = 0.25 * S
-            q[1] = (m[2,1] - m[1,2]) / S
-            q[2] = (m[0,2] - m[2,0]) / S
-            q[3] = (m[1,0] - m[0,1]) / S
+            q[1] = (m[1,2] - m[2,1]) / S
+            q[2] = (m[2,0] - m[0,2]) / S
+            q[3] = (m[0,1] - m[1,0]) / S
         elif (m[0,0] > m[1,1]) and (m[0,0] > m[2,2]):
             S = np.sqrt(1.0 + m[0,0] - m[1,1] - m[2,2]) * 2.
-            q[0] = (m[2,1] - m[1,2]) / S
+            q[0] = (m[1,2] - m[2,1]) / S
             q[1] = 0.25 * S
-            q[2] = (m[0,1] + m[1,0]) / S
-            q[3] = (m[0,2] + m[2,0]) / S
+            q[2] = (m[1,0] + m[0,1]) / S
+            q[3] = (m[2,0] + m[0,2]) / S
         elif m[1,1] > m[2,2]:
             S = np.sqrt(1.0 + m[1,1] - m[0,0] - m[2,2]) * 2.
-            q[0] = (m[0,2] - m[2,0]) / S
-            q[1] = (m[0,1] + m[1,0]) / S
+            q[0] = (m[2,0] - m[0,2]) / S
+            q[1] = (m[1,0] + m[0,1]) / S
             q[2] = 0.25 * S
-            q[3] = (m[1,2] + m[2,1]) / S
+            q[3] = (m[2,1] + m[1,2]) / S
         else:
             S = np.sqrt(1.0 + m[2,2] - m[0,0] - m[1,1]) * 2.
-            q[0] = (m[1,0] - m[0,1]) / S
-            q[1] = (m[0,2] + m[2,0]) / S
-            q[2] = (m[1,2] + m[2,1]) / S
+            q[0] = (m[0,1] - m[1,0]) / S
+            q[1] = (m[2,0] + m[0,2]) / S
+            q[2] = (m[2,1] + m[1,2]) / S
             q[3] = 0.25 * S
         return Quaternion(q)
 

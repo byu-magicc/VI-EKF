@@ -8,7 +8,7 @@ import cPickle
 class Data(object):
     def __init__(self):
         self.time = np.linspace(0, 1, 100)
-        self.R = {'alt': 0.01,
+        self.R = {'alt': 0.0001,
                   'acc': np.diag([0.5, 0.5]),
                   'att': np.diag([0.001, 0.001, 0.001]),
                   'vel': np.diag([0.001, 0.001, 0.001]),

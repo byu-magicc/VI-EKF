@@ -10,11 +10,11 @@ from math_helper import  norm
 
 init_plots()
 
-data = ETHData(filename='data/V1_01_easy/mav0', start=10.0, end=45.0, sim_features=True, load_new=True)
+data = ETHData(filename='data/V1_01_easy/mav0', start=5.0, end=120.0, sim_features=True, load_new=True)
 data.__test__()
 
 ekf = viekf.VI_EKF(data.x0)
-ekf.x[viekf.xMU] = 0.25
+ekf.x[viekf.xMU] = 1.0
 last, history = time.time(), []
 
 for i, (t, dt, pos, vel, att, gyro, acc, b_w, b_a, zetas, depths, ids) in enumerate(tqdm(data)):
@@ -85,16 +85,16 @@ euler_hat = quat_arr_to_euler(all_x_hat[:, viekf.xATT:viekf.xATT+4].squeeze().T)
 
 # plot
 if True:
-    # plot_side_by_side('x_pos', viekf.xPOS, viekf.xPOS+3, tm, all_x_hat, cov=None, truth_t=tm, truth=all_pos, labels=['x', 'y', 'z'])
+    plot_side_by_side('x_pos', viekf.xPOS, viekf.xPOS+3, tm, all_x_hat, cov=None, truth_t=tm, truth=all_pos, labels=['x', 'y', 'z'])
     plot_side_by_side('x_vel', viekf.xVEL, viekf.xVEL+3, tm, all_x_hat, cov=None, truth_t=tm, truth=all_vel, labels=['x', 'y', 'z'])
-    # plot_side_by_side('x_att', viekf.xATT, viekf.xATT+4, tm, all_x_hat, cov=None, truth_t=tm, truth=all_att, labels=['w', 'x', 'y', 'z'])
+    plot_side_by_side('x_att', viekf.xATT, viekf.xATT+4, tm, all_x_hat, cov=None, truth_t=tm, truth=all_att, labels=['w', 'x', 'y', 'z'])
     plot_side_by_side('x_euler', 0, 3, tm, euler_hat, cov=None, truth_t=tm, truth=euler, labels=[r'$\phi$', r'$\rho$', r'$\psi$'])
-    # plot_side_by_side('x_b_g', viekf.xB_G, viekf.xB_G + 3, tm, all_x_hat, cov=all_P, truth_t=tm, truth=all_b_w, labels=['x', 'y', 'z'], cov_bounds=(viekf.dxB_G,viekf.dxB_G+3))
-    # plot_side_by_side('x_b_a', viekf.xB_A, viekf.xB_A + 3, tm, all_x_hat, cov=all_P, truth_t=tm, truth=all_b_a, labels=['x', 'y', 'z'], cov_bounds=(viekf.dxB_A,viekf.dxB_A+3))
-    # plot_side_by_side('x_mu', viekf.xMU, viekf.xMU+1, tm, all_x_hat, cov=all_P, truth_t=None, truth=None, labels=['mu'], cov_bounds=(viekf.dxMU,viekf.dxMU+1))
-    # plot_side_by_side('z_alt_residual', 0, 1, tm, all_alt_res, labels=['z_alt_res'])
-    # plot_side_by_side('z_att_residual', 0, 3, tm, all_att_res, labels='z_att_res')
-    # plot_side_by_side('z_acc_residual', 0, 2, tm, all_acc_res, labels=['x', 'y'])
+    plot_side_by_side('x_b_g', viekf.xB_G, viekf.xB_G + 3, tm, all_x_hat, cov=all_P, truth_t=tm, truth=all_b_w, labels=['x', 'y', 'z'], cov_bounds=(viekf.dxB_G,viekf.dxB_G+3))
+    plot_side_by_side('x_b_a', viekf.xB_A, viekf.xB_A + 3, tm, all_x_hat, cov=all_P, truth_t=tm, truth=all_b_a, labels=['x', 'y', 'z'], cov_bounds=(viekf.dxB_A,viekf.dxB_A+3))
+    plot_side_by_side('x_mu', viekf.xMU, viekf.xMU+1, tm, all_x_hat, cov=all_P, truth_t=None, truth=None, labels=['mu'], cov_bounds=(viekf.dxMU,viekf.dxMU+1))
+    plot_side_by_side('z_alt_residual', 0, 1, tm, all_alt_res, labels=['z_alt_res'])
+    plot_side_by_side('z_att_residual', 0, 3, tm, all_att_res, labels='z_att_res')
+    plot_side_by_side('z_acc_residual', 0, 2, tm, all_acc_res, labels=['x', 'y'])
     # plot_side_by_side('z_pos_residual', 0, 3, tm, all_pos_res, labels=['x', 'y', 'z'])
     # plot_side_by_side('z_vel_residual', 0, 3, tm, all_vel_res, labels=['x', 'y', 'z'])
     plot_side_by_side('u_gyro', 0, 3, tm, all_gyro, labels=['x', 'y', 'z'])

@@ -11,11 +11,11 @@ class Data(object):
         self.time = np.linspace(0, 1, 100)
         self.R = {'alt': 0.0001,
                   'acc': np.diag([0.5, 0.5]),
-                  'att': np.diag([0.001, 0.001, 0.001]),
-                  'vel': np.diag([0.001, 0.001, 0.001]),
-                  'pos': np.diag([0.01,0.01, 0.01]),
+                  'att': np.diag([0.0001, 0.0001, 0.0001]),
+                  'vel': np.diag([0.0001, 0.0001, 0.0001]),
+                  'pos': np.diag([0.0001, 0.0001, 0.0001]),
                   'zeta': np.diag([0.0001, 0.0001]),
-                  'depth': 0.01}
+                  'depth': 0.0001}
 
     def indexer(self, target_time, source_time):
         index_for_target = []
@@ -62,8 +62,11 @@ class Data(object):
             time += dt
             assert time == t, (time, t, dt)
             assert all([gyro is None, acc is None]) or not all([gyro is None, acc is None])
-            assert type(zetas) == type(depths) == type(ids) == list
-            assert len(zetas) == len(depths) == len(ids)
+            if zetas is not None:
+                assert len(zetas) == len(depths) == len(ids)
+                assert zetas[0].shape == (4, 1) if len(zetas) > 0 else True, zetas[0].shape
+                assert depths[0].shape == (1, 1) if len(depths) > 0 else True, depths[0].shape
+                assert all([type(id) == int or type(id) == np.int64 for id in ids]), type(ids[0])
             assert type(t) == float or type(t) == np.float64, type(t)
             assert type(dt) == float or type(t) == np.float64, type(t)
             assert ((pos.shape == (3, 1)) if pos is not None else True), pos.shape
@@ -71,9 +74,6 @@ class Data(object):
             assert (att.shape == (4, 1)) if att is not None else True
             assert (gyro.shape == (3, 1)) if gyro is not None else True
             assert (acc.shape == (3, 1)) if acc is not None else True
-            assert zetas[0].shape == (4, 1) if len(zetas) > 0 else True, zetas[0].shape
-            assert depths[0].shape == (1, 1) if len(depths) > 0 else True, depths[0].shape
-            assert all([type(id) == int or type(id) == np.int64 for id in ids]), type(ids[0])
 
 
 class FakeData(Data):
@@ -167,32 +167,32 @@ class ROSbagData(Data):
         if i >= len(self):
             raise IndexError
 
-        t = self.time[i]
-        dt = self.time[0] - self.start if i == 0 else (self.time[i] - self.time[i - 1])
-        pos, vel, att, gyro, acc = None, None, None, None, None
-        zetas, ids, depths = [], [], []
+        try:
+            t = self.time[i]
+            dt = self.time[0] - self.start if i == 0 else (self.time[i] - self.time[i - 1])
+            pos, vel, att, gyro, acc = None, None, None, None, None
+            zetas, ids, depths = None, None, None
 
-        # if self.truth_indexer[i] - self.truth_indexer[i - 1] != 0:
-        pos = self.data['truth'][self.truth_indexer[i], 1:4, None]
-        vel = self.data['truth'][self.truth_indexer[i], 8:11, None]
-        att = self.data['truth'][self.truth_indexer[i], 4:8, None]
+            # if self.truth_indexer[i] - self.truth_indexer[i - 1] != 0:
+            pos = self.data['truth'][self.truth_indexer[i], 1:4, None]
+            vel = self.data['truth'][self.truth_indexer[i], 8:11, None]
+            att = self.data['truth'][self.truth_indexer[i], 4:8, None]
 
-        if self.imu_indexer[i] - self.imu_indexer[i - 1] != 0:
-            gyro = self.data['imu'][self.imu_indexer[i], 1:4, None]
-            acc = self.data['imu'][self.imu_indexer[i], 4:7, None]
+            if self.imu_indexer[i] - self.imu_indexer[i - 1] != 0:
+                gyro = self.data['imu'][self.imu_indexer[i], 1:4, None]
+                acc = self.data['imu'][self.imu_indexer[i], 4:7, None]
 
-        if self.feature_indexer[i] - self.feature_indexer[i - 1] != 0:
-            ids = list(self.data['ids'][self.feature_indexer[i], :])
-            zetas = []
-            depths = []
-            for feat, l in enumerate(ids):
-                zetas.append(self.data['zetas'][feat][self.feature_indexer[i], :, None])
-                depths.append(self.data['depths'][feat][self.feature_indexer[i], :, None])
+            if self.feature_indexer[i] - self.feature_indexer[i - 1] != 0:
+                ids = list(self.data['ids'][self.feature_indexer[i], :])
+                zetas = []
+                depths = []
+                for feat, l in enumerate(ids):
+                    zetas.append(self.data['zetas'][feat][self.feature_indexer[i], :, None])
+                    depths.append(self.data['depths'][feat][self.feature_indexer[i], :, None])
 
-            # image = cv2.imread(self.data['cam0_frame_filenames'][self.feature_indexer[i]], cv2.IMREAD_GRAYSCALE)
-            # zetas, ids = self.compute_features(image)
-
-        return t, dt, pos, vel, att, gyro, acc, zetas, depths, ids
+            return t, dt, pos, vel, att, gyro, acc, zetas, depths, ids
+        except:
+            debug = 1
 
     def __len__(self):
         return len(self.time)

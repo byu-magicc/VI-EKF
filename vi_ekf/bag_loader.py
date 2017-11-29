@@ -13,6 +13,7 @@ def to_list4(quat):
 
 def read_bag(filename):
     bag = rosbag.Bag(filename)
+    print "loading bag", filename
 
     data = dict()
     data['imu_data'] = dict()

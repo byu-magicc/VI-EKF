@@ -18,13 +18,12 @@ def add_landmark(truth, landmarks):
 
     khat = np.array([[0, 0, 1.]]).T
 
-    print "adding landmarks"
-    for i in tqdm(range(len(truth))):
+    for i in range(len(truth)):
         delta_pose = landmarks - truth[i, 1:4]
         dist = norm(delta_pose, axis=1)
         q = Quaternion(truth[i,4:8,None])
-        zetas = q.R.dot((delta_pose/dist[:,None]).T)
-        q_zetas = q_array_from_two_unit_vectors(zetas, khat)
+        zetas = q.rot((delta_pose/dist[:,None]).T)
+        q_zetas = q_array_from_two_unit_vectors(khat, zetas)
         feature_array[i,bearing_mask] = np.reshape(q_zetas, (1, -1), order='f')
         # if abs(1. - norm(np.reshape(feature_array[i,bearing_mask], (3, -1), order='f'), axis=0) > 1e-5).any():
         #     debug = 1

@@ -174,7 +174,7 @@ if __name__ == '__main__':
                              [0.0],
                              [0.0]])
     errors = 0
-    for i in range(1):
+    for i in tqdm(range(10)):
         # Set nominal Values for x0
         x0 = np.zeros((xZ, 1))
         x0[xATT] = 1
@@ -193,7 +193,7 @@ if __name__ == '__main__':
         ekf = VI_EKF(x0)
 
         # Initialize Random Features
-        for j in range(1):
+        for j in range(20):
             zeta = np.random.randn(3)[:, None]
             zeta = np.array([[0, 1.0, 1.0]]).T
             zeta /= scipy.linalg.norm(zeta)

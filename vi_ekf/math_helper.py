@@ -43,20 +43,24 @@ def q_feat_boxminus(q0, q1):
         return np.zeros((2,1))
 
 
+# Calculates the quaternion which rotates u into v.
+# That is, if q = q_from_two_unit_vectors(u,v)
+# q.rot(u) = v and q.invrot(v) = u
+# This is a vectorized version which returns multiple quaternions for multiple v's from one u
 def q_array_from_two_unit_vectors(u, v):
     assert u.shape[0] == 3
     assert v.shape[0] == 3
     u = u.copy()
     v = v.copy()
 
-    num_arrays = u.shape[1]
+    num_arrays = v.shape[1]
     arr = np.vstack((np.ones((1, num_arrays)), np.zeros((3, num_arrays))))
 
     d = u.T.dot(v)
 
     invs = (2.0*(1.0+d))**-0.5
-    xyz = np.transpose(skew(u), (2, 0, 1)).dot(v).squeeze()*invs
-    arr[0, :, None] = 0.5 / invs
-    arr[1:,:] = xyz.T
+    xyz = skew(u).dot(v)*invs
+    arr[0, :, None] = 0.5 / invs.T
+    arr[1:,:] = xyz
     arr /= norm(arr, axis=0)
     return arr

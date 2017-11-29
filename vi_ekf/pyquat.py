@@ -204,6 +204,9 @@ class Quaternion():
         inverted[1:] *= -1.0
         return Quaternion(inverted)
 
+    # Calculates the quaternion which rotates u into v.
+    # That is, if q = q_from_two_unit_vectors(u,v)
+    # q.rot(u) = v and q.invrot(v) = u
     @staticmethod
     def from_two_unit_vectors(u, v):
         assert u.shape == (3,1)

@@ -35,6 +35,7 @@ def make_undistort_funtion(intrinsics, resolution, distortion_coefficients):
     return undistort, Ap
 
 def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=False, plot_trajectory=False):
+    print "loading rosbag", filename
     # First, load IMU data
     bag = rosbag.Bag(filename)
     imu_data = []
@@ -117,7 +118,8 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
 
     # if sim_features:
     # Simulate Landmark Measurements
-    landmarks = np.random.uniform(-25, 25, (2,3))
+    # landmarks = np.random.uniform(-25, 25, (2,3))
+    landmarks = np.vstack([np.eye(3), np.array([[0, 0, 0]])])
     feat_time, zetas, depths, ids = add_landmark(ground_truth, landmarks)
 
     # else:

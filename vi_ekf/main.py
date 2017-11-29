@@ -104,7 +104,7 @@ for i, (t, dt, pos, vel, att, gyro, acc, qzetas, depths, ids) in enumerate(tqdm(
         history['depth_hats'].append(depth_hats)
         history['zeta_hats'].append(zeta_hats)
 
-# Convert the lists of numpy arrays into numpy arrays
+# Convert the lists of numpy arrays into actual numpy arrays with nans in invalid regions
 for key, item in history.iteritems():
     # Find the proper sized NaN array
     nan_array = None

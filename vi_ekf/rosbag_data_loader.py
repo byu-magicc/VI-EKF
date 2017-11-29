@@ -34,7 +34,53 @@ def make_undistort_funtion(intrinsics, resolution, distortion_coefficients):
 
     return undistort, Ap
 
-def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=False, plot_trajectory=False):
+def calculate_velocity_from_position(t, position, orientation):
+    # Calculate body-fixed velocity by differentiating position and rotating
+    # into the body frame
+    b, a = scipy.signal.butter(8, 0.03)  # Create a Butterworth Filter
+    # differentiate Position
+    delta_x = np.diff(position, axis=0)
+    delta_t = np.diff(t)
+    unfiltered_inertial_velocity = np.vstack((np.zeros((1, 3)), delta_x / delta_t[:, None]))
+    # Filter
+    v_inertial = scipy.signal.filtfilt(b, a, unfiltered_inertial_velocity, axis=0)
+    # Rotate into Body Frame
+    vel_data = []
+    for i in range(len(t)):
+        q_I_b = Quaternion(orientation[i, :, None])
+        vel_data.append(q_I_b.rot(v_inertial[i, None].T).T)
+
+    vel_data = np.array(vel_data).squeeze()
+    return vel_data
+
+def plot_3d_trajectory(position, orientation):
+    plt.figure(2)
+    ax = plt.subplot(111, projection='3d')
+    plt.plot(position[:1, 0],
+             position[:1, 1],
+             position[:1, 2], 'kx')
+    plt.plot(position[:, 0],
+             position[:, 1],
+             position[:, 2], 'c-')
+    ax.set_xlabel('X axis')
+    ax.set_ylabel('Y axis')
+    ax.set_zlabel('Z axis')
+    e_x = 0.1*np.array([[1., 0, 0]]).T
+    e_y = 0.1*np.array([[0, 1., 0]]).T
+    e_z = 0.1*np.array([[0, 0, 1.]]).T
+    for i in range(len(position)/100):
+        j = i*100
+        origin = position[j,:,None]
+        x_end = origin + Quaternion(orientation[j,:,None]).rot(e_x)
+        y_end = origin + Quaternion(orientation[j,:,None]).rot(e_y)
+        z_end = origin + Quaternion(orientation[j,:,None]).rot(e_z)
+        plt.plot([origin[0, 0], x_end[0, 0]], [origin[1, 0], x_end[1, 0]], [origin[2, 0], x_end[2, 0]], 'r-')
+        plt.plot([origin[0, 0], y_end[0, 0]], [origin[1, 0], y_end[1, 0]], [origin[2, 0], y_end[2, 0]], 'g-')
+        plt.plot([origin[0, 0], z_end[0, 0]], [origin[1, 0], z_end[1, 0]], [origin[2, 0], z_end[2, 0]], 'b-')
+    plt.show()
+
+
+def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=False, plot_trajectory=True):
     print "loading rosbag", filename
     # First, load IMU data
     bag = rosbag.Bag(filename)
@@ -68,110 +114,18 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
     good_indexes = np.hstack((True, np.diff(truth_pose_data[:,0]) > 1e-3))
     truth_pose_data = truth_pose_data[good_indexes]
 
-    # Calculate body-fixed velocity by differentiating position and rotating
-    # into the body frame
-    inertial_vel = np.zeros(3)
-    b, a = scipy.signal.butter(8, 0.03) # Create a Butterworth Filter
-    # differentiate Position
-    delta_x = np.diff(truth_pose_data[:,1:4], axis=0)
-    delta_t = np.diff(truth_pose_data[:,0])
-    unfiltered_inertial_velocity = np.vstack((np.zeros((1,3)), delta_x/delta_t[:,None]))
-    # Filter
-    v_inertial = scipy.signal.filtfilt(b, a, unfiltered_inertial_velocity, axis=0)
-    # Rotate into Body Frame
-    vel_data = []
-    for i in range(len(truth_pose_data)):
-        q_I_b = Quaternion(truth_pose_data[i,4:8,None])
-        vel_data.append(q_I_b.rot(v_inertial[i,None].T).T)
+    vel_data = calculate_velocity_from_position(truth_pose_data[:,0], truth_pose_data[:,1:4], truth_pose_data[:,4:8])
 
-
-    vel_data = np.array(vel_data).squeeze()
     ground_truth = np.hstack((truth_pose_data, vel_data))
 
     if plot_trajectory:
-        plt.figure(2)
-        ax = plt.subplot(111, projection='3d')
-        plt.plot(truth_pose_data[:1, 1],
-                 truth_pose_data[:1, 2],
-                 truth_pose_data[:1, 3], 'kx')
-        plt.plot(truth_pose_data[:, 1],
-                 truth_pose_data[:, 2],
-                 truth_pose_data[:, 3], 'c-')
-        ax.set_xlabel('X axis')
-        ax.set_ylabel('Y axis')
-        ax.set_zlabel('Z axis')
-        e_x = 0.1*np.array([[1., 0, 0]]).T
-        e_y = 0.1*np.array([[0, 1., 0]]).T
-        e_z = 0.1*np.array([[0, 0, 1.]]).T
-        for i in range(len(truth_pose_data)/100):
-            j = i*100
-            origin = truth_pose_data[j, 1:4,None]
-            x_end = origin + Quaternion(truth_pose_data[j, 4:8,None]).rot(e_x)
-            y_end = origin + Quaternion(truth_pose_data[j, 4:8,None]).rot(e_y)
-            z_end = origin + Quaternion(truth_pose_data[j, 4:8,None]).rot(e_z)
-            plt.plot([origin[0, 0], x_end[0, 0]], [origin[1, 0], x_end[1, 0]], [origin[2, 0], x_end[2, 0]], 'r-')
-            plt.plot([origin[0, 0], y_end[0, 0]], [origin[1, 0], y_end[1, 0]], [origin[2, 0], y_end[2, 0]], 'g-')
-            plt.plot([origin[0, 0], z_end[0, 0]], [origin[1, 0], z_end[1, 0]], [origin[2, 0], z_end[2, 0]], 'b-')
-        plt.show()
+        plot_3d_trajectory(ground_truth[:,1:4], ground_truth[:,4:8])
 
-    # quit()
 
-    # if sim_features:
     # Simulate Landmark Measurements
     # landmarks = np.random.uniform(-25, 25, (2,3))
     landmarks = np.vstack([np.eye(3), np.array([[0, 0, 0]])])
     feat_time, zetas, depths, ids = add_landmark(ground_truth, landmarks)
-
-    # else:
-    #     # Load Camera Data and calculate Landmark Measurements
-    #     images0 = []
-    #     images1 = []
-    #     image_time = []
-    #     csvfile = open(folder + '/cam0/data.csv', 'rb')
-    #     reader = csv.reader(csvfile)
-    #     for i, row in tqdm(enumerate(reader)):
-    #         if i > 0:
-    #             image_time.append((float(row[0]) - t0) / 1e9)
-    #             images0.append(folder + '/cam0/data/' + row[1])
-    #             images1.append(folder + '/cam1/data/' + row[1])
-    #             if show_image:
-    #                 cv2.imshow('image', cv2.imread(folder+'/cam0/data/' + row[1]))
-    #                 print image_time[-1]
-    #                 #cv2.waitKey(0)
-    #     image_time = np.array(image_time)
-    #     # images = np.array(images)
-    #
-    #     with open(folder + '/cam0/sensor.yaml', 'r') as stream:
-    #         try:
-    #             data = yaml.load(stream)
-    #
-    #             cam0_sensor = {
-    #                 'resolution': np.array(data['resolution']),
-    #                 'intrinsics': np.array(data['intrinsics']),
-    #                 'rate_hz': data['rate_hz'],
-    #                 'distortion_coefficients': np.array(data['distortion_coefficients']),
-    #                 'body_to_sensor_transform': np.array(data['T_BS']['data']).reshape(
-    #                     (data['T_BS']['rows'], data['T_BS']['cols']))
-    #             }
-    #
-    #
-    #         except yaml.YAMLError as exc:
-    #             print(exc)
-    #
-    #     with open(folder + '/cam1/sensor.yaml', 'r') as stream:
-    #         try:
-    #             data = yaml.load(stream)
-    #             cam1_sensor = {
-    #                 'resolution': data['resolution'],
-    #                 'intrinsics': data['intrinsics'],
-    #                 'rate_hz': data['rate_hz'],
-    #                 'distortion_coefficients': np.array(data['distortion_coefficients']),
-    #                 'body_to_sensor_transform': np.array(data['T_BS']['data']).reshape(
-    #                     (data['T_BS']['rows'], data['T_BS']['cols']))
-    #             }
-    #
-    #         except yaml.YAMLError as exc:
-    #             print(exc)
 
     # Adjust timestamp
     t0 = imu_data[0,0]

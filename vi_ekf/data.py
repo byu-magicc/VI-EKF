@@ -5,6 +5,9 @@ import rosbag_data_loader
 import cv2
 import klt_tracker
 import cPickle
+from collections import defaultdict, deque
+import eth_data_loader as data_loader
+
 
 class Data(object):
     def __init__(self):
@@ -114,11 +117,12 @@ class FakeData(Data):
     def __len__(self):
         return len(self.time)
 
+
 class ROSbagData(Data):
     def __init__(self, filename='truth_imu_flight.bag', start=-1, end=np.inf, sim_features=False, load_new=False):
         super(ROSbagData, self).__init__()
         if load_new:
-            self.data = rosbag_data_loader.load_data(filename, start, end, sim_features)
+            self.data = rosbag_data_loader.load_data(filename, start, end, sim_features, plot_trajectory=False)
             cPickle.dump(self.data, open('data/data.pkl', 'wb'))
         else:
             self.data = cPickle.load(open('data/data.pkl', 'rb'))
@@ -156,58 +160,44 @@ class ROSbagData(Data):
 
     @property
     def x0(self):
+        # # ekf.x[viekf.xB_A:viekf.xB_A+3] = np.array([[0.05, 0.1, -0.05]]).T
         return np.concatenate([self.data['truth'][self.truth_indexer[0], 1:4, None],
                                self.data['truth'][self.truth_indexer[0], 8:11, None],
                                self.data['truth'][self.truth_indexer[0], 4:8, None],
                                np.zeros((3,1)),
                                np.zeros((3,1)),
-                               2.5*0.2*np.ones((1, 1))], axis=0)
+                               0.15*np.ones((1, 1))], axis=0)
 
     def __getitem__(self, i):
         if i >= len(self):
             raise IndexError
 
-        try:
-            t = self.time[i]
-            dt = self.time[0] - self.start if i == 0 else (self.time[i] - self.time[i - 1])
-            pos, vel, att, gyro, acc = None, None, None, None, None
-            zetas, ids, depths = None, None, None
+        t = self.time[i]
+        dt = self.time[0] - self.start if i == 0 else (self.time[i] - self.time[i - 1])
+        pos, vel, att, gyro, acc = None, None, None, None, None
+        zetas, ids, depths = None, None, None
 
-            # if self.truth_indexer[i] - self.truth_indexer[i - 1] != 0:
-            pos = self.data['truth'][self.truth_indexer[i], 1:4, None]
-            vel = self.data['truth'][self.truth_indexer[i], 8:11, None]
-            att = self.data['truth'][self.truth_indexer[i], 4:8, None]
+        # if self.truth_indexer[i] - self.truth_indexer[i - 1] != 0:
+        pos = self.data['truth'][self.truth_indexer[i], 1:4, None]
+        vel = self.data['truth'][self.truth_indexer[i], 8:11, None]
+        att = self.data['truth'][self.truth_indexer[i], 4:8, None]
 
-            if self.imu_indexer[i] - self.imu_indexer[i - 1] != 0:
-                gyro = self.data['imu'][self.imu_indexer[i], 1:4, None]
-                acc = self.data['imu'][self.imu_indexer[i], 4:7, None]
+        if self.imu_indexer[i] - self.imu_indexer[i - 1] != 0:
+            gyro = self.data['imu'][self.imu_indexer[i], 1:4, None]
+            acc = self.data['imu'][self.imu_indexer[i], 4:7, None]
 
-            if self.feature_indexer[i] - self.feature_indexer[i - 1] != 0:
-                ids = list(self.data['ids'][self.feature_indexer[i], :])
-                zetas = []
-                depths = []
-                for feat, l in enumerate(ids):
-                    zetas.append(self.data['zetas'][feat][self.feature_indexer[i], :, None])
-                    depths.append(self.data['depths'][feat][self.feature_indexer[i], :, None])
+        if self.feature_indexer[i] - self.feature_indexer[i - 1] != 0:
+            ids = list(self.data['ids'][self.feature_indexer[i], :])
+            zetas = []
+            depths = []
+            for feat, l in enumerate(ids):
+                zetas.append(self.data['zetas'][feat][self.feature_indexer[i], :, None])
+                depths.append(self.data['depths'][feat][self.feature_indexer[i], :, None])
 
-            return t, dt, pos, vel, att, gyro, acc, zetas, depths, ids
-        except:
-            debug = 1
+        return t, dt, pos, vel, att, gyro, acc, zetas, depths, ids
 
     def __len__(self):
         return len(self.time)
-
-    def __test__(self):
-        # image = np.zeros([480, 752, 1]).astype(np.uint8)
-        # size = 100
-        # image[480//2 - size:480//2 + size, 752//2 - size:752//2 + size] = 255
-        # zeta, id = self.compute_features(image)
-        #
-        # assert len(zeta) == 4
-        # assert len(zeta) == len(id), (len(zeta), len(id))
-        # assert False, 'we should manually calculate and check the correct zetas'
-
-        super(ROSbagData, self).__test__()
 
 
 class ETHData(Data):
@@ -307,6 +297,48 @@ class ETHData(Data):
         # assert False, 'we should manually calculate and check the correct zetas'
 
         super(ETHData, self).__test__()
+
+
+class History(object):
+    class DataContainer:
+        pass
+
+    def __init__(self):
+        self.t = History.DataContainer()
+        self.stored = set()
+
+    def store(self, primary_index, secondary_index=None, **kwargs):
+        for key in kwargs.keys():
+            if kwargs[key] is not None:
+                if hasattr(self, key):
+                    if secondary_index is None:
+                        getattr(self, key).append(kwargs[key])
+                        getattr(self.t, key).append(primary_index)
+                    else:
+                        getattr(self, key)[secondary_index].append(kwargs[key])
+                        getattr(self.t, key)[secondary_index].append(primary_index)
+                else:
+                    self.stored.add(key)
+                    if secondary_index is None:
+                        setattr(self, key, [])
+                        setattr(self.t, key, [])
+                    else:
+                        setattr(self, key, defaultdict(deque))
+                        setattr(self.t, key, defaultdict(deque))
+
+                    self.store(primary_index, secondary_index, **kwargs)
+
+    def __getattr__(self, key):
+        raise AttributeError("'History' object has no attribute '{}'".format(key))
+
+    def tonumpy(self):
+        for key in self.stored:
+            if type(getattr(self, key)) == defaultdict:
+                setattr(self, key, {id: np.array(getattr(self, key)[id]) for id in getattr(self, key)})
+                setattr(self.t, key, {id: np.array(getattr(self.t, key)[id]) for id in getattr(self.t, key)})
+            else:
+                setattr(self, key, np.array(getattr(self, key)))
+                setattr(self.t, key, np.array(getattr(self.t, key)))
 
 
 if __name__ == '__main__':

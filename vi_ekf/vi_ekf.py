@@ -111,6 +111,8 @@ class VI_EKF():
 
         self.use_drag_term = True
 
+        self.last_propagate = 0
+
     # Returns the depth to all features
     def get_depths(self):
         return 1./self.x[xZ+4::5]
@@ -165,8 +167,12 @@ class VI_EKF():
         return out
 
     # propagates all states, features and covariances
-    def propagate(self, y_acc, y_gyro, dt):
-        assert y_acc.shape == (3, 1) and y_gyro.shape == (3, 1) and isinstance(dt, float)
+    def propagate(self, y_acc, y_gyro, t):
+        assert y_acc.shape == (3, 1) and y_gyro.shape == (3, 1) and isinstance(t, float)
+
+        # calculate dt from t
+        dt = t - self.last_propagate
+        self.last_propagate = t
 
         # Propagate State
         u = np.vstack((y_acc, y_gyro))
@@ -218,7 +224,8 @@ class VI_EKF():
             K = self.P.dot(H.T).dot(scipy.linalg.inv(R + H.dot(self.P).dot(H.T)))
             self.P = (self.I_big - K.dot(H)).dot(self.P)
             self.x = self.boxplus(self.x, K.dot(residual))
-        return residual
+
+        return residual, zhat
 
     # Used for overriding imu biases, Not to be used in real life
     def set_imu_bias(self, b_g, b_a):

@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from pyquat import Quaternion
+from cycler import cycler
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
@@ -9,6 +10,7 @@ def init_plots():
     plt.jet()
     plt.set_cmap('jet')
     plt.rcParams['image.cmap'] = 'jet'
+    plt.rcParams['figure.max_open_warning'] = 100
 
 def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None, truth=None, labels=None, skip=1, save=True, cov_bounds=None):
     estimate = estimate[:, start:end]
@@ -23,12 +25,14 @@ def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None
 
     if isinstance(truth_t, np.ndarray):
         truth_t_copy = truth_t[(truth_t > start_t) & (truth_t < end_t)].copy()
+
     if isinstance(truth, np.ndarray):
         truth_copy = truth[(truth_t > start_t) & (truth_t < end_t)].copy()
 
     plt.figure(figsize=(24, 18))
     colormap = plt.cm.jet
-    plt.gca().set_color_cycle([colormap(i) for i in np.linspace(0, 0.9, 2)])
+
+    plt.gca().set_prop_cycle(cycler('color', [colormap(i) for i in np.linspace(0, 0.9, 2)]))
 
     for i in range(end - start):
         plt.subplot(end-start, 1, i + 1)

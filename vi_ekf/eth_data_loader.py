@@ -100,8 +100,6 @@ def load_data(folder, start=0, end=np.inf, sim_features=False, show_image=False)
     ax.set_zlabel('Z axis')
     plt.show()
 
-    quit()
-
     if sim_features:
         # Simulate Landmark Measurements
         landmarks = np.random.uniform(-25, 25, (2,3))

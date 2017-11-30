@@ -150,7 +150,7 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
     out_dict['imu'] = imu_data
     out_dict['truth'] = ground_truth
     # if sim_features:
-    out_dict['feat_time'] = feat_time
+    out_dict['feat_time'] = feat_time[(feat_time > start) & (feat_time < end)]
     out_dict['zetas'] = zetas
     out_dict['depths'] = depths
     out_dict['ids'] = ids

@@ -127,9 +127,10 @@ class ROSbagData(Data):
         else:
             self.data = cPickle.load(open('data/data.pkl', 'rb'))
 
-        self.time = np.unique(np.concatenate([self.data['imu'][:, 0]]))
-                                              # self.data['truth'][:, 0],
-                                              # self.data['feat_time']]))
+        self.time = np.unique(np.concatenate([self.data['imu'][:, 0],
+                                              self.data['truth'][:, 0],
+                                              self.data['feat_time']]))
+
         self.time = self.time[(self.time > start) & (self.time < end)]
 
         self.truth_indexer = self.indexer(self.time, self.data['truth'][:, 0])
@@ -172,10 +173,11 @@ class ROSbagData(Data):
         if i >= len(self):
             raise IndexError
 
-        t = self.time[i]
-        dt = self.time[0] - self.start if i == 0 else (self.time[i] - self.time[i - 1])
         pos, vel, att, gyro, acc = None, None, None, None, None
         zetas, ids, depths = None, None, None
+
+        t = self.time[i]
+        dt = self.time[0] - self.start if i == 0 else (self.time[i] - self.time[i - 1])
 
         # if self.truth_indexer[i] - self.truth_indexer[i - 1] != 0:
         pos = self.data['truth'][self.truth_indexer[i], 1:4, None]

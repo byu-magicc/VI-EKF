@@ -130,5 +130,5 @@ def plot_3d_trajectory(position, orientation, qzetas=None, depths=None):
             colors = get_colors(len(qzetas), plt.cm.jet)
             for qz, d, col in zip(qzetas, depths, colors):
                 zeta_end = origin + Quaternion(qz[j,:,None]).rot(10.*e_z*d[j,0])
-                plt.plot([origin[0, 0], zeta_end[0, 0]], [origin[1, 0], zeta_end[1, 0]], [origin[2, 0], zeta_end[2, 0]], color=col)
+                plt.plot([origin[0, 0], zeta_end[0, 0]], [origin[1, 0], zeta_end[1, 0]], [origin[2, 0], zeta_end[2, 0]], '--', color=col, lineWidth='0.25')
     plt.show()

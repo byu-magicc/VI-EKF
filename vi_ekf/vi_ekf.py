@@ -111,7 +111,7 @@ class VI_EKF():
 
         self.use_drag_term = True
 
-        self.last_propagate = 0
+        self.last_propagate = None
         self.initialized = False
 
     # Returns the depth to all features
@@ -176,30 +176,28 @@ class VI_EKF():
     def propagate(self, y_acc, y_gyro, t):
         assert y_acc.shape == (3, 1) and y_gyro.shape == (3, 1) and isinstance(t, float)
 
-        if not self.initialized:
-            self.initialized = True
-            self.last_propagate = t
-            return self.x.copy(), self.P.copy()
+        if self.last_propagate is not None:
+            # calculate dt from t
+            dt = t - self.last_propagate
 
-        # calculate dt from t
-        dt = t - self.last_propagate
+            # Propagate State
+            u = np.vstack((y_acc, y_gyro))
+            xdot = self.f(self.x, u)
+            self.x = self.boxplus(self.x, xdot*dt)
+
+            # Propagate Uncertainty
+            A = self.dfdx(self.x, u)
+            G = self.dfdu(self.x)
+
+            # TODO: Convert to proper noise introduction (instead of additive noise on all states)
+            Pdot = A.dot(self.P) + self.P.dot(A.T) + G.dot(self.Qu).dot(G.T) + self.Qx
+            self.P += Pdot*dt
+
+            if np.isnan(self.P).any():
+                debug = 1
+
+        # Update last_propagate
         self.last_propagate = t
-
-        # Propagate State
-        u = np.vstack((y_acc, y_gyro))
-        xdot = self.f(self.x, u)
-        self.x = self.boxplus(self.x, xdot*dt)
-
-        # Propagate Uncertainty
-        A = self.dfdx(self.x, u)
-        G = self.dfdu(self.x)
-
-        # TODO: Convert to proper noise introduction (instead of additive noise on all states)
-        Pdot = A.dot(self.P) + self.P.dot(A.T) + G.dot(self.Qu).dot(G.T) + self.Qx
-        self.P += Pdot*dt
-
-        if np.isnan(self.P).any():
-            debug = 1
 
         return self.x.copy(), self.P.copy()
 

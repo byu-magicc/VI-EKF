@@ -170,8 +170,10 @@ class Quaternion():
         v = q.arr[1:]
         w = q.arr[0,0]
         norm_v = norm(v)
-
-        return 2.0*np.arctan2(norm_v, w)*v/norm_v
+        if norm_v < 1e-8:
+            return np.zeros((3,1))
+        else:
+            return 2.0*np.arctan2(norm_v, w)*v/norm_v
 
     def copy(self):
         q_copy = Quaternion(self.arr.copy())

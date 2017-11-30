@@ -27,7 +27,7 @@ def T_zeta(q_zeta):
     assert q_zeta.shape == (4,1)
     # Rotate onto the coordinate frame aligned with the feature vector
     # (This is where the Lie Group is linearized about)
-    return Quaternion(q_zeta).rot(e_x_e_y)
+    return Quaternion(q_zeta).invrot(e_x_e_y)
 
 def q_feat_boxminus(q0, q1):
     assert q0.shape == (4,1) and q1.shape == (4,1)

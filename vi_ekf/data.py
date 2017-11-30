@@ -17,7 +17,7 @@ class Data(object):
                   'att': np.diag([0.0001, 0.0001, 0.0001]),
                   'vel': np.diag([0.0001, 0.0001, 0.0001]),
                   'pos': np.diag([0.0001, 0.0001, 0.0001]),
-                  'zeta': np.diag([0.0001, 0.0001]),
+                  'zeta': np.diag([0.001, 0.001]),
                   'depth': 0.0001}
 
     def indexer(self, target_time, source_time):
@@ -54,16 +54,17 @@ class Data(object):
 
     @property
     def x0(self):
+
         return np.zeros((17, 1))
 
     def __test__(self):
         assert self.x0.shape == (17,1), self.x0.shape
-        time = self.start
+        time = self.time[0]
         for x in self:
-            assert len(x) == 10
-            t, dt, pos, vel, att, gyro, acc, zetas, depths, ids = x
-            time += dt
-            assert time == t, (time, t, dt)
+            assert len(x) == 9
+            t,  pos, vel, att, gyro, acc, zetas, depths, ids = x
+            assert t >= time
+            time = t
             assert all([gyro is None, acc is None]) or not all([gyro is None, acc is None])
             if zetas is not None:
                 assert len(zetas) == len(depths) == len(ids)
@@ -71,7 +72,7 @@ class Data(object):
                 assert depths[0].shape == (1, 1) if len(depths) > 0 else True, depths[0].shape
                 assert all([type(id) == int or type(id) == np.int64 for id in ids]), type(ids[0])
             assert type(t) == float or type(t) == np.float64, type(t)
-            assert type(dt) == float or type(t) == np.float64, type(t)
+            assert type(t) == np.float64
             assert ((pos.shape == (3, 1)) if pos is not None else True), pos.shape
             assert (vel.shape == (3, 1)) if vel is not None else True
             assert (att.shape == (4, 1)) if att is not None else True
@@ -122,7 +123,7 @@ class ROSbagData(Data):
     def __init__(self, filename='truth_imu_flight.bag', start=-1, end=np.inf, sim_features=False, load_new=False):
         super(ROSbagData, self).__init__()
         if load_new:
-            self.data = rosbag_data_loader.load_data(filename, start, end, sim_features, plot_trajectory=False)
+            self.data = rosbag_data_loader.load_data(filename, start, end, sim_features)
             cPickle.dump(self.data, open('data/data.pkl', 'wb'))
         else:
             self.data = cPickle.load(open('data/data.pkl', 'rb'))
@@ -136,7 +137,6 @@ class ROSbagData(Data):
         self.truth_indexer = self.indexer(self.time, self.data['truth'][:, 0])
         self.imu_indexer = self.indexer(self.time, self.data['imu'][:, 0])
         self.feature_indexer = self.indexer(self.time, self.data['feat_time'])
-        self.start = start
 
         # self.tracker = klt_tracker.KLT_tracker(25)
         # self.undistort, P = data_loader.make_undistort_funtion(intrinsics=self.data['cam0_sensor']['intrinsics'],
@@ -177,7 +177,6 @@ class ROSbagData(Data):
         zetas, ids, depths = None, None, None
 
         t = self.time[i]
-        dt = self.time[0] - self.start if i == 0 else (self.time[i] - self.time[i - 1])
 
         # if self.truth_indexer[i] - self.truth_indexer[i - 1] != 0:
         pos = self.data['truth'][self.truth_indexer[i], 1:4, None]
@@ -196,7 +195,7 @@ class ROSbagData(Data):
                 zetas.append(self.data['zetas'][feat][self.feature_indexer[i], :, None])
                 depths.append(self.data['depths'][feat][self.feature_indexer[i], :, None])
 
-        return t, dt, pos, vel, att, gyro, acc, zetas, depths, ids
+        return t, pos, vel, att, gyro, acc, zetas, depths, ids
 
     def __len__(self):
         return len(self.time)

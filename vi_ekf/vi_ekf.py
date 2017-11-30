@@ -112,6 +112,7 @@ class VI_EKF():
         self.use_drag_term = True
 
         self.last_propagate = 0
+        self.initialized = False
 
     # Returns the depth to all features
     def get_depths(self):
@@ -124,6 +125,11 @@ class VI_EKF():
             qzeta = self.x[xZ + 5 * i:xZ + 5 * i + 4, :]  # 4-vector quaternion
             zetas[:, i, None] = Quaternion(qzeta).rot(self.khat)  # 3-vector pointed at the feature in the camera frame
         return zetas
+
+    # Returns the estimated bearing vector to a single feature with id i
+    def get_zeta(self, i):
+        qzeta = self.x[xZ + 5 * i:xZ + 5 * i + 4, :]  # 4-vector quaternion
+        return Quaternion(qzeta).rot(self.khat)  # 3-vector pointed at the feature in the camera frame
 
     # Returns the quaternion which
     def get_qzeta(self):
@@ -170,6 +176,11 @@ class VI_EKF():
     def propagate(self, y_acc, y_gyro, t):
         assert y_acc.shape == (3, 1) and y_gyro.shape == (3, 1) and isinstance(t, float)
 
+        if not self.initialized:
+            self.initialized = True
+            self.last_propagate = t
+            return self.x.copy(), self.P.copy()
+
         # calculate dt from t
         dt = t - self.last_propagate
         self.last_propagate = t
@@ -210,7 +221,6 @@ class VI_EKF():
         elif measurement_type == 'att':
             residual = Quaternion(z) - Quaternion(zhat)
             if (abs(residual) > 1).any():
-                debug = 1
                 residual = Quaternion(z) - Quaternion(zhat)
         else:
             residual = z - zhat
@@ -221,9 +231,13 @@ class VI_EKF():
 
         # Perform state and covariance update
         if not passive_update:
-            K = self.P.dot(H.T).dot(scipy.linalg.inv(R + H.dot(self.P).dot(H.T)))
-            self.P = (self.I_big - K.dot(H)).dot(self.P)
-            self.x = self.boxplus(self.x, K.dot(residual))
+            try:
+                K = self.P.dot(H.T).dot(scipy.linalg.inv(R + H.dot(self.P).dot(H.T)))
+                self.P = (self.I_big - K.dot(H)).dot(self.P)
+                self.x = self.boxplus(self.x, K.dot(residual))
+            except:
+                print "NAN detected in", measurement_type, "update"
+                debug = 1
 
         return residual, zhat
 

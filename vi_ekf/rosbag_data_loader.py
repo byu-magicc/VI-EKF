@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import rosbag
 from mpl_toolkits.mplot3d import Axes3D
 import scipy.signal
+from plot_helper import plot_3d_trajectory
 
 def to_list(vector3):
     return [vector3.x, vector3.y, vector3.z]
@@ -53,34 +54,8 @@ def calculate_velocity_from_position(t, position, orientation):
     vel_data = np.array(vel_data).squeeze()
     return vel_data
 
-def plot_3d_trajectory(position, orientation):
-    plt.figure(2)
-    ax = plt.subplot(111, projection='3d')
-    plt.plot(position[:1, 0],
-             position[:1, 1],
-             position[:1, 2], 'kx')
-    plt.plot(position[:, 0],
-             position[:, 1],
-             position[:, 2], 'c-')
-    ax.set_xlabel('X axis')
-    ax.set_ylabel('Y axis')
-    ax.set_zlabel('Z axis')
-    e_x = 0.1*np.array([[1., 0, 0]]).T
-    e_y = 0.1*np.array([[0, 1., 0]]).T
-    e_z = 0.1*np.array([[0, 0, 1.]]).T
-    for i in range(len(position)/100):
-        j = i*100
-        origin = position[j,:,None]
-        x_end = origin + Quaternion(orientation[j,:,None]).rot(e_x)
-        y_end = origin + Quaternion(orientation[j,:,None]).rot(e_y)
-        z_end = origin + Quaternion(orientation[j,:,None]).rot(e_z)
-        plt.plot([origin[0, 0], x_end[0, 0]], [origin[1, 0], x_end[1, 0]], [origin[2, 0], x_end[2, 0]], 'r-')
-        plt.plot([origin[0, 0], y_end[0, 0]], [origin[1, 0], y_end[1, 0]], [origin[2, 0], y_end[2, 0]], 'g-')
-        plt.plot([origin[0, 0], z_end[0, 0]], [origin[1, 0], z_end[1, 0]], [origin[2, 0], z_end[2, 0]], 'b-')
-    plt.show()
 
-
-def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=False, plot_trajectory=True):
+def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=False, plot_trajectory=False):
     print "loading rosbag", filename
     # First, load IMU data
     bag = rosbag.Bag(filename)
@@ -118,14 +93,15 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
 
     ground_truth = np.hstack((truth_pose_data, vel_data))
 
-    if plot_trajectory:
-        plot_3d_trajectory(ground_truth[:,1:4], ground_truth[:,4:8])
-
 
     # Simulate Landmark Measurements
     # landmarks = np.random.uniform(-25, 25, (2,3))
     landmarks = np.vstack([np.eye(3), np.array([[0, 0, 0]])])
+    # landmarks = np.zeros((3,3))
     feat_time, zetas, depths, ids = add_landmark(ground_truth, landmarks)
+
+    if plot_trajectory:
+        plot_3d_trajectory(ground_truth[:,1:4], ground_truth[:,4:8], qzetas=zetas, depths=depths)
 
     # Adjust timestamp
     t0 = imu_data[0,0]

@@ -12,6 +12,9 @@ def init_plots():
     plt.rcParams['image.cmap'] = 'jet'
     plt.rcParams['figure.max_open_warning'] = 100
 
+def get_colors(num_rows, cmap):
+    return cmap(np.linspace(0, 1, num_rows))
+
 def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None, truth=None, labels=None, skip=1, save=True, cov_bounds=None):
     estimate = estimate[:, start:end]
     if cov_bounds == None:
@@ -98,3 +101,34 @@ def plot_cube(q_I_b, zetas, zeta_truth):
     plt.show()
     plt.ioff()
     plt.pause(0.001)
+
+def plot_3d_trajectory(position, orientation, qzetas=None, depths=None):
+    plt.figure(2)
+    ax = plt.subplot(111, projection='3d')
+    plt.plot(position[:1, 0],
+             position[:1, 1],
+             position[:1, 2], 'kx')
+    plt.plot(position[:, 0],
+             position[:, 1],
+             position[:, 2], 'c-')
+    ax.set_xlabel('X axis')
+    ax.set_ylabel('Y axis')
+    ax.set_zlabel('Z axis')
+    e_x = 0.1*np.array([[1., 0, 0]]).T
+    e_y = 0.1*np.array([[0, 1., 0]]).T
+    e_z = 0.1*np.array([[0, 0, 1.]]).T
+    for i in range(len(position)/100):
+        j = i*100
+        origin = position[j,:,None]
+        x_end = origin + Quaternion(orientation[j,:,None]).rot(e_x)
+        y_end = origin + Quaternion(orientation[j,:,None]).rot(e_y)
+        z_end = origin + Quaternion(orientation[j,:,None]).rot(e_z)
+        plt.plot([origin[0, 0], x_end[0, 0]], [origin[1, 0], x_end[1, 0]], [origin[2, 0], x_end[2, 0]], 'r-')
+        plt.plot([origin[0, 0], y_end[0, 0]], [origin[1, 0], y_end[1, 0]], [origin[2, 0], y_end[2, 0]], 'g-')
+        plt.plot([origin[0, 0], z_end[0, 0]], [origin[1, 0], z_end[1, 0]], [origin[2, 0], z_end[2, 0]], 'b-')
+        if qzetas is not None:
+            colors = get_colors(len(qzetas), plt.cm.jet)
+            for qz, d, col in zip(qzetas, depths, colors):
+                zeta_end = origin + Quaternion(qz[j,:,None]).rot(10.*e_z*d[j,0])
+                plt.plot([origin[0, 0], zeta_end[0, 0]], [origin[1, 0], zeta_end[1, 0]], [origin[2, 0], zeta_end[2, 0]], color=col)
+    plt.show()

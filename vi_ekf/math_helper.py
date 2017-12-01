@@ -31,33 +31,40 @@ def T_zeta(q_zeta):
 
 def q_feat_boxminus(q0, q1):
     assert q0.shape == (4,1) and q1.shape == (4,1)
+    q0 = Quaternion(q0) * Quaternion(q0).inverse.elements
+    q1 = Quaternion(q0) * Quaternion(q0).inverse.elements
     zeta0 = Quaternion(q0).rot(e_z)
     zeta1 = Quaternion(q1).rot(e_z)
 
     if norm(zeta0 - zeta1) > 1e-16:
-        z0_x_z1 = skew(zeta1).dot(zeta0)
+        z0_x_z1 = skew(zeta0).dot(zeta1)
         v = z0_x_z1 / norm(z0_x_z1) # The vector about which rotation occurs (normalized)
         theta = np.arccos(zeta1.T.dot(zeta0)) # the magnitude of the rotation
         # The rotation vector exists in the plane normal to the feature vector.  Therefore if we rotate to this
         # basis, then all the information is stored in the x and y components only.  This reduces the dimensionality
         # of the delta-feature quaternion
-        return theta * T_zeta(q1).T.dot(v)
+        dq = theta * T_zeta(q1).T.dot(v)
+        assert abs(norm(dq) - norm(v*theta)) < 1e-8
+        assert norm(T_zeta(q1).dot(dq) - v*theta) < 1e-8
+        assert norm((Quaternion(q0) + v*theta).elements - q1) < 1e-8
+        print "boxminus v", (v*theta).T
+        return dq
     else:
         return np.zeros((2,1))
 
 def q_feat_boxplus(q, delta):
     assert q.shape == (4,1) and delta.shape == (2,1)
     # the delta vector is expressed in the plane normal to the feature vector described by q.  Therefore we have to
-    # rotate back into the camera frame and add this delta-q.  What we will do is create this delta quaternion from the
-    # axis-angle approximation encoded by delta and add it
-    v = T_zeta(Quaternion(q).inverse.elements).dot(delta)
-    angle = norm(v)
+    # rotate back into the camera frame and add this delta-q.
+    delta = delta.copy()
+    angle = norm(delta)
     if angle < 1e-16:
         return q
     else:
-        axis = v/angle
-        dq = Quaternion.from_axis_angle(axis, angle)
-    return (Quaternion(q) * dq).elements
+        v = T_zeta(q).dot(delta)
+        print "boxplus v", v.T
+        assert abs(norm(v) - norm(delta)) < 1e-8
+        return (Quaternion(q) + v).elements
 
 # Calculates the quaternion which rotates u into v.
 # That is, if q = q_from_two_unit_vectors(u,v)
@@ -99,7 +106,8 @@ if __name__ == '__main__':
         Quaternion(q[:,None]).rot(v2) - v[:,None]
 
     # Test T_zeta
-    assert norm(T_zeta(q_array_from_two_unit_vectors(e_z, v2)).T.dot(v2)) < 1e-8
+    q2 = q_array_from_two_unit_vectors(e_z, v2)
+    assert norm(T_zeta(q2).T.dot(v2)) < 1e-8
 
 
     zeta = np.random.uniform(-1, 1, (3,1))
@@ -113,10 +121,21 @@ if __name__ == '__main__':
 
     dqzeta = np.random.normal(-0.25, 0.25, (2,1))
 
+    # Check x [+] 0 == 0
     assert norm( q_feat_boxplus(qzeta, np.zeros((2,1))) - qzeta) < 1e-8
-    # print q_feat_boxplus(qzeta, q_feat_boxminus(qzeta2, qzeta)).T
-    print qzeta2.T
-    assert norm( q_feat_boxplus(qzeta, q_feat_boxminus(qzeta2, qzeta)) - qzeta2) < 1e-8
+
+    # Check x [+] (y [-] x) == y
+    omega1 = np.array([[0., 0.1, 0.]]).T
+    omega2 = np.random.uniform(-1, 1, (3, 1))
+    omega1[2] = 0.0
+    omega2[2] = 0.0
+
+    x = Quaternion.exp(omega1).elements
+    y = Quaternion.exp(omega2).elements
+    dx = q_feat_boxminus(y, x)
+    qf = q_feat_boxplus(x, dx)
+    # assert abs(norm(dq) < norm(omega1)) < 1e-8
+    assert norm(qf - y) < 1e-8
     # assert norm( q_feat_boxminus(q_feat_boxplus(qzeta, dqzeta), qzeta) - dqzeta) < 1e-8
 
 

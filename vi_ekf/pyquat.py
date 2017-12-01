@@ -145,13 +145,15 @@ class Quaternion():
 
             assert norm((q*q.inverse).elements - np.array([[1., 0, 0, 0]]).T) < 1e-8
 
-            # Check that qexp is right by comparing with rotation matrix qexp
+            # Check that qexp is right by comparing with rotation matrix qexp and axis-angle
             import scipy.linalg
-            omega = np.array([[0, 0, 45.*np.pi/180.0]]).T # rotate about z axis at 45 deg/s
+            omega = np.random.uniform(-1, 1, (3,1))
             R_omega_exp = scipy.linalg.expm(skew(omega))
             q_R_omega_exp = Quaternion.from_R(R_omega_exp.T)
-            q_omega = Quaternion.from_axis_angle(np.array([[0., 0, 1.0]]).T, omega[2,0])
+            q_omega = Quaternion.from_axis_angle(omega/norm(omega), norm(omega))
             q_omega_exp = Quaternion.exp(omega)
+            assert norm(q_R_omega_exp.elements - q_omega.elements) < 1e-8
+            assert norm(q_omega_exp.elements - q_omega.elements) < 1e-8
 
             # Check qexp and qlog are the inverses of each other
             assert norm(Quaternion.log(Quaternion.exp(v_small)) - v_small) < 1e-8

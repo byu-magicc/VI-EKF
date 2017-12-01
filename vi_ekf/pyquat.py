@@ -91,6 +91,46 @@ class Quaternion():
             dq.arr *= -1.0
         return self.log(dq)
 
+    @staticmethod
+    def __test__():
+        q = Quaternion(np.array([[1, 0, 0, 0]]).T)
+        for i in range(100):
+            v = np.random.uniform(-100, 100, (3,1))
+            v_small = np.random.normal(-1, 1, (3,1))
+            q.arr = np.random.uniform(-1, 1, (4,1))
+            q.normalize()
+
+            # Check equivalence of rot, invrot and R
+            assert norm(q.rot(v) - q.R.T.dot(v)) < 1e-8
+            assert norm(q.invrot(v) - q.R.dot(v)) < 1e-8
+
+            # Check that rotations are inverses of each other
+            assert norm(q.rot(q.invrot(v)) - v) < 1e-8
+            assert norm(q.invrot(q.rot(v)) - v) < 1e-8
+            assert norm(q.R.dot(q.R.T.dot(v)) - v) < 1e-8
+            assert norm(q.R.T.dot(q.R.dot(v)) - v) < 1e-8
+
+            # Check from_two_vectors
+            v1 = np.random.uniform(-100, 100, (3,1))
+            v2 = np.random.uniform(-100, 100, (3,1))
+            v1 /= norm(v1)
+            v2 /= norm(v2)
+            assert norm(Quaternion.from_two_unit_vectors(v1, v2).rot(v1) - v2) < 1e-8
+            assert norm(Quaternion.from_two_unit_vectors(v2, v1).invrot(v1)  - v2) < 1e-8
+
+            # Check from_R
+            R = q.R
+            qR = Quaternion.from_R(R)
+            assert norm(qR.rot(v) - R.T.dot(v)) < 1e-8
+
+            # Check qexp and qlog are the inverses of each other
+            assert norm(Quaternion.log(Quaternion.qexp(v_small)) - v_small) < 1e-8
+
+        print "pyquat test [PASSED]"
+
+
+
+
     @property
     def w(self):
         return self.arr[0,0]
@@ -277,3 +317,6 @@ class Quaternion():
         out_arr = self.arr.copy() + arrdot
         out_arr /= norm(out_arr)
         return Quaternion(out_arr)
+
+if __name__ == '__main__':
+    Quaternion.__test__()

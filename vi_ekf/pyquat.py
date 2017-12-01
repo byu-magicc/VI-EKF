@@ -94,7 +94,7 @@ class Quaternion():
     @staticmethod
     def __test__():
         q = Quaternion(np.array([[1, 0, 0, 0]]).T)
-        for i in range(100):
+        for i in range(10000):
             v = np.random.uniform(-100, 100, (3,1))
             v_small = np.random.normal(-1, 1, (3,1))
             q.arr = np.random.uniform(-1, 1, (4,1))
@@ -125,6 +125,9 @@ class Quaternion():
 
             # Check qexp and qlog are the inverses of each other
             assert norm(Quaternion.log(Quaternion.qexp(v_small)) - v_small) < 1e-8
+
+            # Check boxplus and boxminus
+            assert norm(((q + v_small) - q) - v_small) < 0.2, "boxplus/boxminus error:"
 
         print "pyquat test [PASSED]"
 

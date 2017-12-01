@@ -1,6 +1,6 @@
 import numpy as np
 from pyquat import Quaternion
-from math_helper import skew, T_zeta, norm, q_feat_boxminus
+from math_helper import skew, T_zeta, norm, q_feat_boxminus, q_feat_boxplus
 import scipy.linalg
 import cv2
 
@@ -166,7 +166,7 @@ class VI_EKF():
             qzeta = x[xFEAT:xRHO,:] # 4-vector quaternion
 
             # Feature Quaternion States (use manifold)
-            out[xFEAT:xRHO,:] = (Quaternion(qzeta).inverse + (T_zeta(qzeta).dot(dqzeta))).inverse.elements
+            out[xFEAT:xRHO,:] = q_feat_boxplus(qzeta, dqzeta)
 
             # Inverse Depth State
             out[xRHO,:] = x[xRHO] + dx[dxRHO]

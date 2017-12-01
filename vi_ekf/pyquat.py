@@ -73,16 +73,16 @@ class Quaternion():
         assert other.shape == (3, 1)
         delta = other.copy()
 
-        # norm_delta = norm(delta)
+        norm_delta = norm(delta)
 
         # If we aren't going to run into numerical issues
-        # if norm_delta > 1e-4:
-        #     v = np.sin(norm_delta / 2.) * (delta / norm_delta)
-        #     self.arr = qmat_matrix.dot(np.vstack((np.cos(norm_delta / 2.0), v))).squeeze().dot(self.arr)
-        # else:
-        arrdot = 0.5*qmat_matrix.dot(np.vstack((np.zeros((1, 1)), delta))).squeeze().dot(self.arr)
-        self.arr += arrdot
-        self.arr /= norm(self.arr)
+        if norm_delta > 1e-4:
+            v = np.sin(norm_delta / 2.) * (delta / norm_delta)
+            self.arr = qmat_matrix.dot(np.vstack((np.cos(norm_delta/2.0), v))).squeeze().dot(self.arr)
+        else:
+            arrdot = 0.5*qmat_matrix.dot(np.vstack((np.zeros((1,1)), delta))).squeeze().dot(self.arr)
+            self.arr += arrdot
+            self.arr /= norm(self.arr)
         return self
 
     def __sub__(self, other):
@@ -94,9 +94,9 @@ class Quaternion():
     @staticmethod
     def __test__():
         q = Quaternion(np.array([[1, 0, 0, 0]]).T)
-        for i in range(10000):
+        for i in range(100):
             v = np.random.uniform(-100, 100, (3,1))
-            v_small = np.random.normal(-1, 1, (3,1))
+            v_small = np.random.normal(-1/4., 1/4., (3,1))
             q.arr = np.random.uniform(-1, 1, (4,1))
             q.normalize()
 
@@ -123,11 +123,28 @@ class Quaternion():
             qR = Quaternion.from_R(R)
             assert norm(qR.rot(v) - R.T.dot(v)) < 1e-8
 
+            assert norm((q*q.inverse).elements - np.array([[1., 0, 0, 0]]).T) < 1e-8
+
             # Check qexp and qlog are the inverses of each other
             assert norm(Quaternion.log(Quaternion.qexp(v_small)) - v_small) < 1e-8
 
             # Check boxplus and boxminus
-            assert norm(((q + v_small) - q) - v_small) < 0.2, "boxplus/boxminus error:"
+            q2 = Quaternion(np.random.uniform(-1, 1, (4,1)))
+            q2.normalize()
+            delta1 = np.random.normal(-0.25, 0.25, (3,1))
+            delta2 = np.random.normal(-0.25, 0.25, (3, 1))
+            assert norm((q + np.zeros((3,1))).elements - q.elements) < 1e-8
+            assert norm((q + (q2 - q)).elements - q2.elements) < 1e-8 or norm((q + (q2 - q)).elements + q2.elements) < 1e-8
+            assert norm(((q + delta1) - q) - delta1) < 1e-8
+            assert norm((q + delta1) - (q + delta1)) <= norm(delta1 - delta2)
+
+            # Check iadd and imul
+            qcopy = q.copy()
+            qcopy += delta1
+            assert norm(qcopy.elements - (q+delta1).elements) < 1e-8
+            qcopy = q.copy()
+            qcopy *= q2
+            assert norm(qcopy.elements - (q * q2).elements) < 1e-8
 
         print "pyquat test [PASSED]"
 
@@ -309,16 +326,16 @@ class Quaternion():
         assert delta.shape == (3,1)
         delta = delta.copy()
 
-        # norm_delta = norm(delta)
+        norm_delta = norm(delta)
 
         # If we aren't going to run into numerical issues
-        # if norm_delta > 1e-4:
-        #     v = np.sin(norm_delta / 2.) * (delta / norm_delta)
-        #     out_arr = qmat_matrix.dot(np.vstack((np.cos(norm_delta/2.0), v))).squeeze().dot(self.arr)
-        # else:
-        arrdot = 0.5*qmat_matrix.dot(np.vstack((np.zeros((1,1)), delta))).squeeze().dot(self.arr)
-        out_arr = self.arr.copy() + arrdot
-        out_arr /= norm(out_arr)
+        if norm_delta > 1e-4:
+            v = np.sin(norm_delta / 2.) * (delta / norm_delta)
+            out_arr = qmat_matrix.dot(np.vstack((np.cos(norm_delta/2.0), v))).squeeze().dot(self.arr)
+        else:
+            arrdot = 0.5*qmat_matrix.dot(np.vstack((np.zeros((1,1)), delta))).squeeze().dot(self.arr)
+            out_arr = self.arr.copy() + arrdot
+            out_arr /= norm(out_arr)
         return Quaternion(out_arr)
 
 if __name__ == '__main__':

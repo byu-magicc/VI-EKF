@@ -108,6 +108,7 @@ class VI_EKF():
         self.A = np.zeros((dxZ, dxZ))
         self.G = np.zeros((dxZ, 6))
         self.I_big = np.eye(dxZ)
+        self.dx = np.zeros((dxZ, 1))
 
         self.use_drag_term = True
 
@@ -163,10 +164,10 @@ class VI_EKF():
             dxFEAT = dxZ+3*i
             dxRHO = dxZ+3*i+2
             dqzeta = dx[dxFEAT:dxRHO,:]  # 2-vector which is the derivative of qzeta
-            qzeta = x[xFEAT:xRHO,:] # 4-vector quaternion
+            qzeta = Quaternion(x[xFEAT:xFEAT+4,:]) # 4-vector quaternion
 
             # Feature Quaternion States (use manifold)
-            out[xFEAT:xRHO,:] = q_feat_boxplus(qzeta, dqzeta)
+            out[xFEAT:xRHO,:] = q_feat_boxplus(qzeta, dqzeta).elements
 
             # Inverse Depth State
             out[xRHO,:] = x[xRHO] + dx[dxRHO]
@@ -263,6 +264,7 @@ class VI_EKF():
         self.A = np.zeros((dxZ + 3 * self.len_features, dxZ + 3 * self.len_features))
         self.G = np.zeros((dxZ + 3 * self.len_features, 6))
         self.I_big = np.eye(dxZ+3*self.len_features)
+        self.dx = np.zeros((dxZ + 3 * self.len_features, 1))
 
         # Add this new feature to the feature id maps
         self.initialized_features.add(id)
@@ -295,11 +297,16 @@ class VI_EKF():
         for f in features_to_clear:
             self.clear_feature(f)
 
-    # Determines the derivative of state x given inputs u
+    # Determines the derivative of state x given inputs u and Jacobian of state with respect to x and u
     # the returned value of f is a delta state, delta features, and therefore is a different
     # size than the state and features and needs to be applied with boxplus
-    def f(self, x, u):
+    def dynamics(self, x, u):
         assert x.shape == (xZ+5*self.len_features, 1) and u.shape == (6,1)
+
+        # Reset Matrix Workspace
+        self.dx *= 0.0
+        self.A *= 0.0
+        self.G *= 0.0
 
         vel = x[xVEL:xVEL+3]
         q_I_b = Quaternion(x[xATT:xATT+4])
@@ -309,150 +316,82 @@ class VI_EKF():
         acc_z = np.array([[0, 0, acc[2,0]]]).T
         mu = x[xMU, 0]
 
-        pdot = q_I_b.rot(vel)
+
+        # CALCULATE STATE DYNAMICS
+        self.dx[dxPOS:dxPOS+3] = q_I_b.rot(vel)
         if self.use_drag_term:
-            # vdot = skew(vel).dot(omega) - mu*I_2x3.T.dot(I_2x3).dot(vel) + acc_z + q_I_b.rot(self.gravity)
-            vdot =  acc_z + q_I_b.invrot(self.gravity) - mu * I_2x3.T.dot(I_2x3).dot(vel)
+            # self.dx[dxVEL:dxVEL+3 = skew(vel).dot(omega) - mu*I_2x3.T.dot(I_2x3).dot(vel) + acc_z + q_I_b.rot(self.gravity)
+            self.dx[dxVEL:dxVEL+3] =  acc_z + q_I_b.invrot(self.gravity) - mu * I_2x3.T.dot(I_2x3).dot(vel)
         else:
-            vdot = acc + q_I_b.rot(self.gravity)
-        # pdot = np.zeros((3,1))
-        # vdot = np.zeros((3, 1))
-        qdot = omega
+            self.dx[dxVEL:dxVEL+3] = acc + q_I_b.rot(self.gravity)
+        # self.dx[dxPOS:dxPOS+3] = np.zeros((3,1))
+        # self.dx[dxVEL:dxVEL+3 = np.zeros((3, 1))
+        self.dx[dxATT:dxATT+3] = omega
 
-        feat_dot = np.zeros((3*self.len_features, 1))
-
-        vel_c_i = self.q_b_c.rot(vel + skew(omega).dot(self.p_b_c))
-        omega_c_i = self.q_b_c.rot(omega)
-        for i in range(self.len_features):
-            xZETA_i = xZ+i*5
-            xRHO_i = xZ+5*i+4
-            dxZETA_i = i*3
-            dxRHO_i = i*3+2
-
-            q_zeta = x[xZETA_i:xZETA_i+4,:]
-            rho = x[xRHO_i,0]
-            zeta = Quaternion(q_zeta).rot(self.khat)
-
-            # feature bearing vector dynamics
-            feat_dot[dxZETA_i:dxZETA_i+2,:] = T_zeta(q_zeta).T.dot(rho*skew(zeta).dot(vel_c_i) + omega_c_i)
-            # feat_dot[dxZETA_i:dxRHO_i,:] = T_zeta(q_zeta).T.dot(omega)
-
-            # feature inverse depth dynamics
-            feat_dot[dxRHO_i,:] = rho*rho*zeta.T.dot(vel_c_i)
-
-        xdot = np.vstack((pdot, vdot, qdot, np.zeros((7, 1)), feat_dot))
-
-        return xdot
-
-    # Calculates the jacobian of the state dynamics with respect to the state.
-    # this is used in propagating the state, and will return a matrix of size 16+3N x 16+3N
-    def dfdx(self, x, u):
-        assert x.shape == (xZ+5*self.len_features, 1) and u.shape == (6,1)
-
-        vel = x[xVEL:xVEL+3]
-        q_I_b = Quaternion(x[xATT:xATT+4])
-
-        omega = u[uG:uG+3] - x[xB_G:xB_G+3]
-        mu = x[xMU, None]
-
-        self.A *= 0.0
-
-        # Position Partials
+        ###################################
+        # STATE JACOBIAN
         self.A[dxPOS:dxPOS+3, dxVEL:dxVEL+3] = q_I_b.R.T
         self.A[dxPOS:dxPOS+3, dxATT:dxATT+3] = (q_I_b.R.dot(skew(q_I_b.rot(vel)))).T
-
-        # Velocity Partials
         if self.use_drag_term:
             self.A[dxVEL:dxVEL+3, dxVEL:dxVEL+3] = - mu*I_2x3.T.dot(I_2x3)
             self.A[dxVEL:dxVEL + 3, dxB_A:dxB_A + 3] = -self.khat.dot(self.khat.T)
             self.A[dxVEL:dxVEL + 3, dxMU, None] = -I_2x3.T.dot(I_2x3).dot(vel)
         else:
             self.A[dxVEL:dxVEL + 3, dxB_A:dxB_A + 3] = -I_3x3
-
         self.A[dxVEL:dxVEL+3, dxATT:dxATT+3] = skew(q_I_b.invrot(self.gravity))
-
-        # Attitude Partials
         self.A[dxATT:dxATT+3, dxB_G:dxB_G+3] = -I_3x3
 
-        # Accel Bias Partials (constant)
-        # Gyro Bias Partials (constant)
-        # Drag Term Partials (constant)
-
-        # Feature Terms Partials
-        for i in range(self.len_features):
-            dxZETA_i = dxZ + i * 3
-            dxRHO_i = dxZ + i * 3 + 2
-            xZETA_i = xZ + i * 5
-            xRHO_i = xZ + 5 * i + 4
-
-            q_zeta = x[xZETA_i:xZETA_i+4, :]
-            rho = x[xRHO_i, 0]
-
-            zeta = Quaternion(q_zeta).rot(self.khat)
-            vel_c_i = self.q_b_c.invrot(vel + skew(omega).dot(self.p_b_c))
-            omega_c_i = self.q_b_c.invrot(omega)
-            T_z = T_zeta(q_zeta)
-            skew_zeta = skew(zeta)
-            skew_vel_c = skew(vel_c_i)
-            R_b_c = self.q_b_c.R
-
-            # Bearing Quaternion Partials
-            self.A[dxZETA_i:dxZETA_i+2, dxVEL:dxVEL+3] = rho*T_z.T.dot(skew_zeta).dot(R_b_c)
-            self.A[dxZETA_i:dxZETA_i+2, dxB_G:dxB_G+3] = T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(skew(self.p_b_c)) - R_b_c)
-            self.A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = -T_z.T.dot(skew(rho*skew_vel_c.dot(zeta) + omega_c_i) + (rho*skew_vel_c.dot(skew_zeta))).dot(T_z)
-            self.A[dxZETA_i:dxZETA_i+2, dxRHO_i,None] = T_z.T.dot(skew_zeta).dot(vel_c_i)
-
-            # Inverse Depth Partials
-            rho2 = rho*rho
-            self.A[dxRHO_i, dxVEL:dxVEL+3] = rho2*zeta.T.dot(R_b_c)
-            self.A[dxRHO_i, dxB_G:dxB_G+3] = rho2*zeta.T.dot(R_b_c).dot(skew(self.p_b_c))
-            self.A[dxRHO_i, dxZETA_i:dxZETA_i+2] = rho2*vel_c_i.T.dot(skew_zeta).dot(T_z)
-            self.A[dxRHO_i, dxRHO_i] = 2*rho*zeta.T.dot(vel_c_i).squeeze()
-
-        if np.isnan(self.A).any() or (self.A > 1e50).any():
-            debug = 1
-
-
-        return self.A
-
-    # Calculates the jacobian of the state dynamics with respect to the input noise.
-    # this is used in propagating the state, and will return a matrix of size 16+3N x 4
-    def dfdu(self, x):
-        assert x.shape == (xZ+5*self.len_features, 1)
-
-
-        vel = x[xVEL:xVEL+3]
-        q_I_b = Quaternion(x[xATT:xATT+4])
-
-        self.G *= 0.0
-
-        # State partials
+        #################################
+        ## INPUT JACOBIAN
         if self.use_drag_term:
             self.G[dxVEL:dxVEL+3, uA:uA+3] = self.khat.dot(self.khat.T)
         else:
             self.G[dxVEL:dxVEL + 3, uA:uA + 3] = I_3x3
         self.G[dxATT:dxATT+3, uG:uG+3] = I_3x3
 
-        # Feature Partials
+        # Camera Dynamics
+        vel_c_i = self.q_b_c.invrot(vel + skew(omega).dot(self.p_b_c))
+        omega_c_i = self.q_b_c.invrot(omega)
+
+
         for i in range(self.len_features):
-            dxZETA_i = dxZ + i * 3
-            dxRHO_i = dxZ + i * 3 + 2
+            xZETA_i = xZ+i*5
+            xRHO_i = xZ+5*i+4
+            dxZETA_i = dxZ + i*3
+            dxRHO_i = dxZ + i*3+2
 
-            q_zeta = x[i * 5 + xZ:i * 5 + 4 + xZ, :]
-            rho = x[i * 5 + 4 + xZ, 0]
-            zeta = Quaternion(q_zeta).rot(self.khat)
-
+            q_zeta = Quaternion(x[xZETA_i:xZETA_i+4,:])
+            rho = x[xRHO_i,0]
+            zeta = q_zeta.rot(self.khat)
+            T_z = T_zeta(q_zeta)
             skew_zeta = skew(zeta)
-            R_b_c = self.q_b_c.R
+            skew_vel_c = skew(vel_c_i)
             skew_p_b_c = skew(self.p_b_c)
+            R_b_c = self.q_b_c.R
+            rho2 = rho*rho
 
+            #################################
+            ## FEATURE DYNAMICS
+            self.dx[dxZETA_i:dxZETA_i+2,:] = T_zeta(q_zeta).T.dot(rho*skew(zeta).dot(vel_c_i) + omega_c_i)
+            self.dx[dxRHO_i,:] = rho*rho*zeta.T.dot(vel_c_i)
+
+            #################################
+            ## FEATURE STATE JACOBIAN
+            self.A[dxZETA_i:dxZETA_i+2, dxVEL:dxVEL+3] = rho*T_z.T.dot(skew_zeta).dot(R_b_c)
+            self.A[dxZETA_i:dxZETA_i+2, dxB_G:dxB_G+3] = T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(skew(self.p_b_c)) - R_b_c)
+            self.A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = -T_z.T.dot(skew(rho*skew_vel_c.dot(zeta) + omega_c_i) - (rho*skew_vel_c.dot(skew_zeta))).dot(T_z)
+            self.A[dxZETA_i:dxZETA_i+2, dxRHO_i,None] = T_z.T.dot(skew_zeta).dot(vel_c_i)
+            self.A[dxRHO_i, dxVEL:dxVEL+3] = rho2*zeta.T.dot(R_b_c)
+            self.A[dxRHO_i, dxB_G:dxB_G+3] = rho2*zeta.T.dot(R_b_c).dot(skew(self.p_b_c))
+            self.A[dxRHO_i, dxZETA_i:dxZETA_i+2] = rho2*vel_c_i.T.dot(skew_zeta).dot(T_z)
+            self.A[dxRHO_i, dxRHO_i] = 2*rho*zeta.T.dot(vel_c_i).squeeze()
+
+            #################################
+            ## FEATURE INPUT JACOBIAN
             self.G[dxZETA_i:dxZETA_i+2, uG:uG+3] = T_zeta(q_zeta).T.dot(R_b_c - rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c))
             self.G[dxRHO_i, uG:] = rho*rho*zeta.T.dot(R_b_c).dot(skew_p_b_c)
 
-        if np.isnan(self.G).any():
-            debug = 1
-
-        return self.G
+        return self.dx, self.A, self.G
 
     # Accelerometer model
     # Returns estimated measurement (2 x 1) and Jacobian (2 x 16+3N)
@@ -567,9 +506,9 @@ class VI_EKF():
 
         vel = x[xVEL:xVEL + 3]
         omega = u[uG:uG+3] - x[xB_G:xB_G+3]
-        q_c_z = x[xZ+i*5:xZ+i*5+4]
+        q_c_z = Quaternion(x[xZ+i*5:xZ+i*5+4])
         rho = x[xZ+i*5+4]
-        zeta = Quaternion(q_c_z).rot(self.khat)
+        zeta = q_c_z.rot(self.khat)
 
         sk_vel = skew(vel)
         sk_ez = skew(self.khat)

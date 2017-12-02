@@ -970,7 +970,7 @@ Here are the definitions of the
 \boxplus & :SO\left(3\right)\times\mathbb{R}^{2}\rightarrow SO\left(3\right),\\
  & \boldsymbol{q}_{\zeta},\boldsymbol{u}\mapsto\exp(T_{\zeta}\boldsymbol{u})\otimes\boldsymbol{q}_{\zeta},\\
 \boxminus & :SO\left(3\right)\times SO\left(3\right)\rightarrow\mathbb{R}^{2},\\
- & \boldsymbol{q}_{\zeta_{i}},\boldsymbol{q}_{\zeta_{j}}\mapsto T_{\zeta_{j}}^{\top}\boldsymbol{\theta}\left(\boldsymbol{q}_{c}^{\zeta_{i}},\:\boldsymbol{q}_{c}^{\zeta_{j}}\right),
+ & \boldsymbol{q}_{\zeta_{i}},\boldsymbol{q}_{\zeta_{j}}\mapsto T_{\zeta_{j}}^{\top}\theta s\left(q_{\zeta_{i}},q_{\zeta_{j}}\right),
 \end{align}
 
 \end_inset
@@ -980,22 +980,68 @@ Here are the definitions of the
 
 \begin_layout Standard
 where 
-\begin_inset Formula $\boldsymbol{\theta}$
+\begin_inset Formula $\theta$
 \end_inset
 
- maps two unit vectors to the minimal rotation vector between them
-\end_layout
+ is the angle between the two unit bearing vectors 
+\begin_inset Formula $\zeta_{i}$
+\end_inset
 
-\begin_layout Standard
+ and 
+\begin_inset Formula $\zeta_{j}$
+\end_inset
+
+
 \begin_inset Formula 
 \[
-\begin{aligned}\boldsymbol{\theta}\left(\boldsymbol{q}_{c}^{\zeta_{i}},\:\boldsymbol{q}_{c}^{\zeta_{j}}\right) & :=\end{aligned}
-\cos^{-1}\left(\zeta_{i}{}^{\top}\zeta_{j}\right)\dfrac{\zeta_{i}\times\zeta_{j}}{\lVert\zeta_{i}\times\zeta_{j}\rVert}
+\theta=\cos^{-1}\left(\zeta_{i}^{\top}\zeta_{j}\right)
 \]
 
 \end_inset
 
 
+\end_layout
+
+\begin_layout Standard
+and 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+s\left(q_{\zeta_{i}},q_{\zeta_{j}}\right)=\dfrac{\zeta_{j}\times\zeta_{i}}{\lVert\zeta_{j}\times\zeta_{i}\rVert}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+is the axis of rotation between the bearing vectors.
+\end_layout
+
+\begin_layout Standard
+It is important to note that with only two degrees of freedom, and with
+ all feature vectors referencing the camera 
+\begin_inset Formula $z$
+\end_inset
+
+ axis, there are an infinite number of quaternions which can be used to
+ represent the same unit vector.
+ We will define 
+\begin_inset Formula $q_{\zeta}$
+\end_inset
+
+ to be the shortest rotation between 
+\begin_inset Formula $e_{z}$
+\end_inset
+
+ and 
+\begin_inset Formula $\zeta$
+\end_inset
+
+, where the scalar term is positive to avoid ambiguity.
 \end_layout
 
 \begin_layout Standard

@@ -41,15 +41,16 @@ def print_error(row_idx, col_idx, analytical, fd):
 
 def dfdx_test(x, u, ekf):
     num_errors = 0
-    x0 = ekf.f(x, u)
-    a_dfdx = ekf.dfdx(x, u)
+    x0, a_dfdx, _ = ekf.dynamics(x, u)
+    x0 = x0.copy()
+    a_dfdx = a_dfdx.copy()
     d_dfdx = np.zeros_like(a_dfdx)
     I = np.eye(d_dfdx.shape[0])
     epsilon = 1e-6
 
     for i in range(d_dfdx.shape[0]):
         x_prime = ekf.boxplus(x, (I[i] * epsilon)[:, None])
-        d_dfdx[:, i] = ((ekf.f(x_prime, u) - x0) / epsilon)[:, 0]
+        d_dfdx[:, i] = ((ekf.dynamics(x_prime, u)[0] - x0).copy() / epsilon)[:, 0]
 
     num_errors += print_error('dxPOS', 'dxVEL', a_dfdx, d_dfdx)
     num_errors += print_error('dxPOS', 'dxATT', a_dfdx, d_dfdx)
@@ -83,13 +84,15 @@ def dfdx_test(x, u, ekf):
 
 def dfdu_test(x, u, ekf):
     num_errors = 0
-    a_dfdu = ekf.dfdu(x)
+    x0, _, a_dfdu = ekf.dynamics(x, u)
+    x0 = x0.copy()
+    a_dfdu = a_dfdu.copy()
     d_dfdu = np.zeros_like(a_dfdu)
     I = np.eye(d_dfdu.shape[1])
     epsilon = 1e-8
     for i in range(d_dfdu.shape[1]):
         u_prime = u + (I[i] * epsilon)[:, None]
-        d_dfdu[:, i] = ((ekf.f(x, u_prime) - ekf.f(x, u)) / epsilon)[:, 0]
+        d_dfdu[:, i] = ((ekf.dynamics(x, u_prime)[0] - x0).copy() / epsilon)[:, 0]
 
     num_errors += print_error('dxVEL','uA', a_dfdu, d_dfdu)
     num_errors += print_error('dxVEL','uG', a_dfdu, d_dfdu)
@@ -108,18 +111,18 @@ def dfdu_test(x, u, ekf):
         num_errors += 1
     return num_errors
 
-def htest(fn, **kwargs):
+def htest(fn, ekf, **kwargs):
     num_errors = 0
-    z0, analytical = fn(x, **kwargs)
+    z0, analytical = fn(ekf.x, **kwargs)
     finite_difference = np.zeros_like(analytical)
     I = np.eye(finite_difference.shape[1])
     epsilon = 1e-7
     for i in range(finite_difference.shape[1]):
-        x_prime = ekf.boxplus(x, (I[i] * epsilon)[:, None])
+        x_prime = ekf.boxplus(ekf.x, (I[i] * epsilon)[:, None])
         z_prime = fn(x_prime, **kwargs)[0]
         if 'type' in kwargs.keys():
             if kwargs['type'] == 'feat':
-                finite_difference[:,i] = (q_feat_boxminus(z_prime, z0) / epsilon)[:,0]
+                finite_difference[:,i] = (q_feat_boxminus(Quaternion(z_prime), Quaternion(z0)) / epsilon)[:,0]
             elif kwargs['type'] == 'att':
                 finite_difference[:, i] = ((Quaternion(z_prime) - Quaternion(z0)) / epsilon)[:, 0]
         else:
@@ -150,20 +153,19 @@ def htest(fn, **kwargs):
 
 def all_h_tests(x, u, ekf):
     num_errors = 0
-    num_errors += htest(ekf.h_acc)
-    num_errors += htest(ekf.h_pos)
-    num_errors += htest(ekf.h_vel)
-    num_errors += htest(ekf.h_alt)
-    num_errors += htest(ekf.h_att, type='att')
+    num_errors += htest(ekf.h_acc, ekf)
+    num_errors += htest(ekf.h_pos, ekf)
+    num_errors += htest(ekf.h_vel, ekf)
+    num_errors += htest(ekf.h_alt, ekf)
+    num_errors += htest(ekf.h_att, ekf, type='att')
     for i in range(ekf.len_features):
-        num_errors += htest(ekf.h_feat, i=i, type='feat')
-        num_errors += htest(ekf.h_depth, i=i)
-        num_errors += htest(ekf.h_inv_depth, i=i)
-        htest(ekf.h_pixel_vel, i=i, u=u)
+        num_errors += htest(ekf.h_feat, ekf, i=i, type='feat')
+        num_errors += htest(ekf.h_depth, ekf, i=i)
+        num_errors += htest(ekf.h_inv_depth, ekf, i=i)
+        num_errors += htest(ekf.h_pixel_vel, ekf, i=i, u=u)
     return num_errors
 
-if __name__ == '__main__':
-
+def run():
     np.set_printoptions(suppress=True, linewidth=300, threshold=1000)
 
     # Set nominal inputs
@@ -174,18 +176,18 @@ if __name__ == '__main__':
                              [0.0],
                              [0.0]])
     errors = 0
-    for i in tqdm(range(10)):
+    for i in tqdm(range(1)):
         # Set nominal Values for x0
         x0 = np.zeros((xZ, 1))
         x0[xATT] = 1
         x0[xMU] = 0.2
 
         # Add noise to the state
-        x0[xPOS:xPOS + 3] += np.random.normal(0, 100, (3, 1))
-        x0[xVEL:xVEL + 3] += np.random.normal(0, 25, (3, 1))
-        x0[xB_A:xB_A + 3] += np.random.uniform(-1, 1, (3, 1))
-        x0[xB_G:xB_G + 3] += np.random.uniform(-0.5, 0.5, (3, 1))
-        x0[xMU,0] += np.random.uniform(-0.1, 0.1, 1)
+        # x0[xPOS:xPOS + 3] += np.random.normal(0, 100, (3, 1))
+        # x0[xVEL:xVEL + 3] += np.random.normal(0, 25, (3, 1))
+        # x0[xB_A:xB_A + 3] += np.random.uniform(-1, 1, (3, 1))
+        # x0[xB_G:xB_G + 3] += np.random.uniform(-0.5, 0.5, (3, 1))
+        # x0[xMU,0] += np.random.uniform(-0.1, 0.1, 1)
 
         # Add noise to non-vector attitude states
         x0[xATT:xATT + 4] = (Quaternion(x0[xATT:xATT + 4]) + np.random.normal(0, 1, (3,1))).elements
@@ -193,7 +195,7 @@ if __name__ == '__main__':
         ekf = VI_EKF(x0)
 
         # Initialize Random Features
-        for j in range(20):
+        for j in range(1):
             zeta = np.random.randn(3)[:, None]
             zeta = np.array([[0, 1.0, 1.0]]).T
             zeta /= scipy.linalg.norm(zeta)
@@ -203,8 +205,8 @@ if __name__ == '__main__':
             ekf.init_feature(qzeta, j, depth=depth * 10)
 
         # Initialize Inputs
-        acc = nominal_acc + np.random.normal(0, 1, (3,1))
-        gyro = nominal_gyro + np.random.normal(0, 1.0, (3, 1))
+        acc = nominal_acc #+ np.random.normal(0, 1, (3,1))
+        gyro = nominal_gyro #+ np.random.normal(0, 1.0, (3, 1))
 
         x = ekf.x
         u = np.vstack([acc, gyro])
@@ -222,3 +224,6 @@ if __name__ == '__main__':
         print(bcolors.OKGREEN + "[PASSED]" + bcolors.ENDC)
     else:
         print(bcolors.FAIL + "[FAILED] %d tests" % errors)
+
+if __name__ == '__main__':
+    run()

@@ -37,8 +37,8 @@ def q_feat_boxminus(q0, q1):
     zeta1 = q1.rot(e_z)
 
     if norm(zeta0 - zeta1) > 1e-16:
-        z0_x_z1 = skew(zeta1).dot(zeta0)
-        v = z0_x_z1 / norm(z0_x_z1) # The vector about which rotation occurs (normalized)
+        z1_x_z0 = skew(zeta1).dot(zeta0)
+        v = z1_x_z0 / norm(z1_x_z0) # The vector about which rotation occurs (normalized)
         theta = np.arccos(zeta1.T.dot(zeta0)) # the magnitude of the rotation
         # The rotation vector exists in the plane normal to the feature vector.  Therefore if we rotate to this
         # basis, then all the information is stored in the x and y components only.  This reduces the dimensionality

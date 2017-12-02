@@ -183,8 +183,8 @@ def run():
         x0[xMU] = 0.2
 
         # Add noise to the state
-        # x0[xPOS:xPOS + 3] += np.random.normal(0, 100, (3, 1))
-        # x0[xVEL:xVEL + 3] += np.random.normal(0, 25, (3, 1))
+        x0[xPOS:xPOS + 3] += np.random.normal(0, 100, (3, 1))
+        x0[xVEL:xVEL + 3] += np.random.normal(0, 10, (3, 1))
         # x0[xB_A:xB_A + 3] += np.random.uniform(-1, 1, (3, 1))
         # x0[xB_G:xB_G + 3] += np.random.uniform(-0.5, 0.5, (3, 1))
         # x0[xMU,0] += np.random.uniform(-0.1, 0.1, 1)
@@ -196,11 +196,11 @@ def run():
 
         # Initialize Random Features
         for j in range(1):
-            zeta = np.random.randn(3)[:, None]
+            # zeta = np.random.randn(3)[:, None]
             zeta = np.array([[0, 1.0, 1.0]]).T
             zeta /= scipy.linalg.norm(zeta)
             qzeta = Quaternion.from_two_unit_vectors(zeta, np.array([[0, 0, 1.]]).T).elements
-            depth = np.abs(np.random.randn(1))[:,None]
+            # depth = np.abs(np.random.randn(1))[:,None]
             depth = np.ones((1,1))
             ekf.init_feature(qzeta, j, depth=depth * 10)
 

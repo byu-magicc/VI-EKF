@@ -372,24 +372,24 @@ class VI_EKF():
 
             #################################
             ## FEATURE DYNAMICS
-            self.dx[dxZETA_i:dxZETA_i+2,:] = T_zeta(q_zeta).T.dot(rho*skew(zeta).dot(vel_c_i) + omega_c_i)
-            self.dx[dxRHO_i,:] = rho*rho*zeta.T.dot(vel_c_i)
+            self.dx[dxZETA_i:dxZETA_i+2,:] = T_z.T.dot(omega_c_i + rho*skew_zeta.dot(vel_c_i))
+            self.dx[dxRHO_i,:] = rho2*zeta.T.dot(vel_c_i)
 
             #################################
             ## FEATURE STATE JACOBIAN
             self.A[dxZETA_i:dxZETA_i+2, dxVEL:dxVEL+3] = rho*T_z.T.dot(skew_zeta).dot(R_b_c)
-            self.A[dxZETA_i:dxZETA_i+2, dxB_G:dxB_G+3] = T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(skew(self.p_b_c)) - R_b_c)
-            self.A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = -T_z.T.dot(skew(rho*skew_vel_c.dot(zeta) + omega_c_i) - (rho*skew_vel_c.dot(skew_zeta))).dot(T_z)
+            self.A[dxZETA_i:dxZETA_i+2, dxB_G:dxB_G+3] = T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c) - R_b_c)
+            self.A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = -T_z.T.dot(skew(omega_c_i + rho*skew_zeta.dot(vel_c_i)) + (rho*skew_vel_c.dot(skew_zeta))).dot(T_z)
             self.A[dxZETA_i:dxZETA_i+2, dxRHO_i,None] = T_z.T.dot(skew_zeta).dot(vel_c_i)
             self.A[dxRHO_i, dxVEL:dxVEL+3] = rho2*zeta.T.dot(R_b_c)
-            self.A[dxRHO_i, dxB_G:dxB_G+3] = rho2*zeta.T.dot(R_b_c).dot(skew(self.p_b_c))
+            self.A[dxRHO_i, dxB_G:dxB_G+3] = rho2*zeta.T.dot(R_b_c).dot(skew_p_b_c)
             self.A[dxRHO_i, dxZETA_i:dxZETA_i+2] = rho2*vel_c_i.T.dot(skew_zeta).dot(T_z)
             self.A[dxRHO_i, dxRHO_i] = 2*rho*zeta.T.dot(vel_c_i).squeeze()
 
             #################################
             ## FEATURE INPUT JACOBIAN
-            self.G[dxZETA_i:dxZETA_i+2, uG:uG+3] = T_zeta(q_zeta).T.dot(R_b_c - rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c))
-            self.G[dxRHO_i, uG:] = rho*rho*zeta.T.dot(R_b_c).dot(skew_p_b_c)
+            self.G[dxZETA_i:dxZETA_i+2, uG:uG+3] = T_z.T.dot(R_b_c - rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c))
+            self.G[dxRHO_i, uG:] = rho2*zeta.T.dot(R_b_c).dot(skew_p_b_c)
 
         return self.dx, self.A, self.G
 
@@ -484,7 +484,7 @@ class VI_EKF():
         h = np.array([[1.0/rho]])
 
         dhdx = np.zeros((1, dxZ+3*self.len_features))
-        dhdx[0, dxZ+3*i+2,None] = -1/(rho*rho)
+        dhdx[0, dxZ+3*i+2,None] = -1/(rho2)
 
         return h, dhdx
 

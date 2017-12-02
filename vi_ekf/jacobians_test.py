@@ -62,7 +62,7 @@ def dfdx_test(x, u, ekf):
 
     for i in range(ekf.len_features):
         zeta_key = 'dxZETA_' + str(i)
-        rho_key = 'dxZETA_' + str(i)
+        rho_key = 'dxRHO_' + str(i)
 
         num_errors += print_error(zeta_key, 'dxVEL', a_dfdx, d_dfdx)
         num_errors += print_error(zeta_key, 'dxB_G', a_dfdx, d_dfdx)
@@ -129,7 +129,7 @@ def htest(fn, ekf, **kwargs):
             finite_difference[:, i] = ((z_prime - z0) / epsilon)[:, 0]
 
     # The Feature Jacobian is really sensitive
-    err_thresh = 5e-2 if 'type' in kwargs.keys() and kwargs['type'] == 'feat' else 1e-4
+    err_thresh = 5e-1 if 'type' in kwargs.keys() and kwargs['type'] == 'feat' else 1e-4
 
     error = analytical - finite_difference
     for key, item in indexes.iteritems():

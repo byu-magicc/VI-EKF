@@ -1128,14 +1128,46 @@ The derivative of the norm of a vector
 \end_layout
 
 \begin_layout Standard
-The derivative of a rotated vector, with respect to the quaternion describing
- the rotation
+A helpful identity when dealing with skew-symmetric and rotation matrices
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\left\lfloor Rv\right\rfloor =R\left\lfloor v\right\rfloor R^{\top}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The derivative of a passively rotated vector, with respect to the quaternion
+ describing the rotation
 \end_layout
 
 \begin_layout Standard
 \begin_inset Formula 
 \[
 \begin{aligned}\frac{d}{dq_{a}^{b}}\left(R\left(q_{a}^{b}\right)v\right) & =-\left\lfloor R\left(q_{a}^{b}\right)v\right\rfloor \end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+And the same with an actively rotated vector
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{d}{dq_{a}^{b}}\left(R\left(q_{a}^{b}\right)^{\top}v\right) & =-\left\lfloor R\left(q_{a}^{b}\right)^{\top}v\right\rfloor \\
+ & =-R\left(q_{a}^{b}\right)^{\top}\left\lfloor v\right\rfloor R\left(q_{a}^{b}\right)
+\end{aligned}
 \]
 
 \end_inset
@@ -1151,7 +1183,29 @@ The derivative of the projection operator with respect to the quaternion
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\frac{d}{dq_{c}^{\zeta}}\left(T_{\zeta}^{\top}v\right) & =-T_{\zeta}^{\top}\left\lfloor v\right\rfloor T_{\zeta}\end{aligned}
+\begin{aligned}\frac{d}{dq_{c}^{\zeta}}\left(T_{\zeta}^{\top}v\right) & =\frac{d}{dq_{c}^{\zeta}}\left(\left[\begin{array}{cc}
+\boldsymbol{e}_{x} & \boldsymbol{e}_{y}\end{array}\right]^{\top}R\left(q_{c}^{\zeta}\right)v\right)\\
+ & =-\left[\begin{array}{cc}
+\boldsymbol{e}_{x} & \boldsymbol{e}_{y}\end{array}\right]^{\top}\left\lfloor R\left(q_{c}^{\zeta}\right)v\right\rfloor \left[\begin{array}{cc}
+\boldsymbol{e}_{x} & \boldsymbol{e}_{y}\end{array}\right]\\
+ & =-\left[\begin{array}{cc}
+\boldsymbol{e}_{x} & \boldsymbol{e}_{y}\end{array}\right]^{\top}R\left(q_{c}^{\zeta}\right)\left\lfloor v\right\rfloor R\left(q_{c}^{\zeta}\right)^{\top}\left[\begin{array}{cc}
+\boldsymbol{e}_{x} & \boldsymbol{e}_{y}\end{array}\right]\\
+ & =-T_{\zeta}^{\top}\left\lfloor v\right\rfloor T_{\zeta}
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The derivative of a unit bearing vector with respect to the quaternion describin
+g the rotation from the camera z axis to that vector
+\begin_inset Formula 
+\[
+\frac{d}{dq_{c}^{\zeta}}\zeta^{c}=\left\lfloor \zeta\right\rfloor T_{\zeta}
 \]
 
 \end_inset
@@ -1167,8 +1221,8 @@ The derivative of a bearing vector with respect to the quaternion
 \begin_inset Formula 
 \[
 \begin{aligned}\frac{d}{dq_{\zeta}^{c}}\zeta^{c} & =\frac{d}{dq_{\zeta}^{c}}\left(R\left(q_{\zeta}^{c}\right)^{\top}e_{z}\right)\\
- & =-\left\lfloor R\left(q_{\zeta}^{c}\right)^{\top}e_{z}\right\rfloor \\
- & =-T_{\zeta}^{\top}\left\lfloor \zeta\right\rfloor T_{\zeta}
+ & =-R\left(q_{\zeta}^{c}\right)^{\top}\left\lfloor e_{z}\right\rfloor R\left(q_{\zeta}^{c}\right)\\
+ & =\left\lfloor \zeta\right\rfloor T_{\zeta}
 \end{aligned}
 \]
 
@@ -1292,64 +1346,6 @@ Update for Measurement
 K & =PH_{y}^{\top}\left(R_{y}+HPH^{\top}\right)^{-1}\\
 P^{+} & =(I-KH_{y})P^{-}\\
 \hat{\x}^{+} & =\hat{\x}\boxplus K\left(\mathbf{z}_{y}\boxminus h_{y}\left(\hat{\x}\right)\right)
-\end{aligned}
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Subsection
-Special Considerations for Feature Bearing Vectors
-\end_layout
-
-\begin_layout Standard
-In the above discussion on feature bearing vectors, the rotation quaternion
- is considered in an arbitrary frame.
- For our application, the rotation quaternion is describing an active rotation
- from the camera z-axis to the unit vector directed at the feature.
- Because it is an active rotation, we must re-consider the inputs to the
- 
-\begin_inset Formula $\boxplus$
-\end_inset
-
- and 
-\begin_inset Formula $\boxminus$
-\end_inset
-
- operators in the context of our feature propagation and update steps of
- the filter.
-\end_layout
-
-\begin_layout Standard
-When performing the prediction step on the feature quaternions:
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-\begin{aligned}q_{c}^{\zeta}\left(t+1\right) & =q_{\zeta}^{c}\left(t\right)\boxplus T_{\zeta^{-1}}^{\top}\left(-\omega_{c/I}^{c}\right)\left(t\right)\\
- & =\exp\left(T_{\zeta^{-1}}^{\top}\left(\omega_{c/I}^{c}\left(t\right)\right)\right)\otimes q_{\zeta}^{c}\left(t\right)^{-1}\\
- & =\left(\left(q_{\zeta}^{c}\left(t\right)\right)^{-1}\otimes\exp\left(T_{\zeta}^{\top}\omega_{c/I}^{c}\left(t\right)\right)\right)^{-1}
-\end{aligned}
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-When performing the update step,
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-\begin{aligned}\left(q_{c}^{\zeta}\right)^{+} & =\left(q_{c}^{\zeta}\right)^{-}\boxplus\left(z_{\zeta}^{-1}\boxminus\left(q_{c}^{\zeta}\right)^{-1}\right)\\
- & =\left(q_{c}^{\zeta}\right)^{-}\boxplus\left(T_{\zeta^{-1}}^{\top}\theta\left(q_{c}^{\zeta},z_{\zeta}\right)\right)\\
- & =\left(\left(q_{c}^{\zeta-}\right)^{-1}\otimes\exp\left(T_{\zeta^{-1}}^{\top}\theta\left(q_{c}^{\zeta},z_{\zeta}\right)\right)\right)^{-1}
 \end{aligned}
 \]
 
@@ -2026,9 +2022,8 @@ Bearing Quaternion Jacobians
 \begin_inset Formula 
 \[
 \begin{aligned}\dfrac{\partial}{\partial q_{c}^{\zeta_{i}}}\dot{q}_{c}^{\zeta_{i}} & =\dfrac{\partial}{\partial q_{c}^{\zeta_{i}}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/i}^{c}+\omega_{c/i}^{c}\right)\right)\\
- & =-T_{\zeta}^{\top}\left\lfloor \rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right\rfloor T_{\zeta}\dfrac{\partial}{\partial q_{c}^{\zeta_{i}}}\left(-\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right)\\
- & =-T_{\zeta}^{\top}\left\lfloor \rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right\rfloor \left(-\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \right)T_{\zeta}\\
- & =-T_{\zeta}^{\top}\left(\left\lfloor \omega_{c/i}^{c}+\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}\right\rfloor +\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \right)T_{\zeta}
+ & =-T_{\zeta}^{\top}\left\lfloor \rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right\rfloor T_{\zeta}\dfrac{\partial}{\partial q_{c}^{\zeta_{i}}}\left(\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right)\\
+ & =-T_{\zeta}^{\top}\left\lfloor \rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right\rfloor \left(\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \right)T_{\zeta}
 \end{aligned}
 \]
 

@@ -379,11 +379,11 @@ class VI_EKF():
             ## FEATURE STATE JACOBIAN
             self.A[dxZETA_i:dxZETA_i+2, dxVEL:dxVEL+3] = rho*T_z.T.dot(skew_zeta).dot(R_b_c)
             self.A[dxZETA_i:dxZETA_i+2, dxB_G:dxB_G+3] = T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c) - R_b_c)
-            self.A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = -T_z.T.dot(skew(omega_c_i + rho*skew_zeta.dot(vel_c_i)) + (rho*skew_vel_c.dot(skew_zeta))).dot(T_z)
+            self.A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = T_z.T.dot(skew(omega_c_i + rho*skew_zeta.dot(vel_c_i)) + (rho*skew_vel_c.dot(skew_zeta))).dot(T_z)
             self.A[dxZETA_i:dxZETA_i+2, dxRHO_i,None] = T_z.T.dot(skew_zeta).dot(vel_c_i)
             self.A[dxRHO_i, dxVEL:dxVEL+3] = rho2*zeta.T.dot(R_b_c)
             self.A[dxRHO_i, dxB_G:dxB_G+3] = rho2*zeta.T.dot(R_b_c).dot(skew_p_b_c)
-            self.A[dxRHO_i, dxZETA_i:dxZETA_i+2] = rho2*vel_c_i.T.dot(skew_zeta).dot(T_z)
+            self.A[dxRHO_i, dxZETA_i:dxZETA_i+2] = -rho2*vel_c_i.T.dot(skew_zeta).dot(T_z)
             self.A[dxRHO_i, dxRHO_i] = 2*rho*zeta.T.dot(vel_c_i).squeeze()
 
             #################################
@@ -484,7 +484,7 @@ class VI_EKF():
         h = np.array([[1.0/rho]])
 
         dhdx = np.zeros((1, dxZ+3*self.len_features))
-        dhdx[0, dxZ+3*i+2,None] = -1/(rho2)
+        dhdx[0, dxZ+3*i+2,None] = -1/(rho*rho)
 
         return h, dhdx
 
@@ -523,7 +523,7 @@ class VI_EKF():
         RHO_i = dxZ+3*i+2
         dhdx = np.zeros((2,dxZ+3*self.len_features))
         dhdx[:,dxVEL:dxVEL+3] = -self.focal_len*rho*I_2x3.dot(sk_ez).dot(sk_zeta)
-        dhdx[:,ZETA_i:ZETA_i+2] = self.focal_len*rho*I_2x3.dot(sk_ez).dot(sk_vel).dot(sk_zeta).dot(T_zeta(q_c_z))
+        dhdx[:,ZETA_i:ZETA_i+2] = -self.focal_len*rho*I_2x3.dot(sk_ez).dot(sk_vel).dot(sk_zeta).dot(T_zeta(q_c_z))
         dhdx[:,RHO_i,None] = -self.focal_len*I_2x3.dot(sk_ez).dot(sk_zeta).dot(vel)
         dhdx[:,dxB_G:dxB_G+3] = self.focal_len*I_2x3.dot(sk_ez).dot(R_b_c - rho*sk_zeta.dot(R_b_c).dot(skew(self.p_b_c)))
         # dhdx[:, dxB_G:dxB_G + 3] = self.focal_len * I_2x3.dot(sk_ez).dot(I_zz)

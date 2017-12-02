@@ -180,18 +180,12 @@ class VI_EKF():
         if self.last_propagate is not None:
             # calculate dt from t
             dt = t - self.last_propagate
-
-            # Propagate State
             u = np.vstack((y_acc, y_gyro))
-            xdot = self.f(self.x, u)
-            self.x = self.boxplus(self.x, xdot*dt)
 
-            # Propagate Uncertainty
-            A = self.dfdx(self.x, u)
-            G = self.dfdu(self.x)
-
-            # TODO: Convert to proper noise introduction (instead of additive noise on all states)
+            # Propagate
+            xdot, A, G = self.dynamics(self.x, u)
             Pdot = A.dot(self.P) + self.P.dot(A.T) + G.dot(self.Qu).dot(G.T) + self.Qx
+            self.x = self.boxplus(self.x, xdot * dt)
             self.P += Pdot*dt
 
             if np.isnan(self.P).any():
@@ -216,7 +210,7 @@ class VI_EKF():
 
         # Calculate residual in the proper manner
         if measurement_type == 'feat':
-            residual = q_feat_boxminus(z, zhat)
+            residual = q_feat_boxminus(Quaternion(z), Quaternion(zhat))
         elif measurement_type == 'att':
             residual = Quaternion(z) - Quaternion(zhat)
             if (abs(residual) > 1).any():
@@ -304,9 +298,9 @@ class VI_EKF():
         assert x.shape == (xZ+5*self.len_features, 1) and u.shape == (6,1)
 
         # Reset Matrix Workspace
-        self.dx *= 0.0
-        self.A *= 0.0
-        self.G *= 0.0
+        self.dx.fill(0.0)
+        self.A.fill(0.0)
+        self.G.fill(0.0)
 
         vel = x[xVEL:xVEL+3]
         q_I_b = Quaternion(x[xATT:xATT+4])

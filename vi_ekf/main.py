@@ -25,8 +25,8 @@ for i, (t, pos, vel, att, gyro, acc, qzetas, depths, ids) in enumerate(tqdm(data
 
     # sensor updates - save off residual information
     if pos is not None:
-        h.store(t, alt_res=ekf.update(-pos[2], 'alt', data.R['alt'], passive=False)[0])
-        h.store(t, att_res=ekf.update(att, 'att', data.R['att'], passive=True)[0],
+        h.store(t, alt_res=ekf.update(-pos[2], 'alt', data.R['alt'], passive=True)[0])
+        h.store(t, att_res=ekf.update(att, 'att', data.R['att'], passive=False)[0],
                 pos_res=ekf.update(pos, 'pos', data.R['pos'], passive=False)[0],
                 vel_res=ekf.update(vel, 'vel', data.R['vel'], passive=True)[0])
 
@@ -36,12 +36,12 @@ for i, (t, pos, vel, att, gyro, acc, qzetas, depths, ids) in enumerate(tqdm(data
     # feature updates
     if ids is not None and len(ids) > 0:
         ekf.keep_only_features(ids)
-        for qzeta, depth, id in zip(qzetas, depths, ids):
-            zeta_res, qzeta_hat = ekf.update(qzeta, 'feat', data.R['zeta'], passive=True, i=id, depth=depth)
-            depth_res, depth_hat = ekf.update(depth, 'depth', data.R['depth'], passive=True, i=id)
-
-            h.store(t, id, zeta_res=zeta_res, depth_res=depth_res, zeta=Quaternion(qzeta).rot(ekf.khat))
-            h.store(t, id, zeta_hat=ekf.get_zeta(id), depth_hat=depth_hat, depth=depth)
+        # for qzeta, depth, id in zip(qzetas, depths, ids):
+        #     zeta_res, qzeta_hat = ekf.update(qzeta, 'feat', data.R['zeta'], passive=True, i=id, depth=depth)
+        #     depth_res, depth_hat = ekf.update(depth, 'depth', data.R['depth'], passive=True, i=id)
+        #
+        #     h.store(t, id, zeta_res=zeta_res, depth_res=depth_res, zeta=Quaternion(qzeta).rot(ekf.khat))
+        #     h.store(t, id, zeta_hat=ekf.get_zeta(id), depth_hat=depth_hat, depth=depth)
             # h.store(t, id, qzeta=qzeta, qzeta_hat=qzeta_hat)
 
 # plot

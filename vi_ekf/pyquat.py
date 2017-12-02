@@ -177,9 +177,6 @@ class Quaternion():
 
         print "pyquat test [PASSED]"
 
-
-
-
     @property
     def w(self):
         return self.arr[0,0]
@@ -196,6 +193,7 @@ class Quaternion():
     def z(self):
         return self.arr[3, 0]
 
+    # returns in [w, x, y, z]
     @property
     def elements(self):
         return self.arr

@@ -64,6 +64,7 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
 
     for topic, msg, t in bag.read_messages(topics=['/imu/data',
                                                    '/vrpn_client_node/Leo/pose',
+                                                   '/vrpn/Leo/pose',
                                                    '/baro/data',
                                                    '/sonar/data',
                                                    '/is_flying',
@@ -76,14 +77,17 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
                         msg.linear_acceleration.x, msg.linear_acceleration.y, msg.linear_acceleration.z]
             imu_data.append(imu_meas)
 
-        if topic == '/vrpn_client_node/Leo/pose':
+        if topic == '/vrpn_client_node/Leo/pose' or topic == '/vrpn/Leo/pose':
             truth_meas = [msg.header.stamp.to_sec(),
                           msg.pose.position.z, -msg.pose.position.x, -msg.pose.position.y,
                           -msg.pose.orientation.w, -msg.pose.orientation.z, msg.pose.orientation.x, msg.pose.orientation.y]
             truth_pose_data.append(truth_meas)
 
+
     imu_data = np.array(imu_data)
     truth_pose_data = np.array(truth_pose_data)
+
+    assert np.abs(truth_pose_data[0, 0] - imu_data[0, 0]) < 1e5, 'truth and imu timestamps are vastly different: {} (truth) vs. {} (imu)'.format(truth_pose_data[0, 0], imu_data[0, 0])
 
     # Remove Bad Truth Measurements
     good_indexes = np.hstack((True, np.diff(truth_pose_data[:,0]) > 1e-3))
@@ -103,6 +107,7 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
     if plot_trajectory:
         plot_3d_trajectory(ground_truth[:,1:4], ground_truth[:,4:8], qzetas=zetas, depths=depths)
 
+
     # Adjust timestamp
     t0 = imu_data[0,0]
     imu_data[:,0] -= t0
@@ -120,6 +125,7 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
     #     images0 = [f for f, t in zip(images0, (image_time > start) & (image_time < end)) if t]
     #     images1 = [f for f, t in zip(images1, (image_time > start) & (image_time < end)) if t]
     #     image_time = image_time[(image_time > start) & (image_time < end)]
+
     ground_truth = ground_truth[(ground_truth[:, 0] > start) & (ground_truth[:, 0] < end), :]
 
     out_dict = dict()

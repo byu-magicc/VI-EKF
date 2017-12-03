@@ -62,14 +62,14 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
     imu_data = []
     truth_pose_data = []
 
-    for topic, msg, t in bag.read_messages(topics=['/imu/data',
+    for topic, msg, t in tqdm(bag.read_messages(topics=['/imu/data',
                                                    '/vrpn_client_node/Leo/pose',
                                                    '/vrpn/Leo/pose',
                                                    '/baro/data',
                                                    '/sonar/data',
                                                    '/is_flying',
                                                    '/gps/data',
-                                                   '/mag/data']):
+                                                   '/mag/data'])):
 
         if topic == '/imu/data':
             imu_meas = [msg.header.stamp.to_sec(),
@@ -87,7 +87,7 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
     imu_data = np.array(imu_data)
     truth_pose_data = np.array(truth_pose_data)
 
-    assert np.abs(truth_pose_data[0, 0] - imu_data[0, 0]) < 1e5, 'truth and imu timestamps are vastly different: {} (truth) vs. {} (imu)'.format(truth_pose_data[0, 0], imu_data[0, 0])
+    # assert np.abs(truth_pose_data[0, 0] - imu_data[0, 0]) < 1e5, 'truth and imu timestamps are vastly different: {} (truth) vs. {} (imu)'.format(truth_pose_data[0, 0], imu_data[0, 0])
 
     # Remove Bad Truth Measurements
     good_indexes = np.hstack((True, np.diff(truth_pose_data[:,0]) > 1e-3))
@@ -100,8 +100,15 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
 
     # Simulate Landmark Measurements
     # landmarks = np.random.uniform(-25, 25, (2,3))
-    landmarks = np.vstack([np.eye(3), np.array([[0, 0, 0]])])
-    # landmarks = np.zeros((3,3))
+    landmarks = np.array([[1, 0, 1],
+                          [0, 1, 1],
+                          [0, 0, 1],
+                          [1, 1, 1],
+                          [-1, 0, 1],
+                          [0, -1, 1],
+                          [-1, -1, 1],
+                          [1, -1, 1],
+                          [-1, 1, 1]])
     feat_time, zetas, depths, ids = add_landmark(ground_truth, landmarks)
 
     if plot_trajectory:
@@ -109,10 +116,11 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
 
 
     # Adjust timestamp
-    t0 = imu_data[0,0]
-    imu_data[:,0] -= t0
-    ground_truth[:,0] -= t0
-    feat_time[:] -= t0
+    imu_t0 = imu_data[0,0] +1
+    gt_t0 = ground_truth[0,0]
+    imu_data[:,0] -= imu_t0
+    ground_truth[:,0] -= gt_t0
+    feat_time[:] -= gt_t0
 
     # Chop Data
     imu_data = imu_data[(imu_data[:,0] > start) & (imu_data[:,0] < end), :]

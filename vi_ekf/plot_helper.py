@@ -4,6 +4,7 @@ from cycler import cycler
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
+import os
 
 def init_plots():
     # Set the colormap to 'jet'
@@ -11,6 +12,7 @@ def init_plots():
     plt.set_cmap('jet')
     plt.rcParams['image.cmap'] = 'jet'
     plt.rcParams['figure.max_open_warning'] = 100
+    os.system("rm plots/*.png")
 
 def get_colors(num_rows, cmap):
     return cmap(np.linspace(0, 1, num_rows))

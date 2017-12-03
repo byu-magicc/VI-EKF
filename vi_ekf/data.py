@@ -12,13 +12,13 @@ import eth_data_loader as data_loader
 class Data(object):
     def __init__(self):
         self.time = np.linspace(0, 1, 100)
-        self.R = {'alt': 0.0001,
+        self.R = {'alt': 0.01,
                   'acc': np.diag([0.5, 0.5]),
-                  'att': np.diag([0.0001, 0.0001, 0.0001]),
+                  'att': np.diag([0.01, 0.01, 0.01]),
                   'vel': np.diag([0.0001, 0.0001, 0.0001]),
-                  'pos': np.diag([0.0001, 0.0001, 0.0001]),
-                  'zeta': np.diag([0.001, 0.001]),
-                  'depth': 0.0001}
+                  'pos': np.diag([0.1, 0.1, 0.1]),
+                  'zeta': np.diag([0.01, 0.01]),
+                  'depth': 0.1}
 
     def indexer(self, target_time, source_time):
         index_for_target = []
@@ -26,7 +26,7 @@ class Data(object):
         for t in target_time:
             while current_index < len(source_time) and source_time[current_index] <= t:
                 current_index += 1
-            index_for_target.append(current_index - 1)
+            index_for_target.append(current_index - 1 if current_index > 0 else 0)
 
         assert len(index_for_target) == len(target_time)
 
@@ -54,7 +54,6 @@ class Data(object):
 
     @property
     def x0(self):
-
         return np.zeros((17, 1))
 
     def __test__(self):
@@ -161,10 +160,6 @@ class ROSbagData(Data):
 
     @property
     def x0(self):
-
-        print self.data['truth'].shape, self.truth_indexer[0]
-        quit()
-
         # # ekf.x[viekf.xB_A:viekf.xB_A+3] = np.array([[0.05, 0.1, -0.05]]).T
         return np.concatenate([self.data['truth'][self.truth_indexer[0], 1:4, None],
                                self.data['truth'][self.truth_indexer[0], 8:11, None],

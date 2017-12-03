@@ -366,15 +366,15 @@ class VI_EKF():
 
             #################################
             ## FEATURE DYNAMICS
-            self.dx[dxZETA_i:dxZETA_i+2,:] = T_z.T.dot(omega_c_i + rho*skew_zeta.dot(vel_c_i))
+            self.dx[dxZETA_i:dxZETA_i+2,:] = T_z.T.dot(omega_c_i - rho*skew_zeta.dot(vel_c_i))
             self.dx[dxRHO_i,:] = rho2*zeta.T.dot(vel_c_i)
 
             #################################
             ## FEATURE STATE JACOBIAN
-            self.A[dxZETA_i:dxZETA_i+2, dxVEL:dxVEL+3] = rho*T_z.T.dot(skew_zeta).dot(R_b_c)
+            self.A[dxZETA_i:dxZETA_i+2, dxVEL:dxVEL+3] = -rho*T_z.T.dot(skew_zeta).dot(R_b_c)
             self.A[dxZETA_i:dxZETA_i+2, dxB_G:dxB_G+3] = T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c) - R_b_c)
-            self.A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = T_z.T.dot(skew(omega_c_i + rho*skew_zeta.dot(vel_c_i)) + (rho*skew_vel_c.dot(skew_zeta))).dot(T_z)
-            self.A[dxZETA_i:dxZETA_i+2, dxRHO_i,None] = T_z.T.dot(skew_zeta).dot(vel_c_i)
+            self.A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = T_z.T.dot(skew(omega_c_i - rho*skew_zeta.dot(vel_c_i)) - (rho*skew_vel_c.dot(skew_zeta))).dot(T_z)
+            self.A[dxZETA_i:dxZETA_i+2, dxRHO_i,None] = -T_z.T.dot(skew_zeta).dot(vel_c_i)
             self.A[dxRHO_i, dxVEL:dxVEL+3] = rho2*zeta.T.dot(R_b_c)
             self.A[dxRHO_i, dxB_G:dxB_G+3] = rho2*zeta.T.dot(R_b_c).dot(skew_p_b_c)
             self.A[dxRHO_i, dxZETA_i:dxZETA_i+2] = -rho2*vel_c_i.T.dot(skew_zeta).dot(T_z)

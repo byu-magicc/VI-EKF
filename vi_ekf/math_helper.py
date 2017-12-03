@@ -107,12 +107,28 @@ if __name__ == '__main__':
     q.normalize()
     v = np.random.uniform(-1, 1, (2,1))
     x0 = T_zeta(q).T.dot(v2)
-    epsilon = 1e-8
+    epsilon = 1e-6
     I = np.eye(2)*epsilon
     for i in range(2):
         d_dTdq[i, :, None] = (T_zeta(q_feat_boxplus(q, I[:,i,None])).T.dot(v2) - x0)/epsilon
     a_dTdq = -T_zeta(q).T.dot(skew(v2).dot(T_zeta(q)))
-    assert ((a_dTdq - d_dTdq) < 1e-6).all()
+    assert (abs(a_dTdq - d_dTdq) < 1e-6).all()
+
+    # Check Derivative  dqzeta/dqzeta <- this was also giving me trouble
+    for j in range(1000):
+        d_dqdq = np.zeros((2,2))
+        if j ==0:
+            q = Quaternion.Identity()
+        else:
+            q = Quaternion(np.random.uniform(-1, 1, (4, 1)))
+            q.arr[3] = 0.0
+            q.normalize()
+        for i in range(2):
+            d_dqdq[i,:,None] = q_feat_boxminus(q_feat_boxplus(q, I[:,i,None]), q)/epsilon
+        a_dqdq = T_zeta(q).T.dot(T_zeta(q))
+        assert (abs(a_dqdq - d_dqdq) < 1e-1).all()
+
+
 
     # Check Manifold Consistency
     for i in range(1000):

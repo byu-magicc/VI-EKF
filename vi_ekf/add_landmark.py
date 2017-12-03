@@ -40,5 +40,23 @@ def add_landmark(truth, landmarks):
 
     return feature_time, zetas, depths, ids
 
+def test():
+    landmarks = np.random.uniform(-100, 100, (3,10))
+    truth = []
+    position = np.zeros((3,1))
+    orientation = Quaternion.Identity()
+    for i in range(1000):
+        position += np.random.normal(0.0, 0.025, (3,1))
+        orientation += np.random.normal(0.0, 0.025, (3,1))
+
+        truth.append(np.hstack(np.array([[i]]),
+                     position.T,
+                     orientation.elements.T))
+    truth = np.array(truth).squeeze()
+
+    feature_time, zetas, depths, ids = add_landmark(truth, landmarks)
+
+
+
 
 

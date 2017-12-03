@@ -74,7 +74,7 @@ def dfdx_test(x, u, ekf):
         num_errors += print_error(rho_key, rho_key, a_dfdx, d_dfdx)
 
     # This test ensures that the entire jacobian is correct, not just the blocks you test manually
-    if (abs(d_dfdx - a_dfdx) > 1e-4).any():
+    if (abs(d_dfdx - a_dfdx) > 1e-3).any():
         print (bcolors.FAIL + 'Error in Jacobian dfdx that is not caught by blocks')
         print (bcolors.FAIL + 'error: \n {} \n{}'.format(a_dfdx - d_dfdx, bcolors.ENDC))
         print (bcolors.BOLD + 'Indexes: {}'.format(np.argwhere(np.abs(a_dfdx - d_dfdx) > 1e-4)))
@@ -116,7 +116,7 @@ def htest(fn, ekf, **kwargs):
     z0, analytical = fn(ekf.x, **kwargs)
     finite_difference = np.zeros_like(analytical)
     I = np.eye(finite_difference.shape[1])
-    epsilon = 1e-7
+    epsilon = 1e-6
     for i in range(finite_difference.shape[1]):
         x_prime = ekf.boxplus(ekf.x, (I[i] * epsilon)[:, None])
         z_prime = fn(x_prime, **kwargs)[0]
@@ -129,7 +129,7 @@ def htest(fn, ekf, **kwargs):
             finite_difference[:, i] = ((z_prime - z0) / epsilon)[:, 0]
 
     # The Feature Jacobian is really sensitive
-    err_thresh = 5e-1 if 'type' in kwargs.keys() and kwargs['type'] == 'feat' else 1e-4
+    err_thresh = 1e-3
 
     error = analytical - finite_difference
     for key, item in indexes.iteritems():
@@ -185,9 +185,9 @@ def run():
         # Add noise to the state
         x0[xPOS:xPOS + 3] += np.random.normal(0, 100, (3, 1))
         x0[xVEL:xVEL + 3] += np.random.normal(0, 10, (3, 1))
-        # x0[xB_A:xB_A + 3] += np.random.uniform(-1, 1, (3, 1))
-        # x0[xB_G:xB_G + 3] += np.random.uniform(-0.5, 0.5, (3, 1))
-        # x0[xMU,0] += np.random.uniform(-0.1, 0.1, 1)
+        x0[xB_A:xB_A + 3] += np.random.uniform(-1, 1, (3, 1))
+        x0[xB_G:xB_G + 3] += np.random.uniform(-0.5, 0.5, (3, 1))
+        x0[xMU,0] += np.random.uniform(-0.1, 0.1, 1)
 
         # Add noise to non-vector attitude states
         x0[xATT:xATT + 4] = (Quaternion(x0[xATT:xATT + 4]) + np.random.normal(0, 1, (3,1))).elements
@@ -196,17 +196,17 @@ def run():
 
         # Initialize Random Features
         for j in range(1):
-            # zeta = np.random.randn(3)[:, None]
-            zeta = np.array([[0, 1.0, 1.0]]).T
+            zeta = np.random.randn(3)[:, None]
+            # zeta = np.array([[0, 1.0, 1.0]]).T
             zeta /= scipy.linalg.norm(zeta)
             qzeta = Quaternion.from_two_unit_vectors(zeta, np.array([[0, 0, 1.]]).T).elements
-            # depth = np.abs(np.random.randn(1))[:,None]
-            depth = np.ones((1,1))
+            depth = np.abs(np.random.randn(1))[:,None]
+            # depth = np.ones((1,1))
             ekf.init_feature(qzeta, j, depth=depth * 10)
 
         # Initialize Inputs
-        acc = nominal_acc #+ np.random.normal(0, 1, (3,1))
-        gyro = nominal_gyro #+ np.random.normal(0, 1.0, (3, 1))
+        acc = nominal_acc + np.random.normal(0, 1, (3,1))
+        gyro = nominal_gyro + np.random.normal(0, 1.0, (3, 1))
 
         x = ekf.x
         u = np.vstack([acc, gyro])

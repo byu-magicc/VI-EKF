@@ -119,16 +119,18 @@ def plot_3d_trajectory(position, orientation, qzetas=None, depths=None):
     e_z = 0.1*np.array([[0, 0, 1.]]).T
     for i in range(len(position)/100):
         j = i*100
+        q_i_b = Quaternion(orientation[j,:,None])
         origin = position[j,:,None]
-        x_end = origin + Quaternion(orientation[j,:,None]).rot(e_x)
-        y_end = origin + Quaternion(orientation[j,:,None]).rot(e_y)
-        z_end = origin + Quaternion(orientation[j,:,None]).rot(e_z)
+        x_end = origin + q_i_b.rot(e_x)
+        y_end = origin + q_i_b.rot(e_y)
+        z_end = origin + q_i_b.rot(e_z)
         plt.plot([origin[0, 0], x_end[0, 0]], [origin[1, 0], x_end[1, 0]], [origin[2, 0], x_end[2, 0]], 'r-')
         plt.plot([origin[0, 0], y_end[0, 0]], [origin[1, 0], y_end[1, 0]], [origin[2, 0], y_end[2, 0]], 'g-')
         plt.plot([origin[0, 0], z_end[0, 0]], [origin[1, 0], z_end[1, 0]], [origin[2, 0], z_end[2, 0]], 'b-')
         if qzetas is not None:
             colors = get_colors(len(qzetas), plt.cm.jet)
             for qz, d, col in zip(qzetas, depths, colors):
-                zeta_end = origin + Quaternion(qz[j,:,None]).rot(10.*e_z*d[j,0])
+                q_c_z = Quaternion(qz[j,:,None])
+                zeta_end = origin + q_i_b.invrot(q_c_z.rot(10.*e_z*d[j,0]))
                 plt.plot([origin[0, 0], zeta_end[0, 0]], [origin[1, 0], zeta_end[1, 0]], [origin[2, 0], zeta_end[2, 0]], '--', color=col, lineWidth='0.25')
     plt.show()

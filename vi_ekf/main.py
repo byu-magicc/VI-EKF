@@ -75,12 +75,27 @@ if True:
         plot_side_by_side('z_zeta_{}_residual'.format(i), 0, 2, h.t.zeta_res[i], h.zeta_res[i], labels=['x', 'y'])
         plot_side_by_side('z_depth_{}_residual'.format(i), 0, 1, h.t.depth_res[i], h.depth_res[i], labels=['rho'])
 
-# if True:
-#     depth_hats, qzeta_hats = [], []
-#     for i in np.unique(h.ids):
-#         qzeta_hats.append(h.qzeta_hat[i])
-#         depth_hats.append(h.depth_hat[i])
-#     depth_hats = np.array(depth_hats)
-#     qzeta_hats = np.array(qzeta_hats)
-#
-#     plot_3d_trajectory(h.x_hat[:,viekf.xPOS:viekf.xPOS+3,0], h.x_hat[:,viekf.xATT:viekf.xATT+4, 0], qzetas=qzeta_hats, depths=depth_hats)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+if True:
+    depth_hats, qzeta_hats = [], []
+    for i in np.unique(h.ids):
+        qzeta_hats.append(h.qzeta_hat[i])
+        depth_hats.append(h.depth_hat[i])
+    depth_hats = np.array(depth_hats)
+    qzeta_hats = np.array(qzeta_hats)
+
+
+    plot_3d_trajectory(h.x_hat[:,viekf.xPOS:viekf.xPOS+3,0], h.x_hat[:,viekf.xATT:viekf.xATT+4, 0], qzetas=qzeta_hats, depths=depth_hats)

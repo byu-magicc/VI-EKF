@@ -55,7 +55,7 @@ def calculate_velocity_from_position(t, position, orientation):
     return vel_data
 
 
-def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=False, plot_trajectory=False):
+def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=False, plot_trajectory=True):
     print "loading rosbag", filename
     # First, load IMU data
     bag = rosbag.Bag(filename)

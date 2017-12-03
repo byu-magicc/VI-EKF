@@ -245,7 +245,12 @@ class Quaternion():
             q_exp = np.vstack((np.array([[np.cos(norm_delta/2.0)]]), np.sin(norm_delta/2.0)*delta/norm_delta))
         else:
             q_exp = np.vstack((np.array([[1.0]]), delta/2.0))
+            q_exp/=norm(q_exp)
         return Quaternion(q_exp)
+
+    @staticmethod
+    def Identity():
+        return Quaternion(np.array([[1.0, 0, 0, 0]]).T)
 
     @staticmethod
     def log(q):

@@ -8,7 +8,7 @@ from plot_helper import plot_3d_trajectory
 
 # data = ETHData(filename='/mnt/pccfs/not_backed_up/eurocmav/V1_01_easy/mav0', start=5.0, end=120.0, sim_features=True, load_new=True)
 # data = ROSbagData(filename='data/truth_imu_flight.bag', start=30.0, end=68.0, sim_features=True, load_new=True)
-data = ROSbagData(filename='data/truth_imu_depth_mono.bag', start=8.0, end=68.0, sim_features=True, load_new=True)
+data = ROSbagData(filename='data/truth_imu_depth_mono.bag', start=8.0, end=68.0, sim_features=True, load_new=False)
 data.__test__()
 
 ekf = viekf.VI_EKF(data.x0)
@@ -39,7 +39,7 @@ for i, (t, pos, vel, att, gyro, acc, qzetas, depths, ids) in enumerate(tqdm(data
         ekf.keep_only_features(ids)
         for qzeta, depth, id in zip(qzetas, depths, ids):
             zeta_res, qzeta_hat = ekf.update(qzeta, 'feat', data.R['zeta'], passive=False, i=id, depth=depth)
-            depth_res, depth_hat = ekf.update(depth, 'depth', data.R['depth'], passive=False, i=id)
+            depth_res, depth_hat = ekf.update(depth, 'depth', data.R['depth'], passive=True, i=id)
 
             h.store(t, id, zeta_res=zeta_res, depth_res=depth_res, zeta=Quaternion(qzeta).rot(ekf.khat))
             h.store(t, id, zeta_hat=ekf.get_zeta(id), depth_hat=depth_hat, depth=depth)

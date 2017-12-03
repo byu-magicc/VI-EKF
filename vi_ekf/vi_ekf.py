@@ -2,7 +2,6 @@ import numpy as np
 from pyquat import Quaternion
 from math_helper import skew, T_zeta, norm, q_feat_boxminus, q_feat_boxplus
 import scipy.linalg
-import cv2
 
 dxPOS = 0
 dxVEL = 3
@@ -310,12 +309,16 @@ class VI_EKF():
         acc_z = np.array([[0, 0, acc[2,0]]]).T
         mu = x[xMU, 0]
 
+        gravity_B = q_I_b.invrot(self.gravity)
+        vel_I = q_I_b.invrot(vel)
+        vel_xy = I_2x3.T.dot(I_2x3).dot(vel)
+
 
         # CALCULATE STATE DYNAMICS
-        self.dx[dxPOS:dxPOS+3] = q_I_b.rot(vel)
+        self.dx[dxPOS:dxPOS+3] = vel_I
         if self.use_drag_term:
             # self.dx[dxVEL:dxVEL+3 = skew(vel).dot(omega) - mu*I_2x3.T.dot(I_2x3).dot(vel) + acc_z + q_I_b.rot(self.gravity)
-            self.dx[dxVEL:dxVEL+3] =  acc_z + q_I_b.invrot(self.gravity) - mu * I_2x3.T.dot(I_2x3).dot(vel)
+            self.dx[dxVEL:dxVEL+3] =  acc_z + gravity_B - mu * vel_xy
         else:
             self.dx[dxVEL:dxVEL+3] = acc + q_I_b.rot(self.gravity)
         # self.dx[dxPOS:dxPOS+3] = np.zeros((3,1))
@@ -325,14 +328,14 @@ class VI_EKF():
         ###################################
         # STATE JACOBIAN
         self.A[dxPOS:dxPOS+3, dxVEL:dxVEL+3] = q_I_b.R.T
-        self.A[dxPOS:dxPOS+3, dxATT:dxATT+3] = (q_I_b.R.dot(skew(q_I_b.rot(vel)))).T
+        self.A[dxPOS:dxPOS+3, dxATT:dxATT+3] = skew(vel_I)
         if self.use_drag_term:
             self.A[dxVEL:dxVEL+3, dxVEL:dxVEL+3] = - mu*I_2x3.T.dot(I_2x3)
             self.A[dxVEL:dxVEL + 3, dxB_A:dxB_A + 3] = -self.khat.dot(self.khat.T)
-            self.A[dxVEL:dxVEL + 3, dxMU, None] = -I_2x3.T.dot(I_2x3).dot(vel)
+            self.A[dxVEL:dxVEL + 3, dxMU, None] = -vel_xy
         else:
             self.A[dxVEL:dxVEL + 3, dxB_A:dxB_A + 3] = -I_3x3
-        self.A[dxVEL:dxVEL+3, dxATT:dxATT+3] = skew(q_I_b.invrot(self.gravity))
+        self.A[dxVEL:dxVEL+3, dxATT:dxATT+3] = skew(gravity_B)
         self.A[dxATT:dxATT+3, dxB_G:dxB_G+3] = -I_3x3
 
         #################################

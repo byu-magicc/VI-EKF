@@ -161,6 +161,10 @@ class ROSbagData(Data):
 
     @property
     def x0(self):
+
+        print self.data['truth'].shape, self.truth_indexer[0]
+        quit()
+
         # # ekf.x[viekf.xB_A:viekf.xB_A+3] = np.array([[0.05, 0.1, -0.05]]).T
         return np.concatenate([self.data['truth'][self.truth_indexer[0], 1:4, None],
                                self.data['truth'][self.truth_indexer[0], 8:11, None],

@@ -7,7 +7,8 @@ from pyquat import Quaternion, quat_arr_to_euler
 from plot_helper import plot_3d_trajectory
 
 # data = ETHData(filename='/mnt/pccfs/not_backed_up/eurocmav/V1_01_easy/mav0', start=5.0, end=120.0, sim_features=True, load_new=True)
-data = ROSbagData(filename='data/truth_imu_flight.bag', start=30.0, end=68.0, sim_features=True, load_new=True)
+# data = ROSbagData(filename='data/truth_imu_flight.bag', start=30.0, end=68.0, sim_features=True, load_new=True)
+data = ROSbagData(filename='data/truth_imu_depth_mono.bag', sim_features=True, load_new=True)
 data.__test__()
 
 ekf = viekf.VI_EKF(data.x0)

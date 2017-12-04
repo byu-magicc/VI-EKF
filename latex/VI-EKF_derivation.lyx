@@ -180,34 +180,6 @@ v_{3} & 0 & -v_{1}\\
 
 \begin_layout Standard
 and is related to the cross-product between two vectors, that is
-\end_layout
-
-\begin_layout Standard
-
-\family roman
-\series medium
-\shape up
-\size normal
-\emph off
-\bar no
-\strikeout off
-\uuline off
-\uwave off
-\noun off
-\color none
-newmacroname
-\family default
-\series default
-\shape default
-\size default
-\emph default
-\bar default
-\strikeout default
-\uuline default
-\uwave default
-\noun default
-\color inherit
-
 \begin_inset Formula 
 \[
 v\times w=\left\lfloor v\right\rfloor w
@@ -880,8 +852,7 @@ status open
 \begin_layout Plain Layout
 \align center
 \begin_inset Graphics
-	filename figures/unit_vector_picture.png
-	lyxscale 50
+	filename figures/feature_diagram.eps
 	width 80col%
 
 \end_inset
@@ -904,29 +875,19 @@ Illustration of Bearing Vector Geometry
 \end_inset
 
 As can be seen in the picture, there are only 2 degrees of freedom in this
- parameterization because the axis of rotation is always in the 
-\begin_inset Formula $\boldsymbol{e}_{y}$
+ parameterization because the axis of rotation is always in the plane normal
+ to 
+\begin_inset Formula $\zeta_{i}$
 \end_inset
 
--
-\begin_inset Formula $\boldsymbol{e}_{x}$
-\end_inset
-
- plane.
+.
  Therefore, we can define a projection matrix 
 \begin_inset Formula $T_{\zeta}$
 \end_inset
 
-, which reduces the dimensionality of the axis-angle representation to 
-\begin_inset Formula $\mathbb{R}^{2}$
-\end_inset
-
-.
- Where we use 
-\begin_inset Formula $R\left(q_{c}^{\zeta}\right)^{\top}$
-\end_inset
-
- as the active rotation which rotates the camera axis to zeta
+, which reduces the dimensionality of the axis-angle representation to this
+ plane.
+ 
 \end_layout
 
 \begin_layout Standard
@@ -1201,19 +1162,6 @@ The derivative of the projection operator with respect to the quaternion
 \end_layout
 
 \begin_layout Standard
-The derivative of a unit bearing vector with respect to the quaternion describin
-g the rotation from the camera z axis to that vector
-\begin_inset Formula 
-\[
-\frac{d}{dq_{c}^{\zeta}}\zeta^{c}=\left\lfloor \zeta\right\rfloor T_{\zeta}
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
 The derivative of a bearing vector with respect to the quaternion
 \end_layout
 
@@ -1221,7 +1169,6 @@ The derivative of a bearing vector with respect to the quaternion
 \begin_inset Formula 
 \[
 \begin{aligned}\frac{d}{dq_{\zeta}^{c}}\zeta^{c} & =\frac{d}{dq_{\zeta}^{c}}\left(R\left(q_{\zeta}^{c}\right)^{\top}e_{z}\right)\\
- & =-R\left(q_{\zeta}^{c}\right)^{\top}\left\lfloor e_{z}\right\rfloor R\left(q_{\zeta}^{c}\right)\\
  & =\left\lfloor \zeta\right\rfloor T_{\zeta}
 \end{aligned}
 \]
@@ -1811,7 +1758,7 @@ v_{b/I}^{b} & =\left\lfloor v_{b/I}^{b}\right\rfloor \left(y_{\omega}-\beta_{\om
 \dot{\beta}_{a} & =\eta_{\beta_{a}}\\
 \dot{\beta}_{\omega} & =\eta_{\beta_{\boldsymbol{\omega}}}\\
 \dot{\mu} & =\eta_{\mu}\\
-\dot{q}_{c}^{\zeta_{i}} & =T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\omega_{c/I}^{I}\right)\\
+\dot{q}_{c}^{\zeta_{i}} & =T_{\zeta}^{\top}\left(-\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\omega_{c/I}^{I}\right)\\
 \dot{\rho_{i}} & =\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}v_{c/I}^{c}
 \end{aligned}
 \label{eq:full_dynamics}

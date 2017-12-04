@@ -413,7 +413,6 @@ class VI_EKF():
     def h_alt(self, x):
         assert x.shape == (xZ + 5 * self.len_features, 1)
 
-
         h = -x[xPOS+2,:,None]
 
         dhdx = np.zeros((1, dxZ+3*self.len_features))

@@ -51,8 +51,8 @@ if True:
     h.tonumpy()
     init_plots()
 
-    plot_side_by_side('x_pos', viekf.xPOS, viekf.xPOS+3, h.t.x_hat, h.x_hat, cov=None, truth_t=h.t.pos, truth=h.pos, labels=['x', 'y', 'z'])
-    plot_side_by_side('x_vel', viekf.xVEL, viekf.xVEL+3, h.t.x_hat, h.x_hat, cov=None, truth_t=h.t.vel, truth=h.vel, labels=['x', 'y', 'z'])
+    plot_side_by_side('x_pos', viekf.xPOS, viekf.xPOS+3, h.t.x_hat, h.x_hat, cov=h.P, truth_t=h.t.pos, truth=h.pos, labels=['x', 'y', 'z'])
+    plot_side_by_side('x_vel', viekf.xVEL, viekf.xVEL+3, h.t.x_hat, h.x_hat, cov=h.P, truth_t=h.t.vel, truth=h.vel, labels=['x', 'y', 'z'])
     # plot_side_by_side('x_att', viekf.xATT, viekf.xATT+4, h.t.x_hat, h.x_hat, truth_t=h.t.att, truth=h.att, labels=['w', 'x', 'y', 'z'])
 
     plot_side_by_side('x_euler', 0, 3, h.t.x_hat, quat_arr_to_euler(h.x_hat[:, viekf.xATT:viekf.xATT+4, 0].T).T, truth_t=h.t.att, truth=quat_arr_to_euler(h.att.T[0]).T, labels=[r'$\phi$', r'$\rho$', r'$\psi$'])

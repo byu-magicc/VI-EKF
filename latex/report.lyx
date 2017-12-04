@@ -1,0 +1,1983 @@
+#LyX 2.1 created this file. For more info see http://www.lyx.org/
+\lyxformat 474
+\begin_document
+\begin_header
+\textclass tufte-handout
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_math auto
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry true
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine natbib
+\cite_engine_type authoryear
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 2
+\tocdepth 2
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Visual-Inertial Extended Kalman Filter
+\begin_inset Newline newline
+\end_inset
+
+Using Manifold Representations
+\end_layout
+
+\begin_layout Author
+James Jackson and Robert Pottorff
+\end_layout
+
+\begin_layout Standard
+\begin_inset FormulaMacro
+\newcommand{\q}{\boldsymbol{q}}
+{\boldsymbol{q}}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset FormulaMacro
+\newcommand{\xhat}{\mathbf{\hat{\mathbf{x}}}}
+{\hat{\mathbf{x}}}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset FormulaMacro
+\newcommand{\dxhat}{\hat{\dot{\mathbf{x}}}}
+{\mathbf{\dot{\mathbf{x}}}}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset FormulaMacro
+\newcommand{\x}{\mathbf{x}}
+{\mathbf{x}}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset FormulaMacro
+\newcommand{\u}{\mathbf{u}}
+{\mathbf{u}}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Introduction
+\end_layout
+
+\begin_layout Standard
+Monocular Visual-Inertial Navigation is an important topic for autonomous
+ robots.
+ Miniature Aerial Vehicles (MAVs) in particular often benefit from vision-aided
+ navigation but are limited in size, weight and power.
+ Kalman Filter approaches are often utilized to provide state and velocity
+ estimates given sensor measurements from an IMU and camera pair.
+ These sensors are often augmented with laser range finders, sonars, and
+ image depth measurements, such as from an RGB-D camera to provide additional
+ information to improve state estimates.
+\end_layout
+
+\begin_layout Standard
+In many real-life robotics problems, the attitude of the robot cannot be
+ represented simply.
+ Many modern approaches use a quaternion to represent the attitude of the
+ robot.
+ Quaternions provide computational efficiency and do not suffer from singulariti
+es, but they are over-parameterized and do not form a vector space.
+ Many approaches, such as the Multiplicative Extended Kalman Fiter (MEKF)
+ utilize an 
+\begin_inset Quotes eld
+\end_inset
+
+error state
+\begin_inset Quotes erd
+\end_inset
+
+ parameterization, and some manipulation is performed to guarantee that
+ covariance estimates and measurement updates are applied to an error state,
+ which can be considered as a true vector, about some reference trajectory,
+ which is represented with a full quaternion.
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset citation
+LatexCommand cite
+key "Hertzberg2013"
+
+\end_inset
+
+ illustrates a new method to deal with the non-vector elements of a estimator
+ state by introducing the 
+\begin_inset Formula $\boxplus$
+\end_inset
+
+ and 
+\begin_inset Formula $\boxminus$
+\end_inset
+
+ operators, which abstract the mathematics of operating on group elements
+ to make it possible to homongenize the use of vector and non-vector elements
+ in an estimator state.
+ We will use this method to simplify the derivation and implementation of
+ our filter.
+ We also will use quaternions to represent estimated bearings to observed
+ features in the camera frame as shown by 
+\begin_inset CommandInset citation
+LatexCommand cite
+key "Bloesch2015a"
+
+\end_inset
+
+, accompanied by our own explanation for how this parameterization works.
+ We have also included the relevant jacobian definitions and measurement
+ models for feature measurements, depth measurements to features (i.e.
+ from an RGBD camera), altimeter, accelerometer, position, velocity, attitude,
+ and pixel velocity (as calculated by optical flow) required for a complete
+ implementation of this filter.
+\end_layout
+
+\begin_layout Standard
+The objective of this report is to simply and accurately describe everything
+ required for an extended Kalman Filter operating directly on the manifold
+ using the 
+\begin_inset Formula $\boxplus$
+\end_inset
+
+ and 
+\begin_inset Formula $\boxminus$
+\end_inset
+
+ operators, applied to multirotor dynamics as described by 
+\begin_inset CommandInset citation
+LatexCommand cite
+key "Leishman2014b"
+
+\end_inset
+
+.
+ In addition, we will describe the results of experiments of this filter
+ on a multirotor robot using operating in a GPS-denied environment.
+\end_layout
+
+\begin_layout Section
+Notation
+\end_layout
+
+\begin_layout Standard
+For this report, we will use the following notation for describing coordinate
+ frames
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}q_{i}^{b} & \quad\textrm{Quaternion describing rotation from the inertial frame to the body frame}\\
+v_{b/i}^{b} & \quad\textrm{velocity of the body frame, with respect to the inertial frame, expressed in the body frame}\\
+p_{bi}^{i} & \quad\textrm{position of the body, with respect to the inertial frame, expressed in the inertial frame}
+\end{aligned}
+\]
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+We will also make extensive use of the skew-symmetric matrix, defined as
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\left\lfloor v\right\rfloor =\left[\begin{array}{ccc}
+0 & -v_{3} & v_{2}\\
+v_{3} & 0 & -v_{1}\\
+-v_{2} & v_{1} & 0
+\end{array}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+which is related to taking cross-product between two vectors, that is
+\begin_inset Formula 
+\[
+v\times w=\left\lfloor v\right\rfloor w
+\]
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+All quaternions used in this report use a Hamiltonian (right-handed) convention
+ are assumed to be unit norm, and will be expressed as column vectors as
+ shown below.
+ 
+\begin_inset Formula 
+\[
+q=q_{w}+q_{x}i+q_{y}j+q_{z}k=\begin{bmatrix}q_{w}\\
+\bar{q}
+\end{bmatrix}
+\]
+
+\end_inset
+
+The use of Hamiltonian quaternions result in multiplication being defined
+ as
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+p\otimes q=\begin{bmatrix}p_{w} & -\bar{p}^{\top}\\
+\bar{p} & p_{w}I_{3\times3}+\left\lfloor \bar{p}\right\rfloor 
+\end{bmatrix}\begin{bmatrix}q_{w}\\
+\bar{q}
+\end{bmatrix}
+\]
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+The 
+\begin_inset Formula $3\times3$
+\end_inset
+
+ Rotation matrix 
+\begin_inset Formula $R\left(q\right)$
+\end_inset
+
+ based on this quaternion is defined as follows
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+R\left(q\right)=\left(2q_{w}^{2}-1\right){\bf I}-2q_{w}\left\lfloor \bar{q}\right\rfloor +2\bar{q}\bar{q}^{\top}\in\mathbb{R}^{3\times3}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+and describes a passive rotation.
+ That is 
+\begin_inset Formula $R\left(q\right)v$
+\end_inset
+
+ will result in the original vector 
+\begin_inset Formula $v$
+\end_inset
+
+, represented in a new coordinate frame described by 
+\begin_inset Formula $R\left(q\right)$
+\end_inset
+
+.
+ The active rotation 
+\begin_inset Formula $R^{\top}\left(q\right)v$
+\end_inset
+
+ results in a new rotated object expressed in the original frame.
+\end_layout
+
+\begin_layout Standard
+The exponential mapping of the quaternion is shown in Equations 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:quaternion_exp"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:quaternion_log"
+
+\end_inset
+
+.
+ For numerical stability, we will also utilize the associated linearization
+ for very small rotations, (with magnitude less than 1e-4).
+ These mappings are used to convert to and from the Lie algebra associated
+ with the quaternion group.
+ In Lie tangent space, quaternion multiplication can be performed as vector
+ addition, which ultimately allows us to define a covariance matrix about
+ a non-vector quaternion object.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\begin{aligned}\exp\left(\boldsymbol{\delta}\right) & =\begin{bmatrix}\cos\left(\frac{\lVert\delta\rVert}{2}\right)\\
+\sin\left(\frac{\lVert\delta\rVert}{2}\right)\frac{\delta}{\lVert\delta\rVert}
+\end{bmatrix}\\
+ & \approx\left[\begin{array}{c}
+1\\
+\frac{\delta}{2}
+\end{array}\right]
+\end{aligned}
+\label{eq:quaternion_exp}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\begin{aligned}\log\left(q\right) & =2\mathrm{atan2}\left(\left\Vert \bar{q}\right\Vert ,q_{w}\right)\frac{\bar{q}}{\left\Vert \bar{q}\right\Vert }\\
+ & \approx2\textrm{sign}\left(q_{w}\right)\bar{q}
+\end{aligned}
+\label{eq:quaternion_log}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The will use the following 
+\begin_inset Formula $\boxplus$
+\end_inset
+
+ and 
+\begin_inset Formula $\boxminus$
+\end_inset
+
+ operators for operating on the rotation manifold within our kalman filtering
+ framework.
+ 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align}
+\boxplus & :SO\left(3\right)\times\mathbb{R}^{3}\rightarrow SO\left(3\right)\nonumber \\
+ & q,\theta\mapsto q\otimes\exp\left(\theta\right)\\
+\boxminus & :SO\left(3\right)\times SO\left(3\right)\rightarrow\mathbb{R}^{3}\nonumber \\
+ & q,p\mapsto\log\left(p^{-1}\otimes q\right)
+\end{align}
+
+\end_inset
+
+These operators, as described in 
+\begin_inset CommandInset citation
+LatexCommand citet
+key "Hertzberg2013"
+
+\end_inset
+
+, abstracts the Lie algebra manipulation and allows us to consider Quaternions
+ and vectors homogenously.
+ As a specific example, they can be used to add rotation pertubations to
+ quaternions and to difference quaternions as shown below
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{eqnarray*}
+q_{t+1} & = & q_{t}\boxplus\theta\\
+\theta & = & q_{1}\boxminus q_{2}
+\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Bearing Vectors
+\end_layout
+
+\begin_layout Standard
+We have to find some way to parameterize the bearing vectors to features
+ using the 
+\begin_inset Formula $\boxplus$
+\end_inset
+
+ and 
+\begin_inset Formula $\boxminus$
+\end_inset
+
+ operators.
+ While the most obvious parameterization would seem to be unit vectors on
+ 
+\begin_inset Formula $S^{2}$
+\end_inset
+
+, there is no way to define a set of orthonormal vectors which span the
+ space such that a suitable difference operator can be defined.
+\end_layout
+
+\begin_layout Standard
+Instead, we will use rotations in 
+\begin_inset Formula $SE(3)$
+\end_inset
+
+ to define the representation.
+ Let 
+\begin_inset Formula $\zeta_{i}$
+\end_inset
+
+ be the 3D unit vector directed at feature 
+\begin_inset Formula $i$
+\end_inset
+
+, with respect to the camera frame 
+\begin_inset Formula $\mathcal{C}$
+\end_inset
+
+.
+ We then define 
+\begin_inset Formula $q_{C}^{\zeta_{i}}$
+\end_inset
+
+as the quaternion rotation between 
+\begin_inset Formula $e_{z}$
+\end_inset
+
+, the z-axis of the camera frame and the 3D unit bearing vector
+\begin_inset Formula $\zeta_{i}$
+\end_inset
+
+.
+ The change between two 3D unit vectors 
+\begin_inset Formula $\zeta_{i}$
+\end_inset
+
+ and 
+\begin_inset Formula $\zeta_{j}$
+\end_inset
+
+ can be described using an axis-angle representation, where the direction
+ of the axis of rotation is perpendicular to the 3D unit vectors, and is
+ scaled by the angle.
+ This is illustrated in Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:bearing_vector_geometry"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/feature_diagram.eps
+	width 80col%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:bearing_vector_geometry"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Illustration of Bearing Vector Geometry
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+As can be seen in the picture, there are only 2 degrees of freedom in this
+ parameterization because the axis of rotation is always in the plane normal
+ to 
+\begin_inset Formula $\zeta_{i}$
+\end_inset
+
+.
+ Therefore, we can define a projection matrix 
+\begin_inset Formula $T_{\zeta}$
+\end_inset
+
+, which reduces the dimensionality of the axis-angle representation to this
+ plane.
+ 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\boldsymbol{\zeta}=R\left(q_{c}^{\zeta}\right)^{\top}\boldsymbol{e}_{z}\in\mathcal{S}^{2}\subset\mathbb{R}^{3}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+T_{\zeta}=R\left(q_{c}^{\zeta}\right)^{\top}\left[\begin{array}{cc}
+\boldsymbol{e}_{x} & \boldsymbol{e}_{y}\end{array}\right]\in\mathbb{R}^{3\times2}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Using this parameterization, we can now define the 
+\begin_inset Formula $\boxplus$
+\end_inset
+
+ and 
+\begin_inset Formula $\boxminus$
+\end_inset
+
+ operators of this space.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align}
+\boxplus & :SO\left(3\right)\times\mathbb{R}^{2}\rightarrow SO\left(3\right),\nonumber \\
+ & \boldsymbol{q}_{\zeta},\boldsymbol{u}\mapsto\exp(T_{\zeta}\boldsymbol{u})\otimes\boldsymbol{q}_{\zeta},\label{eq:feat_boxplus}\\
+\boxminus & :SO\left(3\right)\times SO\left(3\right)\rightarrow\mathbb{R}^{2},\nonumber \\
+ & \boldsymbol{q}_{\zeta_{i}},\boldsymbol{q}_{\zeta_{j}}\mapsto T_{\zeta_{j}}^{\top}\theta s\left(q_{\zeta_{i}},q_{\zeta_{j}}\right),\label{eq:feat_boxminus}
+\end{align}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+where 
+\begin_inset Formula $\theta$
+\end_inset
+
+ is the angle between the two unit bearing vectors 
+\begin_inset Formula $\zeta_{i}$
+\end_inset
+
+ and 
+\begin_inset Formula $\zeta_{j}$
+\end_inset
+
+
+\begin_inset Formula 
+\begin{equation}
+\theta=\cos^{-1}\left(\zeta_{i}^{\top}\zeta_{j}\right)
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+and 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+s\left(q_{\zeta_{i}},q_{\zeta_{j}}\right)=\dfrac{\zeta_{j}\times\zeta_{i}}{\lVert\zeta_{j}\times\zeta_{i}\rVert}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+is the axis of rotation.
+\end_layout
+
+\begin_layout Standard
+Unlike attitude quaternions, there are only two degrees of freedom associated
+ with feature bearings.
+ This results in an infinite number of quaternions which can describe the
+ same 
+\begin_inset Formula $\zeta$
+\end_inset
+
+ bearing vector.
+ This parameterization departs slightly from the requirements specified
+ by 
+\begin_inset CommandInset citation
+LatexCommand citet
+key "Hertzberg2013"
+
+\end_inset
+
+, but still sufficiently represents feature bearings on the smooth 
+\begin_inset Formula $SE\left(3\right)$
+\end_inset
+
+ manifold.
+ Intuitively speaking, we do not care about any rotation about the feature
+ bearing vector, but the quaternion representaiton may accumulate it.
+ Because the difference operator operates primarily on the 
+\begin_inset Formula $\zeta$
+\end_inset
+
+ vectors between two quaternions, the freewheeling dimension in the quaternion
+ representation is mapped to the null space, and the difference is unambiguous,
+ despite having an extra degree of freedom.
+\end_layout
+
+\begin_layout Section*
+Continuous-Discrete EKF Equations
+\end_layout
+
+\begin_layout Standard
+Using the parameterizations above, we can now define the continuous-discrete
+ EKF framework, using the manifold represenations and the 
+\begin_inset Formula $\boxplus$
+\end_inset
+
+/
+\begin_inset Formula $\boxminus$
+\end_inset
+
+ abstraction.
+\end_layout
+
+\begin_layout Subsection
+Prediction
+\end_layout
+
+\begin_layout Standard
+The state and covariance dynamics are shown in Equation 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:prediction_step"
+
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\begin{aligned}\dxhat & =f\left(\xhat,\mathbf{\u}\right)\\
+A & =\left.\frac{\partial f}{\partial\x}\right|_{\x=\xhat}\\
+G & =\left.\frac{\partial f}{\partial\u}\right|_{\x=\xhat}\\
+\dot{P} & =AP+PA^{\top}+GQ_{\u}G+Q_{\x}
+\end{aligned}
+\label{eq:prediction_step}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+These dynamics can be integrated using euler integration on the manifold
+ with 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\begin{aligned}\xhat\left(t\right) & =\xhat\left(t-dt\right)\boxplus\dot{\x}dt\\
+P\left(t\right) & =P\left(t-dt\right)+\dot{P}dt
+\end{aligned}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Update for Measurement 
+\begin_inset Formula $y$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Equation 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:update_step"
+
+\end_inset
+
+ is a direct update on the manifold for some measurement model 
+\begin_inset Formula $h_{y}\left(\x\right)$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\begin{aligned}H_{y} & =\frac{\partial h_{y}}{\partial\x}\\
+K & =PH_{y}^{\top}\left(R_{y}+HPH^{\top}\right)^{-1}\\
+P^{+} & =(I-KH_{y})P^{-}\\
+\hat{\x}^{+} & =\hat{\x}^{-}\boxplus K\left(\mathbf{z}_{y}\boxminus h_{y}\left(\hat{\x}\right)\right)
+\end{aligned}
+\label{eq:update_step}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+State Definition
+\end_layout
+
+\begin_layout Standard
+For the multirotor agent, we define the estimator state as follows:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}p_{bI}^{I} & \quad\textrm{position of MAV body frame w.r.t. inertial frame, expressed in inertial frame}\\
+v_{b/I}^{b} & \quad\textrm{velocity of MAV w.r.t. inertial frame, expressed in the body frame}\\
+q_{I}^{b} & \quad\textrm{rotation from inertial to body frame, expressed in the inertial frame as a unit quaternion}\\
+\beta_{a} & \quad\textrm{accelerometer constant bias}\\
+\beta_{\omega} & \quad\textrm{rate gyroscope constant bias}\\
+\mu & \quad\textrm{constant linear drag term}\\
+q_{c}^{\zeta_{i}} & \quad\textrm{rotation from the camera z axis to the unit bearing vector directed at feature }i\textrm{ expressed in the camera frame as a unit quaternion}\\
+\rho_{i} & \quad\textrm{inverse depth to feature }i
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\boldsymbol{x}=\left[p_{bI}^{I},v_{b/I}^{b},q_{I}^{b},\beta_{a},\beta_{\omega},\mu,q_{c}^{\zeta_{0}}\cdots q_{c}^{\zeta_{n}},\rho_{0}\cdots\rho_{n}\right]^{\top}
+\]
+
+\end_inset
+
+Where 
+\begin_inset Formula $x$
+\end_inset
+
+ is a 
+\begin_inset Formula $17+5n$
+\end_inset
+
+ vector.
+\end_layout
+
+\begin_layout Standard
+The covariance matrix 
+\begin_inset Formula $P$
+\end_inset
+
+, which is defined as 
+\begin_inset Formula 
+\[
+P=E\left[\hat{\boldsymbol{x}}\boxminus\boldsymbol{x}\right]E\left[\hat{\boldsymbol{x}}\boxminus\boldsymbol{x}\right]^{\top}
+\]
+
+\end_inset
+
+is a 
+\begin_inset Formula $\left(16+3n\right)\times\left(16+3n\right)$
+\end_inset
+
+ matrix, due to the nature of the 
+\begin_inset Formula $\boxminus$
+\end_inset
+
+ operator and the underlying parameterization of 
+\begin_inset Formula $\boldsymbol{x}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The system is mechanized using IMU sensor measurements 
+\begin_inset Formula $y_{a}$
+\end_inset
+
+ and 
+\begin_inset Formula $y_{\omega}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\boldsymbol{u} & =\left[\begin{array}{c}
+y_{a}\\
+y_{\omega}
+\end{array}\right]\end{aligned}
+\in\mathbb{R}^{6\times1}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Dynamics
+\end_layout
+
+\begin_layout Standard
+Now that we have defined all the relevant parameterizations, we can define
+ the dynamics for our system.
+ We will use generic rigid-body dynamics mechanized by acceleration and
+ angular velocity inputs 
+\begin_inset Formula $\boldsymbol{y}_{a}$
+\end_inset
+
+ and 
+\begin_inset Formula $\boldsymbol{y}_{\omega}$
+\end_inset
+
+ respectively.
+ A rigorous derivation of feature bearing vector and depth dynamics are
+ given in the appendix.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\begin{aligned}\dot{p}_{bI}^{I} & =R^{\top}\left(q_{I}^{b}\right)v_{bI}^{b}\\
+v_{b/I}^{b} & =R\left(q_{I}^{b}\right)^{\top}g+\left[\begin{array}{ccc}
+0 & 0 & 0\\
+0 & 0 & 0\\
+0 & 0 & 1
+\end{array}\right]\left(y_{a}-\beta_{a}\right)-\mu_{t}\left[\begin{array}{ccc}
+1 & 0 & 0\\
+0 & 1 & 0\\
+0 & 0 & 0
+\end{array}\right]v_{b/I}^{b}+\eta_{v}\\
+\dot{q}_{I}^{b} & =y_{\omega}-\beta_{\omega}\\
+\dot{\beta}_{a} & =\eta_{\beta_{a}}\\
+\dot{\beta}_{\omega} & =\eta_{\beta_{\boldsymbol{\omega}}}\\
+\dot{\mu} & =\eta_{\mu}\\
+\dot{q}_{c}^{\zeta_{i}} & =T_{\zeta}^{\top}\left(-\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\omega_{c/I}^{I}\right)\\
+\dot{\rho_{i}} & =\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}v_{c/I}^{c}
+\end{aligned}
+\label{eq:full_dynamics}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+State Jacobians	
+\end_layout
+
+\begin_layout Standard
+We now want the derivative of the state propagation function with respect
+ to the state 
+\begin_inset Formula $F=\frac{\partial\dot{\boldsymbol{x}}}{\partial\boldsymbol{x}}$
+\end_inset
+
+.
+ 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+F=\left[\begin{array}{ccccccccc}
+0 & R\left(q_{I}^{b}\right)^{\top} & \left\lfloor v_{bI}^{b}\right\rfloor  & 0 & 0 & 0 & \cdots & 0 & 0\\
+0 & -\mu\left[\begin{array}{ccc}
+1 & 0 & 0\\
+0 & 1 & 0\\
+0 & 0 & 0
+\end{array}\right] & -\left\lfloor R\left(q_{I}^{b}\right)g\right\rfloor  & -\hat{k}\hat{k}^{\top} & 0 & \left[\begin{array}{ccc}
+1 & 0 & 0\\
+0 & 1 & 0\\
+0 & 0 & 0
+\end{array}\right]v_{b/I}^{b} & \cdots & 0 & 0\\
+0 & 0 & 0 & 0 & 0 & -I_{3\times3} & \cdots & 0 & 0\\
+0 & 0 & 0 & 0 & 0 & 0 & \cdots & 0 & 0\\
+0 & 0 & 0 & 0 & 0 & 0 & \cdots & 0 & 0\\
+0 & 0 & 0 & 0 & 0 & 0 & \cdots & 0 & 0\\
+\vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \ddots & \vdots & \vdots\\
+0 & 0 & 0 & 0 & \dfrac{\partial\dot{q}_{c}^{\zeta_{i}}}{\partial\beta_{\omega}} & 0 & \cdots & \dfrac{\partial\dot{q}_{c}^{\zeta_{i}}}{\partial q_{c}^{\zeta_{i}}} & \dfrac{\partial\dot{q}_{c}^{\zeta_{i}}}{\partial\rho_{i}}\\
+0 & \dfrac{\partial\dot{\rho}_{i}}{\partial v_{b/i}^{i}} & 0 & 0 & \dfrac{\partial\dot{\rho}_{i}}{\partial\beta_{\omega}} & 0 & \cdots & \dfrac{\partial\dot{\rho}_{i}}{\partial q_{c}^{\zeta_{i}}} & \dfrac{\partial\dot{\rho}_{i}}{\partial\rho_{i}}
+\end{array}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\dfrac{\partial\dot{q}_{c}^{\zeta_{i}}}{\partial\beta_{\omega}} & =T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor R\left(q_{b}^{c}\right)\left\lfloor p_{cb}^{b}\right\rfloor -R\left(q_{b}^{c}\right)\right)\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\dfrac{\partial\dot{q}_{c}^{\zeta_{i}}}{\partial q_{c}^{\zeta_{i}}} & =-T_{\zeta}^{\top}\left\lfloor \rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right\rfloor \left(\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \right)T_{\zeta}\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\dfrac{\partial\dot{q}_{c}^{\zeta_{i}}}{\partial\rho_{i}} & =T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/i}^{c}\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial\dot{\rho_{i}}}{\partial v_{b/i}^{i}} & =\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial\dot{\rho_{i}}}{\partial\beta_{\omega}} & =\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)\left\lfloor p_{cb}^{b}\right\rfloor \end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial\dot{\rho_{i}}}{\partial q_{c}^{\zeta_{i}}} & =\rho_{i}^{2}\left(v_{c/i}^{c}\right)^{\top}\left\lfloor \zeta\right\rfloor T_{\zeta}\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial}{\partial\rho_{i}}\dot{\rho_{i}} & =2\rho_{i}\left(\zeta_{i}^{c}\right)^{\top}v_{c/i}^{c}\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Input Jacobians
+\end_layout
+
+\begin_layout Standard
+Now, we want the jacobian for mapping 
+\begin_inset Formula $G=\frac{\partial\dot{\boldsymbol{x}}}{\partial\boldsymbol{u}}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+G=\left[\begin{array}{ccccccccc}
+0 & \hat{k}\hat{k}^{\top} & 0 & 0 & 0 & 0 & \cdots & 0 & 0\\
+0 & \left\lfloor v_{b/I}^{b}\right\rfloor  & -I_{3\times3} & 0 & 0 & 0 & \cdots & \dfrac{\partial\dot{q}_{c}^{\zeta_{i}}}{\partial y_{\omega}} & \dfrac{\partial\dot{\rho}_{i}}{\partial y_{\omega}}
+\end{array}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\dfrac{\partial\dot{q}_{c}^{\zeta_{i}}}{\partial y_{\omega}} & =T_{\zeta}^{\top}\left(R\left(q_{b}^{c}\right)-\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor R\left(q_{b}^{c}\right)\left\lfloor p_{cb}^{b}\right\rfloor \right)\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial\dot{\rho_{i}}}{\partial y_{\omega}} & =\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)\left\lfloor p_{cb}^{b}\right\rfloor \end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Measurement Models
+\end_layout
+
+\begin_layout Subsection
+Accelerometer
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}h_{acc}\left(x,u,\eta_{a}\right) & =I_{2\times3}\left(-\mu v_{b/i}^{b}+\beta_{a}+\eta_{a}\right)\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+H_{acc}=\left[\begin{array}{ccccccccc}
+0 & -\mu I_{2\times3} & 0 & I_{2\times3} & 0 & -I_{2\times3}v_{b/i}^{b} & \cdots & 0 & 0\end{array}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Altimeter
+\end_layout
+
+\begin_layout Standard
+Assuming a flat earth, the altimeter directly measures altitude
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}h_{alt}(x, & u,\eta_{alt})\end{aligned}
+=-\hat{k}^{\top}p_{bI}^{I}+\eta_{alt}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial h_{alt}}{\partial x} & =\left[\begin{array}{cccccccc}
+-\hat{k}^{\top} & 0 & 0 & 0 & 0 & 0 & 0\cdots0 & 0\cdots0\end{array}\right]\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Feature Point
+\end_layout
+
+\begin_layout Standard
+We assume that we have a known camera calibration matrix of the following
+ form
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}K & =\left[\begin{array}{ccc}
+f_{x} & s & x_{0}\\
+0 & f_{y} & y_{0}\\
+0 & 0 & 1
+\end{array}\right]\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Which maps world 
+\begin_inset Formula $\left[\begin{array}{ccc}
+X & Y & Z\end{array}\right]^{\top}$
+\end_inset
+
+units to images pixels 
+\begin_inset Formula $\left[\begin{array}{ccc}
+u & v & 1\end{array}\right]^{\top}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\left[\begin{array}{c}
+u\\
+v\\
+1
+\end{array}\right]=K\left[\begin{array}{c}
+X\\
+Y\\
+Z
+\end{array}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Without depth information, we can only find a vector directed at a feature
+ 
+\begin_inset Formula $i$
+\end_inset
+
+ in the camera frame to a scale factor, by inverting the camera matrix
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+K^{-1}\left[\begin{array}{c}
+u\\
+v\\
+1
+\end{array}\right]=\left[\begin{array}{c}
+X\\
+Y\\
+Z
+\end{array}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+If we normalize 
+\begin_inset Formula $\left[\begin{array}{ccc}
+X & Y & Z\end{array}\right]^{\top}$
+\end_inset
+
+, then we get a direct measurement of 
+\begin_inset Formula $\zeta_{i}$
+\end_inset
+
+.
+ We then use this to create a measurement of the quaternion to the bearing
+ vector 
+\begin_inset Formula $q_{c}^{\zeta_{i}}$
+\end_inset
+
+ using the following expression:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}q_{c}^{\zeta_{i}} & =\left[\begin{array}{c}
+\frac{\sqrt{2\left(1+e_{z}^{\top}\zeta\right)}}{2}\\
+\frac{\left\lfloor e_{z}\right\rfloor \zeta}{\sqrt{2\left(1+e_{z}^{\top}\zeta\right)}}
+\end{array}\right]\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Then, we can directly update the state on the manifold.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}h_{\zeta_{i}}(x,u) & =q_{c}^{\zeta_{i}}\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial h_{\zeta_{i}}}{\partial q_{c}^{\zeta_{i}}}=I_{2\times2}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Pixel Velocity Measurement
+\end_layout
+
+\begin_layout Standard
+Let's assume we have some measurement of pixel velocity, 
+\begin_inset Formula $\tfrac{d\lambda}{dt}=\left[\begin{array}{ccc}
+\tfrac{du}{dt} & \tfrac{dv}{dt} & 0\end{array}\right]^{\top}$
+\end_inset
+
+ which could come from motion blur, optical flow or some similar measurement.
+ If we look at the pinhole camera model, shown in figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:pinhole_camera"
+
+\end_inset
+
+.
+ We can approximate 
+\begin_inset Formula $\tfrac{d\lambda}{dt}$
+\end_inset
+
+ as an angular velocity about the camera frame origin.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+placement h
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/pixel_vel_diagram.eps
+	lyxscale 50
+	width 80text%
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:pinhole_camera"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Pinhole Camera Geometry
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+3D rigid body dynamics require that angular velocity is defined as
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}v & =\omega\times r\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In the case of pixel measurements, the moment arm is the camera z-axis 
+\begin_inset Formula $e_{z}$
+\end_inset
+
+ times the focal length 
+\begin_inset Formula $f$
+\end_inset
+
+ and the velocity vector is given by 
+\begin_inset Formula $\dot{\lambda}=\tfrac{d\lambda}{dt}$
+\end_inset
+
+, and the angular velocity is given by 
+\begin_inset Formula $\omega_{i}=T_{\zeta}\dot{q}_{c}^{\zeta_{i}}$
+\end_inset
+
+.
+ Therefore the measurement model is as follows, (using the identity 
+\begin_inset Formula $T_{\zeta}T_{\zeta}^{\top}=I-\zeta\zeta^{\top}$
+\end_inset
+
+, and keeping in camera-fixed dynamics to simplify terms):
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+\begin{aligned}h_{\dot{\lambda}}(x,u,\eta_{\dot{\lambda}}) & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor T_{\zeta}T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\omega_{c/I}^{I}\right)\end{aligned}
+\label{eq:pixel_velocity_model}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Differentiating Eq.
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:pixel_velocity_model"
+
+\end_inset
+
+ with respect to the state yields the following Jacobian
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+H_{\lambda}=\left[\begin{array}{ccccccccc}
+0 & \dfrac{\partial h_{\lambda}}{\partial v_{b/i}^{b}} & 0 & 0 & \dfrac{\partial h_{\lambda}}{\partial\beta_{\omega}} & 0 & \cdots & \dfrac{\partial h_{\lambda}}{\partial q_{c}^{\zeta_{i}}} & \dfrac{\partial h_{\lambda}}{\partial\rho_{i}}\end{array}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial h_{\dot{\lambda}}}{\partial v_{b/I}^{b}} & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial h_{\dot{\lambda}}}{\partial q_{c}^{\zeta}} & =I_{2\times3}\left\lfloor fe_{z}\right\rfloor \rho_{i}\left\lfloor v_{c/I}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial h_{\dot{\lambda}}}{\partial\rho} & =-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}\frac{\partial h_{\dot{\lambda}}}{\partial\beta_{\omega}} & =I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\left(R\left(q_{b}^{c}\right)-\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor R\left(q_{b}^{c}\right)\left\lfloor p_{cb}^{b}\right\rfloor \right)\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Depth Measurement
+\end_layout
+
+\begin_layout Standard
+Assuming that we had a measurement of depth to a feature, we could employ
+ the following model:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+h_{\rho}(x,u,\eta_{\rho})=\frac{1}{\rho_{i}}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Remembering that 
+\begin_inset Formula $\rho_{i}$
+\end_inset
+
+ is the inverse depth to feature 
+\begin_inset Formula $i$
+\end_inset
+
+.
+ The Jacobian is then as follows:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial h_{\rho}}{\partial\rho_{i}}=-\frac{1}{\rho_{i}^{2}}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Inverse Depth Measurement
+\end_layout
+
+\begin_layout Standard
+Assuming that we had a measurement of inverse depth to a feature, we could
+ employ the following model:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+h_{\rho}(x,u,\eta_{\rho})=\rho_{i}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial h_{\rho}}{\partial\rho_{i}}=1
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Velocity Measurement
+\end_layout
+
+\begin_layout Standard
+If we employ an some measurement of body-fixed velocity, 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+h_{v}\left(x,u,\eta_{v}\right)=v_{b/I}^{b}+\eta_{v}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial h_{v}}{\partial v_{b/i}^{b}}=I\in\mathbb{R}^{3\times3}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Attitude Measurement
+\end_layout
+
+\begin_layout Standard
+If we employ an some measurement of attitude,
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+h_{q}\left(x,u,\eta_{v}\right)=q_{I}^{b}+\eta_{q}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial h_{q}}{\partial q_{I}^{b}}=I\in\mathbb{R}^{3\times3}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Position Measurement
+\end_layout
+
+\begin_layout Standard
+If we have some sort of global position measurement, we could employ the
+ following measurement model:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+h_{p}\left(x,u,\eta_{v}\right)=p_{bI}^{I}+\eta_{v}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial h_{p}}{\partial p_{bI}^{I}}=I\in\mathbb{R}^{3\times3}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section*
+Results
+\end_layout
+
+\begin_layout Standard
+This filter was demonstrated on a quadcopter robot (shown in Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:leo"
+
+\end_inset
+
+) carrying a monocular Ocam 1CGN-U1MP global shutter camera and an i7-4500U
+ processor with 8GB of RAM.
+ The onboard IMU was a statically calibrated MPU6050 recorded at 500Hz.
+ Flight control was performed using the ROSflight autopilot architecture.
+ Truth was supplied with a OptiTrack motion-capture system at Brigham Young
+ University.
+ Camera images and IMU measurements were not directly coupled, so relative
+ timestamps between the two sensers were estimated to be accurate to within
+ 1ms, but had small amounts of noise.
+ This is typical of a low-cost visual-inertial setup.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+placement h
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/Leo.eps
+	width 80text%
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:leo"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Multirotor Robot used in hardware demonstration with coordinate frames for
+ camera and IMU shown.
+ State estimation is performed in the IMU frame.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+The Figures 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:position_results"
+
+\end_inset
+
+, 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:velocity_results"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:attitude_results"
+
+\end_inset
+
+ show the performance of our estimator during this hardware demonstration,
+ while tracking 9 features.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+placement h
+wide false
+sideways false
+status collapsed
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/plots/x_euler.png
+	lyxscale 12
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:attitude_results"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Attitude estimation results of hardware demonstration in euler angles
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\begin_inset Float figure
+placement h
+wide false
+sideways false
+status collapsed
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/plots/x_vel.png
+	lyxscale 12
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:velocity_results"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Velocity estimation results of hardware demonstration, expressed in the
+ body frame
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\begin_inset Float figure
+placement h
+wide false
+sideways false
+status collapsed
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/plots/x_pos.png
+	lyxscale 12
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:position_results"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Position estimation results of hardware demonstration, expressed in inertial
+ coordinates
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section*
+Conclusion
+\end_layout
+
+\begin_layout Standard
+In this report we have derived and demonstrated an Extended Kalman Filter
+ which uses direct updates on the manifold for proper representation of
+ attitude and feature bearing for a multirotor robot agent.
+ We have given the closed-form expression for all relevant Jacobians used
+ in this filter, and the expression for a number of measurement models,
+ including pixel velocity measurements.
+ We have also merged the use of the drag model proposed by 
+\begin_inset CommandInset citation
+LatexCommand citet
+key "Leishman2014b"
+
+\end_inset
+
+ to improve velocity estimation within the filter.
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset bibtex
+LatexCommand bibtex
+bibfiles "/home/superjax/Code/bibtex/Visual Odometry"
+options "upmplainnat"
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document

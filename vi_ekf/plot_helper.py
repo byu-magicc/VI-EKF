@@ -104,7 +104,7 @@ def plot_cube(q_I_b, zetas, zeta_truth):
     plt.ioff()
     plt.pause(0.001)
 
-def plot_3d_trajectory(position, orientation, qzetas=None, depths=None):
+def plot_3d_trajectory(position, orientation, qzetas=None, depths=None, p_b_c=np.zeros((3,1)), q_b_c=Quaternion.Identity()):
     plt.figure(2)
     ax = plt.subplot(111, projection='3d')
     plt.plot(position[:1, 0],
@@ -122,17 +122,18 @@ def plot_3d_trajectory(position, orientation, qzetas=None, depths=None):
     for i in range(len(position)/100):
         j = i*100
         q_i_b = Quaternion(orientation[j,:,None])
-        origin = position[j,:,None]
-        x_end = origin + q_i_b.rot(e_x)
-        y_end = origin + q_i_b.rot(e_y)
-        z_end = origin + q_i_b.rot(e_z)
-        plt.plot([origin[0, 0], x_end[0, 0]], [origin[1, 0], x_end[1, 0]], [origin[2, 0], x_end[2, 0]], 'r-')
-        plt.plot([origin[0, 0], y_end[0, 0]], [origin[1, 0], y_end[1, 0]], [origin[2, 0], y_end[2, 0]], 'g-')
-        plt.plot([origin[0, 0], z_end[0, 0]], [origin[1, 0], z_end[1, 0]], [origin[2, 0], z_end[2, 0]], 'b-')
+        body_pos = position[j,:,None]
+        x_end = body_pos + q_i_b.rot(e_x)
+        y_end = body_pos + q_i_b.rot(e_y)
+        z_end = body_pos + q_i_b.rot(e_z)
+        plt.plot([body_pos[0, 0], x_end[0, 0]], [body_pos[1, 0], x_end[1, 0]], [body_pos[2, 0], x_end[2, 0]], 'r-')
+        plt.plot([body_pos[0, 0], y_end[0, 0]], [body_pos[1, 0], y_end[1, 0]], [body_pos[2, 0], y_end[2, 0]], 'g-')
+        plt.plot([body_pos[0, 0], z_end[0, 0]], [body_pos[1, 0], z_end[1, 0]], [body_pos[2, 0], z_end[2, 0]], 'b-')
         if qzetas is not None:
             colors = get_colors(len(qzetas), plt.cm.jet)
+            camera_pos = body_pos + q_i_b.invrot(p_b_c)
             for qz, d, col in zip(qzetas, depths, colors):
                 q_c_z = Quaternion(qz[j,:,None])
-                zeta_end = origin + q_i_b.invrot(q_c_z.rot(10.*e_z*d[j,0]))
-                plt.plot([origin[0, 0], zeta_end[0, 0]], [origin[1, 0], zeta_end[1, 0]], [origin[2, 0], zeta_end[2, 0]], '--', color=col, lineWidth='0.25')
+                zeta_end = camera_pos + q_i_b.invrot(q_b_c.rot(q_c_z.rot(10.*e_z*d[j,0])))
+                plt.plot([camera_pos[0, 0], zeta_end[0, 0]], [camera_pos[1, 0], zeta_end[1, 0]], [camera_pos[2, 0], zeta_end[2, 0]], '--', color=col, lineWidth='0.25')
     plt.show()

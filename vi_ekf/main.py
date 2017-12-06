@@ -8,10 +8,11 @@ from plot_helper import plot_3d_trajectory
 
 # data = ETHData(filename='/mnt/pccfs/not_backed_up/eurocmav/V1_01_easy/mav0', start=5.0, end=120.0, sim_features=True, load_new=True)
 # data = ROSbagData(filename='data/truth_imu_flight.bag', start=30.0, end=68.0, sim_features=True, load_new=True)
-data = ROSbagData(filename='data/truth_imu_depth_mono.bag', start=8.0, end=68.0, sim_features=True, load_new=False)
+data = ROSbagData(filename='data/truth_imu_depth_mono.bag', start=8.0, end=68.0, sim_features=True, load_new=True)
 data.__test__()
 
 ekf = viekf.VI_EKF(data.x0)
+ekf.set_camera_to_IMU(data.data['p_b_c'], data.data['q_b_c'])
 h = History()
 
 for i, (t, pos, vel, att, gyro, acc, qzetas, depths, ids) in enumerate(tqdm(data)):

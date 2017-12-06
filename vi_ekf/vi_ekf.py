@@ -36,19 +36,19 @@ class VI_EKF():
         self.x = x0
 
         # Process noise matrix for the 16 main delta states
-        self.Qx = np.diag([0.000, 0.000, 0.000,     # pos
-                           0.01, 0.01, 0.01,     # vel
-                           0.000, 0.000, 0.000,     # att
+        self.Qx = np.diag([0.001, 0.001, 0.001,     # pos
+                           0.1, 0.1, 0.1,     # vel
+                           0.005, 0.005, 0.005,     # att
                            1e-7, 1e-7, 1e-7,  # b_acc
                            1e-8, 1e-8, 1e-8,  # b_omega
                            0.0])                  # mu
 
         # process noise matrix for the features (assumed all the same) 3x3
-        self.Qx_feat = np.diag([0.000, 0.000, 0.00]) # x, y, and 1/depth
+        self.Qx_feat = np.diag([0.001, 0.001, 0.01]) # x, y, and 1/depth
 
         # Process noise assumed from inputs (mechanized sensors)
-        self.Qu = np.diag([0.005, 0.005, 0.005,        # y_acc
-                           0.0001, 0.0001, 0.0001])    # y_omega
+        self.Qu = np.diag([0.05, 0.05, 0.05,        # y_acc
+                           0.001, 0.001, 0.001])    # y_omega
 
 
 
@@ -59,7 +59,7 @@ class VI_EKF():
                            0.001, 0.001, 0.001,     # att
                            1e-2, 1e-2, 1e-3,        # b_acc
                            1e-3, 1e-3, 1e-3,        # b_omega
-                           1e-9])                   # mu
+                           1e-7])                   # mu
 
         # Initial Covariance estimate for new features
         self.P0_feat = np.diag([0.01, 0.01, 0.1]) # x, y, and 1/depth
@@ -390,8 +390,8 @@ class VI_EKF():
 
             #################################
             ## FEATURE INPUT JACOBIAN
-            self.G[dxZETA_i:dxZETA_i+2, uG:uG+3] = T_z.T.dot(R_b_c - rho*skew_zeta.dot(R_b_c).T.dot(skew_p_b_c))
-            self.G[dxRHO_i, uG:] = rho2*zeta.T.dot(R_b_c).dot(skew_p_b_c)
+            self.G[dxZETA_i:dxZETA_i+2, uG:uG+3] = T_z.T.dot(R_b_c + rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c))
+            self.G[dxRHO_i, uG:] = -rho2*zeta.T.dot(R_b_c).dot(skew_p_b_c)
 
         return self.dx, self.A, self.G
 

@@ -253,6 +253,12 @@ class Quaternion():
         return Quaternion(np.array([[1.0, 0, 0, 0]]).T)
 
     @staticmethod
+    def random():
+        arr = np.random.uniform(-1, 1, (4,1))
+        arr /= norm(arr)
+        return Quaternion(arr)
+
+    @staticmethod
     def log(q):
         assert isinstance(q, Quaternion)
 

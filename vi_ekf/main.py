@@ -45,6 +45,8 @@ for i, (t, pos, vel, att, gyro, acc, qzetas, depths, ids) in enumerate(tqdm(data
             h.store(t, id, zeta_hat=ekf.get_zeta(id), depth_hat=depth_hat, depth=depth)
             h.store(t, id, qzeta=qzeta, qzeta_hat=qzeta_hat)
 
+quit()
+
 # plot
 if True:
     # convert all our linked lists to contiguous numpy arrays and initialize the plot parameters
@@ -71,7 +73,10 @@ if True:
 
     for i in np.unique(h.ids):
         plot_side_by_side('x_feat_{}'.format(i), 0, 3, h.t.zeta_hat[i], h.zeta_hat[i], truth_t=h.t.zeta[i], truth=h.zeta[i], labels=['x', 'y', 'z'])
+        plot_side_by_side('x_qfeat_{}'.format(i), 0, 4, h.t.qzeta_hat[i], h.qzeta_hat[i], truth_t=h.t.qzeta[i],
+                          truth=h.qzeta[i], labels=['w','x', 'y', 'z'])
         plot_side_by_side('x_rho_{}'.format(i), 0, 1, h.t.depth_hat[i], h.depth_hat[i], truth_t=h.t.depth[i], truth=h.depth[i], labels=[r'$\frac{1}{\rho}$'], cov_bounds=(3*i+2, 3*i+3))
+
 
         plot_side_by_side('z_zeta_{}_residual'.format(i), 0, 2, h.t.zeta_res[i], h.zeta_res[i], labels=['x', 'y'])
         plot_side_by_side('z_depth_{}_residual'.format(i), 0, 1, h.t.depth_res[i], h.depth_res[i], labels=['rho'])

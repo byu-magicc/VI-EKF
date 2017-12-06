@@ -114,6 +114,11 @@ class VI_EKF():
         self.last_propagate = None
         self.initialized = False
 
+    def set_camera_to_IMU(self, translation, rotation):
+        assert translation.shape == (3,1) and isinstance(rotation, Quaternion)
+        self.p_b_c = translation
+        self.q_b_c = rotation
+
     # Returns the depth to all features
     def get_depths(self):
         return 1./self.x[xZ+4::5]
@@ -327,7 +332,7 @@ class VI_EKF():
 
         ###################################
         # STATE JACOBIAN
-        self.A[dxPOS:dxPOS+3, dxVEL:dxVEL+3] = q_I_b.R.T
+        self.A[dxPOS:dxPOS+3, dxVEL:dxVEL+3] = q_I_b.R
         self.A[dxPOS:dxPOS+3, dxATT:dxATT+3] = skew(vel_I)
         if self.use_drag_term:
             self.A[dxVEL:dxVEL+3, dxVEL:dxVEL+3] = - mu*I_2x3.T.dot(I_2x3)
@@ -375,7 +380,7 @@ class VI_EKF():
             #################################
             ## FEATURE STATE JACOBIAN
             self.A[dxZETA_i:dxZETA_i+2, dxVEL:dxVEL+3] = -rho*T_z.T.dot(skew_zeta).dot(R_b_c)
-            self.A[dxZETA_i:dxZETA_i+2, dxB_G:dxB_G+3] = T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c) - R_b_c)
+            self.A[dxZETA_i:dxZETA_i+2, dxB_G:dxB_G+3] = -T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c) + R_b_c)
             self.A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = T_z.T.dot(skew(omega_c_i - rho*skew_zeta.dot(vel_c_i)) - (rho*skew_vel_c.dot(skew_zeta))).dot(T_z)
             self.A[dxZETA_i:dxZETA_i+2, dxRHO_i,None] = -T_z.T.dot(skew_zeta).dot(vel_c_i)
             self.A[dxRHO_i, dxVEL:dxVEL+3] = rho2*zeta.T.dot(R_b_c)
@@ -385,7 +390,7 @@ class VI_EKF():
 
             #################################
             ## FEATURE INPUT JACOBIAN
-            self.G[dxZETA_i:dxZETA_i+2, uG:uG+3] = T_z.T.dot(R_b_c - rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c))
+            self.G[dxZETA_i:dxZETA_i+2, uG:uG+3] = T_z.T.dot(R_b_c - rho*skew_zeta.dot(R_b_c).T.dot(skew_p_b_c))
             self.G[dxRHO_i, uG:] = rho2*zeta.T.dot(R_b_c).dot(skew_p_b_c)
 
         return self.dx, self.A, self.G
@@ -502,25 +507,30 @@ class VI_EKF():
 
         vel = x[xVEL:xVEL + 3]
         omega = u[uG:uG+3] - x[xB_G:xB_G+3]
+
+        # Camera Dynamics
+        vel_c_i = self.q_b_c.invrot(vel + skew(omega).dot(self.p_b_c))
+        omega_c_i = self.q_b_c.invrot(omega)
+
         q_c_z = Quaternion(x[xZ+i*5:xZ+i*5+4])
         rho = x[xZ+i*5+4]
         zeta = q_c_z.rot(self.khat)
 
-        sk_vel = skew(vel)
+        sk_vel = skew(vel_c_i)
         sk_ez = skew(self.khat)
         sk_zeta = skew(zeta)
         R_b_c = self.q_b_c.R
 
         # TODO: Need to convert to camera dynamics
 
-        h = -self.focal_len*I_2x3.dot(sk_ez).dot(rho*(sk_zeta.dot(vel)) + omega)
+        h = -self.focal_len*I_2x3.dot(sk_ez).dot(rho*(sk_zeta.dot(vel_c_i)) + omega_c_i)
 
         ZETA_i = dxZ+3*i
         RHO_i = dxZ+3*i+2
         dhdx = np.zeros((2,dxZ+3*self.len_features))
         dhdx[:,dxVEL:dxVEL+3] = -self.focal_len*rho*I_2x3.dot(sk_ez).dot(sk_zeta)
         dhdx[:,ZETA_i:ZETA_i+2] = -self.focal_len*rho*I_2x3.dot(sk_ez).dot(sk_vel).dot(sk_zeta).dot(T_zeta(q_c_z))
-        dhdx[:,RHO_i,None] = -self.focal_len*I_2x3.dot(sk_ez).dot(sk_zeta).dot(vel)
+        dhdx[:,RHO_i,None] = -self.focal_len*I_2x3.dot(sk_ez).dot(sk_zeta).dot(vel_c_i)
         dhdx[:,dxB_G:dxB_G+3] = self.focal_len*I_2x3.dot(sk_ez).dot(R_b_c - rho*sk_zeta.dot(R_b_c).dot(skew(self.p_b_c)))
         # dhdx[:, dxB_G:dxB_G + 3] = self.focal_len * I_2x3.dot(sk_ez).dot(I_zz)
 

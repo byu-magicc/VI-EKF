@@ -79,7 +79,7 @@ def q_array_from_two_unit_vectors(u, v):
     arr /= norm(arr, axis=0)
     return arr
 
-if __name__ == '__main__':
+def run_tests():
     # run some math helper tests
 
     # Test vectorized quat from two unit vectors
@@ -150,19 +150,12 @@ if __name__ == '__main__':
 
         # Check (x [+] dx) [-] x == dx
         assert norm( q_feat_boxminus(q_feat_boxplus(x, dx), x) - dx) < 1e-8
-
-
-
-
-
-
     # assert norm( q_feat_boxminus(q_feat_boxplus(qzeta, dqzeta), qzeta) - dqzeta) < 1e-8
 
-
-
-
-
     print "math helper test: [PASSED]"
+
+if __name__ == '__main__':
+    run_tests()
 
 
 

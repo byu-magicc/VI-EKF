@@ -165,7 +165,7 @@ def all_h_tests(x, u, ekf):
         # num_errors += htest(ekf.h_pixel_vel, ekf, i=i, u=u)
     return num_errors
 
-def run():
+def run_tests():
     np.set_printoptions(suppress=True, linewidth=300, threshold=1000)
 
     # Set nominal inputs
@@ -233,4 +233,4 @@ def run():
         print(bcolors.FAIL + "[FAILED] %d tests" % errors)
 
 if __name__ == '__main__':
-    run()
+    run_tests()

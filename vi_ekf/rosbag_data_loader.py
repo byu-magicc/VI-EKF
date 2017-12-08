@@ -55,7 +55,7 @@ def calculate_velocity_from_position(t, position, orientation):
     return vel_data
 
 
-def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=False, plot_trajectory=True):
+def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=False, plot_trajectory=False):
     print "loading rosbag", filename
     # First, load IMU data
     bag = rosbag.Bag(filename)
@@ -97,6 +97,11 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
 
     ground_truth = np.hstack((truth_pose_data, vel_data))
 
+    q_b_c = Quaternion.from_R(np.array([[0, 1, 0],
+                                        [0, 0, 1],
+                                        [1, 0, 0]]))
+
+    p_b_c = np.array([[0.2, 0.0, 0.2]]).T
 
     # Simulate Landmark Measurements
     # landmarks = np.random.uniform(-25, 25, (2,3))
@@ -109,10 +114,10 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
                           [-1, -1, 1],
                           [1, -1, 1],
                           [-1, 1, 1]])
-    feat_time, zetas, depths, ids = add_landmark(ground_truth, landmarks)
+    feat_time, zetas, depths, ids = add_landmark(ground_truth, landmarks, p_b_c, q_b_c)
 
     if plot_trajectory:
-        plot_3d_trajectory(ground_truth[:,1:4], ground_truth[:,4:8], qzetas=zetas, depths=depths)
+        plot_3d_trajectory(ground_truth[:,1:4], ground_truth[:,4:8], qzetas=zetas, depths=depths, p_b_c=p_b_c, q_b_c=q_b_c)
 
 
     # Adjust timestamp
@@ -144,6 +149,8 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
     out_dict['zetas'] = zetas
     out_dict['depths'] = depths
     out_dict['ids'] = ids
+    out_dict['p_b_c'] = p_b_c
+    out_dict['q_b_c'] = q_b_c
     # else:
     #     out_dict['cam0_sensor'] = cam0_sensor
     #     out_dict['cam1_sensor'] = cam1_sensor

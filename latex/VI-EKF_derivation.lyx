@@ -1651,7 +1651,7 @@ Because our bearing and inverse depth dynamics are derived with respect
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}p_{ci}^{i} & =p_{bi}^{i}+R\left(q_{b}^{i}\right)p_{cb}^{b}\end{aligned}
+\begin{aligned}p_{ci}^{i} & =p_{bi}^{i}+R\left(q_{i}^{b}\right)^{\top}p_{cb}^{b}\end{aligned}
 \]
 
 \end_inset
@@ -1666,8 +1666,8 @@ Differentiating, and assuming that the camera is rigidly fixed to the body
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\frac{d}{dt}p_{ci}^{i} & =\frac{d}{dt}p_{bi}^{i}+\frac{d}{dt}\left(R\left(q_{b}^{i}\right)p_{cb}^{b}\right)\\
-v_{c/i}^{i} & =v_{b/i}^{i}+R\left(q_{b}^{i}\right)\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}
+\begin{aligned}\frac{d}{dt}p_{ci}^{i} & =\frac{d}{dt}p_{bi}^{i}+\frac{d}{dt}\left(R\left(q_{I}^{b}\right)^{\top}p_{cb}^{b}\right)\\
+v_{c/i}^{i} & =v_{b/i}^{i}-R\left(q_{I}^{b}\right)^{\top}\left\lfloor \omega_{b/I}^{b}\right\rfloor p_{cb}^{b}
 \end{aligned}
 \]
 
@@ -1683,9 +1683,9 @@ Then rotating into the camera frame
 \begin_layout Standard
 \begin_inset Formula 
 \begin{equation}
-\begin{aligned}R\left(q_{b}^{c}\right)R\left(q_{i}^{b}\right)v_{c/i}^{i} & =R\left(q_{b}^{c}\right)R\left(q_{i}^{b}\right)v_{b/i}^{i}+R\left(q_{b}^{c}\right)R\left(q_{i}^{b}\right)R\left(q_{b}^{i}\right)\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\\
-v_{c/i}^{c} & =R\left(q_{b}^{c}\right)v_{b/i}^{b}+R\left(q_{b}^{c}\right)\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\\
-v_{c/i}^{c} & =R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\right)
+\begin{aligned}R\left(q_{b}^{c}\right)R\left(q_{i}^{b}\right)v_{c/i}^{i} & =R\left(q_{b}^{c}\right)R\left(q_{i}^{b}\right)v_{b/i}^{i}-R\left(q_{b}^{c}\right)R\left(q_{i}^{b}\right)R\left(q_{i}^{b}\right)^{\top}\left\lfloor \omega_{b/I}^{b}\right\rfloor p_{cb}^{b}\\
+v_{c/i}^{c} & =R\left(q_{b}^{c}\right)v_{b/i}^{b}-R\left(q_{b}^{c}\right)\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\\
+v_{c/i}^{c} & =R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}-\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\right)
 \end{aligned}
 \label{eq:camera_dynamics}
 \end{equation}
@@ -1915,7 +1915,7 @@ Bearing Quaternion Jacobians
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\dfrac{\partial}{\partial v_{b/I}^{b}}\dot{q}_{c}^{\zeta_{i}} & =\dfrac{\partial}{\partial v_{b/I}^{b}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\right)\\
+\begin{aligned}\dfrac{\partial}{\partial v_{b/I}^{b}}\dot{q}_{c}^{\zeta_{i}} & =\dfrac{\partial}{\partial v_{b/I}^{b}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)^{\top}\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\right)\\
  & =\rho_{i}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor R\left(q_{b}^{c}\right)
 \end{aligned}
 \]
@@ -1928,7 +1928,7 @@ Bearing Quaternion Jacobians
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\dfrac{\partial}{\partial v_{b/I}^{b}}\dot{q}_{c}^{\zeta_{i}} & =\dfrac{\partial}{\partial v_{b/I}^{b}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\right)\\
+\begin{aligned}\dfrac{\partial}{\partial v_{b/I}^{b}}\dot{q}_{c}^{\zeta_{i}} & =\dfrac{\partial}{\partial v_{b/I}^{b}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)^{\top}\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\right)\\
  & =\rho_{i}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor R\left(q_{b}^{c}\right)
 \end{aligned}
 \]
@@ -1941,22 +1941,10 @@ Bearing Quaternion Jacobians
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\dfrac{\partial}{\partial\beta_{\omega}}\dot{q}_{c}^{\zeta_{i}} & =\dfrac{\partial}{\partial\beta_{\omega}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\right)\\
- & =T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \dfrac{\partial}{\partial\beta_{\omega}}\left(R\left(q_{b}^{c}\right)\left(\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+\dfrac{\partial}{\partial\beta_{\omega}}R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\\
- & =T_{\zeta}^{\top}\left(-\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \dfrac{\partial}{\partial\beta_{\omega}}\left(R\left(q_{b}^{c}\right)\left(\left\lfloor p_{cb}^{b}\right\rfloor \left(y_{\omega}-\beta_{\omega}\right)\right)\right)+\dfrac{\partial}{\partial\beta_{\omega}}R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\\
- & =T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor R\left(q_{b}^{c}\right)\left\lfloor p_{cb}^{b}\right\rfloor -R\left(q_{b}^{c}\right)\right)
-\end{aligned}
-\]
-
-\end_inset
-
-
-\begin_inset Formula 
-\[
-\begin{aligned}\dfrac{\partial}{\partial\beta_{\omega}}\dot{q}_{c}^{\zeta_{i}} & =\dfrac{\partial}{\partial\beta_{\omega}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\right)\\
- & =T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \dfrac{\partial}{\partial\beta_{\omega}}\left(R\left(q_{b}^{c}\right)\left(\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+\dfrac{\partial}{\partial\beta_{\omega}}R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\\
- & =T_{\zeta}^{\top}\left(-\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \dfrac{\partial}{\partial\beta_{\omega}}\left(R\left(q_{b}^{c}\right)\left(\left\lfloor p_{cb}^{b}\right\rfloor \left(y_{\omega}-\beta_{\omega}\right)\right)\right)+\dfrac{\partial}{\partial\beta_{\omega}}R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\\
- & =T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor R\left(q_{b}^{c}\right)\left\lfloor p_{cb}^{b}\right\rfloor -R\left(q_{b}^{c}\right)\right)
+\begin{aligned}\dfrac{\partial}{\partial\beta_{\omega}}\dot{q}_{c}^{\zeta_{i}} & =\dfrac{\partial}{\partial\beta_{\omega}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)^{\top}\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\right)\\
+ & =T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \dfrac{\partial}{\partial\beta_{\omega}}\left(R\left(q_{b}^{c}\right)^{\top}\left(\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)+\dfrac{\partial}{\partial\beta_{\omega}}R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\\
+ & =T_{\zeta}^{\top}\left(-\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \dfrac{\partial}{\partial\beta_{\omega}}\left(R\left(q_{b}^{c}\right)^{\top}\left(\left\lfloor p_{cb}^{b}\right\rfloor \left(y_{\omega}-\beta_{\omega}\right)\right)\right)+\dfrac{\partial}{\partial\beta_{\omega}}R\left(q_{b}^{c}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\\
+ & =-T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor R\left(q_{b}^{c}\right)^{\top}\left\lfloor p_{cb}^{b}\right\rfloor +R\left(q_{b}^{c}\right)\right)
 \end{aligned}
 \]
 
@@ -2107,11 +2095,11 @@ Now, we want the jacobian for mapping
 \begin_inset Formula 
 \[
 \begin{aligned}\dfrac{\partial}{\partial y_{\omega}}\dot{q}_{c}^{\zeta_{i}} & =\dfrac{\partial}{\partial y_{\omega}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\omega_{c/I}^{I}\right)\right)\\
- & =\dfrac{\partial}{\partial y_{\omega}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\omega_{b/I}^{b}\right)\right)\\
- & =T_{\zeta}^{\top}\dfrac{\partial}{\partial y_{\omega}}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\omega_{b/I}^{b}\right)\\
- & =T_{\zeta}^{\top}\dfrac{\partial}{\partial y_{\omega}}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}-\left\lfloor p_{cb}^{b}\right\rfloor \omega_{b/i}^{b}\right)\right)+R\left(q_{b}^{c}\right)\omega_{b/I}^{b}\right)\\
- & =T_{\zeta}^{\top}\dfrac{\partial}{\partial y_{\omega}}\left(-\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)\left\lfloor p_{cb}^{b}\right\rfloor \omega_{b/i}^{b}\right)+R\left(q_{b}^{c}\right)\omega_{b/I}^{b}\right)\\
- & =T_{\zeta}^{\top}\left(R\left(q_{b}^{c}\right)-\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor R\left(q_{b}^{c}\right)\left\lfloor p_{cb}^{b}\right\rfloor \right)
+ & =\dfrac{\partial}{\partial y_{\omega}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)^{\top}\left(v_{b/i}^{b}+\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\omega_{b/I}^{b}\right)\right)\\
+ & =T_{\zeta}^{\top}\dfrac{\partial}{\partial y_{\omega}}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)^{\top}\left(v_{b/i}^{b}+\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\right)\right)+R\left(q_{b}^{c}\right)\omega_{b/I}^{b}\right)\\
+ & =T_{\zeta}^{\top}\dfrac{\partial}{\partial y_{\omega}}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)^{\top}\left(v_{b/i}^{b}-\left\lfloor p_{cb}^{b}\right\rfloor \omega_{b/i}^{b}\right)\right)+R\left(q_{b}^{c}\right)\omega_{b/I}^{b}\right)\\
+ & =T_{\zeta}^{\top}\dfrac{\partial}{\partial y_{\omega}}\left(-\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(R\left(q_{b}^{c}\right)^{\top}\left\lfloor p_{cb}^{b}\right\rfloor \omega_{b/i}^{b}\right)+R\left(q_{b}^{c}\right)\omega_{b/I}^{b}\right)\\
+ & =T_{\zeta}^{\top}\left(R\left(q_{b}^{c}\right)-\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor R\left(q_{b}^{c}\right)^{\top}\left\lfloor p_{cb}^{b}\right\rfloor \right)
 \end{aligned}
 \]
 
@@ -2123,8 +2111,8 @@ Now, we want the jacobian for mapping
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\frac{\partial}{\partial y_{\omega}}\dot{\rho_{i}} & =\frac{\partial}{\partial y_{\omega}}\left(\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}+\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)\\
- & =\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)\left\lfloor p_{cb}^{b}\right\rfloor 
+\begin{aligned}\frac{\partial}{\partial y_{\omega}}\dot{\rho_{i}} & =\frac{\partial}{\partial y_{\omega}}\left(\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}-\left\lfloor y_{\omega}-\beta_{\omega}\right\rfloor p_{cb}^{b}\right)\right)\\
+ & =-\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}R\left(q_{b}^{c}\right)\left\lfloor p_{cb}^{b}\right\rfloor 
 \end{aligned}
 \]
 

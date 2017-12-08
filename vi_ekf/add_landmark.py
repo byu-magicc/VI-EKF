@@ -4,7 +4,7 @@ import scipy.linalg
 from tqdm import tqdm
 from math_helper import norm, q_array_from_two_unit_vectors
 
-def add_landmark(truth, landmarks):
+def add_landmark(truth, landmarks, p_b_c, q_b_c):
     assert truth.shape[1] > 7 and landmarks.shape[1] == 3
 
     feature_array = np.zeros((truth.shape[0], 1 + 5*len(landmarks)))
@@ -19,10 +19,11 @@ def add_landmark(truth, landmarks):
     khat = np.array([[0, 0, 1.]]).T
 
     for i in range(len(truth)):
-        delta_pose = landmarks - truth[i, 1:4]
+        q = Quaternion(truth[i, 4:8, None])
+        delta_pose = landmarks - (truth[i, 1:4] + q.invrot(p_b_c).T)
         dist = norm(delta_pose, axis=1)
         q = Quaternion(truth[i,4:8,None])
-        zetas = q.rot((delta_pose/dist[:,None]).T)
+        zetas = q_b_c.invrot(q.rot((delta_pose/dist[:,None]).T))
         q_zetas = q_array_from_two_unit_vectors(khat, zetas)
         feature_array[i,bearing_mask] = np.reshape(q_zetas, (1, -1), order='f')
         # if abs(1. - norm(np.reshape(feature_array[i,bearing_mask], (3, -1), order='f'), axis=0) > 1e-5).any():

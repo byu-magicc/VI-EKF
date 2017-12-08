@@ -100,7 +100,7 @@ def dfdu_test(x, u, ekf):
 
     for i in range(ekf.len_features):
         zeta_key = 'dxZETA_' + str(i)
-        rho_key = 'dxZETA_' + str(i)
+        rho_key = 'dxRHO_' + str(i)
         num_errors += print_error(zeta_key,'uG', a_dfdu, d_dfdu)
         num_errors += print_error(rho_key,'uG', a_dfdu, d_dfdu)
 
@@ -162,7 +162,7 @@ def all_h_tests(x, u, ekf):
         num_errors += htest(ekf.h_feat, ekf, i=i, type='feat')
         num_errors += htest(ekf.h_depth, ekf, i=i)
         num_errors += htest(ekf.h_inv_depth, ekf, i=i)
-        num_errors += htest(ekf.h_pixel_vel, ekf, i=i, u=u)
+        # num_errors += htest(ekf.h_pixel_vel, ekf, i=i, u=u)
     return num_errors
 
 def run():
@@ -193,6 +193,13 @@ def run():
         x0[xATT:xATT + 4] = (Quaternion(x0[xATT:xATT + 4]) + np.random.normal(0, 1, (3,1))).elements
 
         ekf = VI_EKF(x0)
+
+        # Add a camera_to_body transform
+        p_b_c = np.random.uniform(-0.5, 0.5, (3,1))
+        # p_b_c = np.zeros((3, 1))
+        q_b_c = Quaternion.random()
+        # q_b_c = Quaternion.Identity()
+        ekf.set_camera_to_IMU(p_b_c, q_b_c)
 
         # Initialize Random Features
         for j in range(1):

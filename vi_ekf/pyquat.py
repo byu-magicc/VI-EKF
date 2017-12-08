@@ -253,6 +253,12 @@ class Quaternion():
         return Quaternion(np.array([[1.0, 0, 0, 0]]).T)
 
     @staticmethod
+    def random():
+        arr = np.random.uniform(-1, 1, (4,1))
+        arr /= norm(arr)
+        return Quaternion(arr)
+
+    @staticmethod
     def log(q):
         assert isinstance(q, Quaternion)
 
@@ -352,6 +358,21 @@ class Quaternion():
         assert axis.shape == (3,1) and isinstance(angle, float)
         alpha_2 = np.array([[angle/2.0]])
         return Quaternion(np.vstack((np.cos(alpha_2), axis*np.sin(alpha_2))))
+
+
+    @staticmethod
+    def from_euler(roll, pitch, yaw):
+        cp = np.cos(roll/2.0)
+        ct = np.cos(pitch/2.0)
+        cs = np.cos(yaw/2.0)
+        sp = np.sin(roll/2.0)
+        st = np.sin(pitch/2.0)
+        ss = np.sin(yaw/2.0)
+
+        return Quaternion(np.array([[cp*ct*cs - sp*st*ss],
+                                    [sp*st*cs + cp*ct*ss],
+                                    [sp*ct*cs + cp*st*ss],
+                                    [cp*st*cs - sp*ct*ss]]))
 
     def otimes(self, q):
         q_new = Quaternion(qmat_matrix.dot(q.arr).squeeze().dot(self.arr).copy())

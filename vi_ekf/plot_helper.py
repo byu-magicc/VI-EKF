@@ -119,6 +119,8 @@ def plot_3d_trajectory(position, orientation, qzetas=None, depths=None, p_b_c=np
     e_x = 0.1*np.array([[1., 0, 0]]).T
     e_y = 0.1*np.array([[0, 1., 0]]).T
     e_z = 0.1*np.array([[0, 0, 1.]]).T
+    if qzetas is not None:
+        colors = get_colors(len(qzetas), plt.cm.jet)
     for i in range(len(position)/100):
         j = i*100
         q_i_b = Quaternion(orientation[j,:,None])
@@ -130,10 +132,10 @@ def plot_3d_trajectory(position, orientation, qzetas=None, depths=None, p_b_c=np
         plt.plot([body_pos[0, 0], y_end[0, 0]], [body_pos[1, 0], y_end[1, 0]], [body_pos[2, 0], y_end[2, 0]], 'g-')
         plt.plot([body_pos[0, 0], z_end[0, 0]], [body_pos[1, 0], z_end[1, 0]], [body_pos[2, 0], z_end[2, 0]], 'b-')
         if qzetas is not None:
-            colors = get_colors(len(qzetas), plt.cm.jet)
             camera_pos = body_pos + q_i_b.invrot(p_b_c)
             for qz, d, col in zip(qzetas, depths, colors):
-                q_c_z = Quaternion(qz[j,:,None])
-                zeta_end = camera_pos + q_i_b.invrot(q_b_c.rot(q_c_z.rot(10.*e_z*d[j,0])))
-                plt.plot([camera_pos[0, 0], zeta_end[0, 0]], [camera_pos[1, 0], zeta_end[1, 0]], [camera_pos[2, 0], zeta_end[2, 0]], '--', color=col, lineWidth='0.25')
+                if np.isfinite(qz[j]).all() and np.isfinite(d[j]).all():
+                    q_c_z = Quaternion(qz[j,:,None])
+                    zeta_end = camera_pos + q_i_b.invrot(q_b_c.rot(q_c_z.rot(10.*e_z*d[j,0])))
+                    plt.plot([camera_pos[0, 0], zeta_end[0, 0]], [camera_pos[1, 0], zeta_end[1, 0]], [camera_pos[2, 0], zeta_end[2, 0]], '--', color=col, lineWidth='0.25')
     plt.show()

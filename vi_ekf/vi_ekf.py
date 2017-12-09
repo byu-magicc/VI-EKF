@@ -277,10 +277,12 @@ class VI_EKF():
         self.initialized_features.remove(id)
         feature_id = self.global_to_local_feature_id[id]
         feature_index = self.feature_ids.index(feature_id)
-        mask = np.ones(len(self.x), dtype=bool)
-        mask[[xZ+feature_index+i for i in range(5)]] = False
-        self.x = self.x[mask,...]
-        self.P = self.P[mask, mask]
+        xmask = np.ones_like(self.x, dtype=bool)
+        dxmask = np.ones_like(self.dx, dtype=bool)
+        xmask[[xZ + 5*feature_index + i for i in range(5)]] = False
+        dxmask[[dxZ + 3*feature_index + i for i in range(3)]] = False
+        self.x = self.x[xmask,...]
+        self.P = self.P[dxmask, dxmask]
         del self.feature_ids[feature_index]
         self.len_features -= 1
 
@@ -536,5 +538,6 @@ class VI_EKF():
 
 
         return h, dhdx
+
 
 

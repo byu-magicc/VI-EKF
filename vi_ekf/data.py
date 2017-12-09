@@ -187,7 +187,7 @@ class ROSbagData(Data):
             acc = self.data['imu'][self.imu_indexer[i], 4:7, None]
 
         if self.feature_indexer[i] - self.feature_indexer[i - 1] != 0:
-            ids = list(self.data['ids'][self.feature_indexer[i], :])
+            ids = list(self.data['ids'][self.feature_indexer[i]])
             zetas = []
             depths = []
             for feat, l in enumerate(ids):

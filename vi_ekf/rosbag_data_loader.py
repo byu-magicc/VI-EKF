@@ -55,21 +55,23 @@ def calculate_velocity_from_position(t, position, orientation):
     return vel_data
 
 
-def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=False, plot_trajectory=False):
+def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=False, plot_trajectory=True):
     print "loading rosbag", filename
     # First, load IMU data
     bag = rosbag.Bag(filename)
     imu_data = []
     truth_pose_data = []
 
-    for topic, msg, t in tqdm(bag.read_messages(topics=['/imu/data',
-                                                   '/vrpn_client_node/Leo/pose',
-                                                   '/vrpn/Leo/pose',
-                                                   '/baro/data',
-                                                   '/sonar/data',
-                                                   '/is_flying',
-                                                   '/gps/data',
-                                                   '/mag/data'])):
+    topic_list = ['/imu/data',
+                  '/vrpn_client_node/Leo/pose',
+                  '/vrpn/Leo/pose',
+                  '/baro/data',
+                  '/sonar/data',
+                  '/is_flying',
+                  '/gps/data',
+                  '/mag/data']
+
+    for topic, msg, t in tqdm(bag.read_messages(topics=topic_list), total=bag.get_message_count(topic_list) ):
 
         if topic == '/imu/data':
             imu_meas = [msg.header.stamp.to_sec(),
@@ -97,66 +99,47 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
 
     ground_truth = np.hstack((truth_pose_data, vel_data))
 
-    q_b_c = Quaternion.from_R(np.array([[0, 1, 0],
-                                        [0, 0, 1],
-                                        [1, 0, 0]]))
-
-    p_b_c = np.array([[0.2, 0.0, 0.2]]).T
-
-    # Simulate Landmark Measurements
-    # landmarks = np.random.uniform(-25, 25, (2,3))
-    landmarks = np.array([[1, 0, 1],
-                          [0, 1, 1],
-                          [0, 0, 1],
-                          [1, 1, 1],
-                          [-1, 0, 1],
-                          [0, -1, 1],
-                          [-1, -1, 1],
-                          [1, -1, 1],
-                          [-1, 1, 1]])
-    feat_time, zetas, depths, ids = add_landmark(ground_truth, landmarks, p_b_c, q_b_c)
-
-    if plot_trajectory:
-        plot_3d_trajectory(ground_truth[:,1:4], ground_truth[:,4:8], qzetas=zetas, depths=depths, p_b_c=p_b_c, q_b_c=q_b_c)
-
-
     # Adjust timestamp
     imu_t0 = imu_data[0,0] +1
     gt_t0 = ground_truth[0,0]
     imu_data[:,0] -= imu_t0
     ground_truth[:,0] -= gt_t0
-    feat_time[:] -= gt_t0
 
-    # Chop Data
+    # Chop Data to start and end
     imu_data = imu_data[(imu_data[:,0] > start) & (imu_data[:,0] < end), :]
-    # if sim_features:
-    for l in range(len(landmarks)):
-        zetas[l] = zetas[l][(feat_time > start) & (feat_time < end)]
-        depths[l] = depths[l][(feat_time > start) & (feat_time < end)]
-    ids = ids[(feat_time > start) & (feat_time < end)]
-    # else:
-    #     images0 = [f for f, t in zip(images0, (image_time > start) & (image_time < end)) if t]
-    #     images1 = [f for f, t in zip(images1, (image_time > start) & (image_time < end)) if t]
-    #     image_time = image_time[(image_time > start) & (image_time < end)]
-
     ground_truth = ground_truth[(ground_truth[:, 0] > start) & (ground_truth[:, 0] < end), :]
+
+    # Simulate camera-to-body transform
+    q_b_c = Quaternion.from_R(np.array([[0, 1, 0],
+                                        [0, 0, 1],
+                                        [1, 0, 0]]))
+    p_b_c = np.array([[0.2, 0.0, 0.2]]).T
+
+    # Simulate Landmark Measurements
+    # landmarks = np.random.uniform(-25, 25, (2,3))
+    landmarks = np.array([[1, 0, 1, 0, np.inf],
+                          [0, 1, 1, 0, np.inf],
+                          [0, 0, 1, 0, 15],
+                          [1, 1, 1, 0, 15],
+                          [-1, 0, 1, 10, 25],
+                          [0, -1, 1, 10, 25],
+                          [-1, -1, 1, 10, np.inf],
+                          [1, -1, 1, 20, np.inf],
+                          [-1, 1, 1, 20, np.inf]])
+    feat_time, zetas, depths, ids = add_landmark(ground_truth, landmarks, p_b_c, q_b_c)
+
+    if plot_trajectory:
+        plot_3d_trajectory(ground_truth[:,1:4], ground_truth[:,4:8], qzetas=zetas, depths=depths, p_b_c=p_b_c, q_b_c=q_b_c)
 
     out_dict = dict()
     out_dict['imu'] = imu_data
     out_dict['truth'] = ground_truth
-    # if sim_features:
-    out_dict['feat_time'] = feat_time[(feat_time > start) & (feat_time < end)]
+    out_dict['feat_time'] = feat_time
     out_dict['zetas'] = zetas
     out_dict['depths'] = depths
     out_dict['ids'] = ids
     out_dict['p_b_c'] = p_b_c
     out_dict['q_b_c'] = q_b_c
-    # else:
-    #     out_dict['cam0_sensor'] = cam0_sensor
-    #     out_dict['cam1_sensor'] = cam1_sensor
-    #     out_dict['cam0_frame_filenames'] = images0
-    #     out_dict['cam1_frame_filenames'] = images1
-    #     out_dict['cam_time'] = image_time
 
     return out_dict
 

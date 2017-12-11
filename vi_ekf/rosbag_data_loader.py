@@ -117,15 +117,30 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
 
     # Simulate Landmark Measurements
     # landmarks = np.random.uniform(-25, 25, (2,3))
-    landmarks = np.array([[1, 0, 1, 0, np.inf],
-                          [0, 1, 1, 0, np.inf],
-                          [0, 0, 1, 0, 3],
-                          [1, 1, 1, 0, 3],
-                          [-1, 0, 1, 10, 25],
-                          [0, -1, 1, 10, 25],
-                          [-1, -1, 1, 10, np.inf],
-                          [1, -1, 1, 20, np.inf],
-                          [-1, 1, 1, 20, np.inf]])
+    # landmarks = np.array([[1, 0, 1, 0, np.inf],
+    #                       [0, 1, 1, 0, np.inf],
+    #                       [0, 0, 1, 0, 3],
+    #                       [1, 1, 1, 0, 3],
+    #                       [-1, 0, 1, 10, 25],
+    #                       [0, -1, 1, 10, 25],
+    #                       [-1, -1, 1, 10, np.inf],
+    #                       [1, -1, 1, 20, np.inf],
+    #                       [-1, 1, 1, 20, np.inf]])
+    N = 25
+    last_t = imu_data[-1,0]
+    landmarks = np.hstack([np.random.uniform(-4, 4, (N, 1)),
+                           np.random.uniform(-4, 4, (N,1)),
+                           np.random.uniform(-4, 4, (N, 1)),
+                           np.random.uniform(start - 5, last_t, (N,1)),
+                           np.random.uniform(start, last_t + 5, (N, 1))])
+    backwards_index = landmarks[:,3] < landmarks[:,4]
+    tmp = landmarks[backwards_index,3]
+    landmarks[backwards_index,3] = landmarks[backwards_index,4]
+    landmarks[backwards_index,3] = tmp
+
+    landmarks[landmarks[:,3] < start, 3] = start
+    landmarks[landmarks[:,4] > end, 4] = end
+
     feat_time, zetas, depths, ids = add_landmark(ground_truth, landmarks, p_b_c, q_b_c)
 
     if plot_trajectory:

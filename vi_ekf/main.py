@@ -8,7 +8,7 @@ from plot_helper import plot_3d_trajectory
 
 # data = ETHData(filename='/mnt/pccfs/not_backed_up/eurocmav/V1_01_easy/mav0', start=5.0, end=120.0, sim_features=True, load_new=True)
 # data = ROSbagData(filename='data/truth_imu_flight.bag', start=30.0, end=68.0, sim_features=True, load_new=True)
-data = ROSbagData(filename='data/truth_imu_depth_mono.bag', start=8.0, end=68.0, sim_features=True, load_new=False)
+data = ROSbagData(filename='data/truth_imu_depth_mono.bag', start=8.0, end=np.inf, sim_features=True, load_new=True)
 data.__test__()
 
 ekf = viekf.VI_EKF(data.x0)
@@ -46,8 +46,6 @@ for i, (t, pos, vel, att, gyro, acc, qzetas, depths, ids) in enumerate(tqdm(data
             h.store(t, id, zeta_hat=ekf.get_zeta(id), depth_hat=depth_hat, depth=depth)
             h.store(t, id, qzeta=qzeta, qzeta_hat=qzeta_hat)
 
-quit()
-
 # plot
 if True:
     # convert all our linked lists to contiguous numpy arrays and initialize the plot parameters
@@ -72,7 +70,13 @@ if True:
     plot_side_by_side('u_gyro', 0, 3, h.t.gyro, h.gyro, labels=['x', 'y', 'z'])
     plot_side_by_side('u_acc', 0, 3, h.t.acc, h.acc, labels=['x', 'y', 'z'])
 
-    for i in np.unique(h.ids):
+    ids = []
+    for step_ids in h.ids:
+        for id in step_ids:
+            if id not in ids:
+                ids.append(id)
+
+    for i in ids:
         plot_side_by_side('x_feat_{}'.format(i), 0, 3, h.t.zeta_hat[i], h.zeta_hat[i], truth_t=h.t.zeta[i], truth=h.zeta[i], labels=['x', 'y', 'z'])
         plot_side_by_side('x_qfeat_{}'.format(i), 0, 4, h.t.qzeta_hat[i], h.qzeta_hat[i], truth_t=h.t.qzeta[i],
                           truth=h.qzeta[i], labels=['w','x', 'y', 'z'])

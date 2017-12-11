@@ -133,7 +133,8 @@ class VI_EKF():
 
     # Returns the estimated bearing vector to a single feature with id i
     def get_zeta(self, i):
-        qzeta = self.x[xZ + 5 * i:xZ + 5 * i + 4, :]  # 4-vector quaternion
+        ft_id = self.global_to_local_feature_id[i]
+        qzeta = self.x[xZ + 5 * ft_id:xZ + 5 * ft_id + 4, :]  # 4-vector quaternion
         return Quaternion(qzeta).rot(self.khat)  # 3-vector pointed at the feature in the camera frame
 
     # Returns the quaternion which
@@ -207,7 +208,7 @@ class VI_EKF():
 
         # If we haven't seen this feature before, then initialize it
         if measurement_type == 'feat':
-            if kwargs['i'] not in self.initialized_features:
+            if kwargs['i'] not in self.global_to_local_feature_id.keys():
                 self.init_feature(z, id=kwargs['i'], depth=(kwargs['depth'] if 'depth' in kwargs else np.array([[1.0]])))
 
         zhat, H = self.measurement_functions[measurement_type](self.x, **kwargs)
@@ -254,7 +255,9 @@ class VI_EKF():
 
         self.len_features += 1
         self.feature_ids.append(self.next_feature_id)
+        self.global_to_local_feature_id[id] = self.next_feature_id
         self.next_feature_id += 1
+
         self.x = np.vstack((self.x, q_zeta, 1./depth)) # add 5 states to the state vector
 
         # Add three states to the process noise matrix
@@ -266,10 +269,6 @@ class VI_EKF():
         self.G = np.zeros((dxZ + 3 * self.len_features, 6))
         self.I_big = np.eye(dxZ+3*self.len_features)
         self.dx = np.zeros((dxZ + 3 * self.len_features, 1))
-
-        # Add this new feature to the feature id maps
-        self.initialized_features.add(id)
-        self.global_to_local_feature_id[id] = self.next_feature_id - 1
 
         return self.next_feature_id - 1
 
@@ -474,7 +473,10 @@ class VI_EKF():
     # Feature model for feature index i
     # Returns estimated measurement (3x1) and Jacobian (3 x 16+3N)
     def h_feat(self, x, **kwargs):
-        i = self.global_to_local_feature_id[kwargs['i']]
+        try:
+            i = self.global_to_local_feature_id[kwargs['i']]
+        except:
+            debg =1
         assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int)
         dxZETA_i = dxZ + i * 3
         q_c_z = x[xZ+i*5:xZ+i*5+4]

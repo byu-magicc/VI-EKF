@@ -119,8 +119,8 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
     # landmarks = np.random.uniform(-25, 25, (2,3))
     landmarks = np.array([[1, 0, 1, 0, np.inf],
                           [0, 1, 1, 0, np.inf],
-                          [0, 0, 1, 0, 15],
-                          [1, 1, 1, 0, 15],
+                          [0, 0, 1, 0, 3],
+                          [1, 1, 1, 0, 3],
                           [-1, 0, 1, 10, 25],
                           [0, -1, 1, 10, 25],
                           [-1, -1, 1, 10, np.inf],

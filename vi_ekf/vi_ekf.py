@@ -246,7 +246,10 @@ class VI_EKF():
 
     # Used to initialize a new feature.  Returns the feature id associated with this feature
     def init_feature(self, q_zeta, id, depth=None):
-        assert q_zeta.shape == (4, 1) and abs(1.0 - norm(q_zeta)) < 1e-3
+        try:
+            assert q_zeta.shape == (4, 1) and abs(1.0 - norm(q_zeta)) < 1e-3
+        except:
+            debug = 1
         assert depth.shape == (1, 1)
 
         self.len_features += 1
@@ -275,21 +278,26 @@ class VI_EKF():
     # now be 3x3 smaller than before and the feature array will be 5 smaller
     def clear_feature(self, id):
         self.initialized_features.remove(id)
-        feature_id = self.global_to_local_feature_id[id]
-        feature_index = self.feature_ids.index(feature_id)
-        xmask = np.ones_like(self.x, dtype=bool)
-        dxmask = np.ones_like(self.dx, dtype=bool)
-        xmask[[xZ + 5*feature_index + i for i in range(5)]] = False
-        dxmask[[dxZ + 3*feature_index + i for i in range(3)]] = False
-        self.x = self.x[xmask,...]
-        self.P = self.P[dxmask, dxmask]
-        del self.feature_ids[feature_index]
+        local_feature_id = self.global_to_local_feature_id[id]
+        xZETA_i = xZ + 5 * local_feature_id
+        dxZETA_i = dxZ + 3 * local_feature_id
+        del self.feature_ids[local_feature_id]
         self.len_features -= 1
+        self.global_to_local_feature_id = {self.feature_ids[i] : i for i in range(len(self.feature_ids)) }
+
+        # Create masks to remove portions of state and covariance
+        xmask = np.ones_like(self.x, dtype=bool).squeeze()
+        dxmask = np.ones_like(self.dx, dtype=bool).squeeze()
+        xmask[xZETA_i:xZETA_i + 5] = False
+        dxmask[dxZETA_i:dxZETA_i + 3] = False
 
         # Matrix Workspace Modifications
-        self.A = np.zeros((dxZ + 3 * self.len_features, dxZ + 3 * self.len_features))
-        self.G = np.zeros((dxZ+3*self.len_features, 4))
-        self.I_big = np.eye(dxZ + 3 * self.len_features)
+        self.x = self.x[xmask,...]
+        self.P = self.P[dxmask, :][:, dxmask]
+        self.dx = self.dx[dxmask,...]
+        self.A = np.zeros_like(self.P)
+        self.G = np.zeros((len(self.dx), 4))
+        self.I_big = np.eye(len(self.dx))
 
 
     def keep_only_features(self, features):
@@ -481,13 +489,17 @@ class VI_EKF():
     # Feature depth measurement
     # Returns estimated measurement (1x1) and Jacobian (1 x 16+3N)
     def h_depth(self, x, i):
-        assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int)
-        rho = x[xZ+i*5+4,0]
+        try:
+            assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int) and i in self.feature_ids
+        except:
+            debug = 1
+        local_id = self.global_to_local_feature_id[i]
+        rho = x[xZ+local_id*5+4,0]
 
         h = np.array([[1.0/rho]])
 
         dhdx = np.zeros((1, dxZ+3*self.len_features))
-        dhdx[0, dxZ+3*i+2,None] = -1/(rho*rho)
+        dhdx[0, dxZ+3*local_id+2,None] = -1/(rho*rho)
 
         return h, dhdx
 

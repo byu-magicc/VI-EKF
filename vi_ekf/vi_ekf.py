@@ -29,7 +29,7 @@ I_2x2 = np.eye(2)
 
 class VI_EKF():
     def __init__(self, x0, multirotor=True):
-        assert x0.shape == (xZ, 1)
+        # assert x0.shape == (xZ, 1)
 
         # 17 main states + 5N feature states
         # pos, vel, att, b_gyro, b_acc, mu, q_feat, rho_feat, q_feat, rho_feat ...
@@ -37,11 +37,11 @@ class VI_EKF():
 
         # Process noise matrix for the 16 main delta states
         self.Qx = np.diag([0.001, 0.001, 0.001,     # pos
-                           0.1, 0.1, 0.1,     # vel
+                           0.1, 0.1, 0.1,           # vel
                            0.005, 0.005, 0.005,     # att
-                           1e-7, 1e-7, 1e-7,  # b_acc
-                           1e-8, 1e-8, 1e-8,  # b_omega
-                           0.0])                  # mu
+                           1e-7, 1e-7, 1e-7,        # b_acc
+                           1e-8, 1e-8, 1e-8,        # b_omega
+                           0.0])                    # mu
 
         # process noise matrix for the features (assumed all the same) 3x3
         self.Qx_feat = np.diag([0.001, 0.001, 0.01]) # x, y, and 1/depth
@@ -62,7 +62,7 @@ class VI_EKF():
                            1e-7])                   # mu
 
         # Initial Covariance estimate for new features
-        self.P0_feat = np.diag([0.01, 0.01, 0.1]) # x, y, and 1/depth
+        self.P0_feat = np.diag([0.01, 0.01, 10.0]) # x, y, and 1/depth
 
         # gravity vector (NED)
         self.gravity = np.array([[0, 0, 9.80665]]).T
@@ -115,7 +115,7 @@ class VI_EKF():
         self.initialized = False
 
     def set_camera_to_IMU(self, translation, rotation):
-        assert translation.shape == (3,1) and isinstance(rotation, Quaternion)
+        # assert translation.shape == (3,1) and isinstance(rotation, Quaternion)
         self.p_b_c = translation
         self.q_b_c = rotation
 
@@ -146,7 +146,7 @@ class VI_EKF():
 
     # Adds the state with the delta state on the manifold
     def boxplus(self, x, dx):
-        assert  x.shape == (xZ+5*self.len_features, 1) and dx.shape == (dxZ+3*self.len_features, 1)
+        # assert  x.shape == (xZ+5*self.len_features, 1) and dx.shape == (dxZ+3*self.len_features, 1)
 
         out = np.zeros((xZ+5*self.len_features, 1))
 
@@ -180,7 +180,7 @@ class VI_EKF():
 
     # propagates all states, features and covariances
     def propagate(self, y_acc, y_gyro, t):
-        assert y_acc.shape == (3, 1) and y_gyro.shape == (3, 1) and isinstance(t, float)
+        # assert y_acc.shape == (3, 1) and y_gyro.shape == (3, 1) and isinstance(t, float)
 
         if self.last_propagate is not None:
             # calculate dt from t
@@ -193,16 +193,13 @@ class VI_EKF():
             self.x = self.boxplus(self.x, xdot * dt)
             self.P += Pdot*dt
 
-            if np.isnan(self.P).any():
-                debug = 1
-
         # Update last_propagate
         self.last_propagate = t
 
         return self.x.copy(), self.P.copy()
 
     def update(self, z, measurement_type, R, passive=False, **kwargs):
-        assert measurement_type in self.measurement_functions.keys(), "Unknown Measurement Type"
+        # assert measurement_type in self.measurement_functions.keys(), "Unknown Measurement Type"
 
         passive_update = passive
 
@@ -229,29 +226,21 @@ class VI_EKF():
 
         # Perform state and covariance update
         if not passive_update:
-            try:
-                K = self.P.dot(H.T).dot(scipy.linalg.inv(R + H.dot(self.P).dot(H.T)))
-                self.P = (self.I_big - K.dot(H)).dot(self.P)
-                self.x = self.boxplus(self.x, K.dot(residual))
-            except:
-                print "NAN detected in", measurement_type, "update"
-                debug = 1
+            K = self.P.dot(H.T).dot(scipy.linalg.inv(R + H.dot(self.P).dot(H.T)))
+            self.P = (self.I_big - K.dot(H)).dot(self.P)
+            self.x = self.boxplus(self.x, K.dot(residual))
 
         return residual, zhat
 
     # Used for overriding imu biases, Not to be used in real life
     def set_imu_bias(self, b_g, b_a):
-        assert b_g.shape == (3,1) and b_a.shape == (3,1)
+        # assert b_g.shape == (3,1) and b_a.shape == (3,1)
         self.x[xB_G:xB_G+3] = b_g
         self.x[xB_A:xB_A+3] = b_a
 
     # Used to initialize a new feature.  Returns the feature id associated with this feature
     def init_feature(self, q_zeta, id, depth=None):
-        try:
-            assert q_zeta.shape == (4, 1) and abs(1.0 - norm(q_zeta)) < 1e-3
-        except:
-            debug = 1
-        assert depth.shape == (1, 1)
+        # assert q_zeta.shape == (4, 1) and depth.shape == (1, 1) and abs(1.0 - norm(q_zeta)) < 1e-
 
         self.len_features += 1
         self.feature_ids.append(self.next_feature_id)
@@ -308,7 +297,7 @@ class VI_EKF():
     # the returned value of f is a delta state, delta features, and therefore is a different
     # size than the state and features and needs to be applied with boxplus
     def dynamics(self, x, u):
-        assert x.shape == (xZ+5*self.len_features, 1) and u.shape == (6,1)
+        # assert x.shape == (xZ+5*self.len_features, 1) and u.shape == (6,1)
 
         # Reset Matrix Workspace
         self.dx.fill(0.0)
@@ -407,7 +396,7 @@ class VI_EKF():
     # Accelerometer model
     # Returns estimated measurement (2 x 1) and Jacobian (2 x 16+3N)
     def h_acc(self, x):
-        assert x.shape==(xZ+5*self.len_features,1)
+        # assert x.shape==(xZ+5*self.len_features,1)
 
         vel = x[xVEL:xVEL + 3]
         b_a = x[xB_A:xB_A + 3]
@@ -425,7 +414,7 @@ class VI_EKF():
     # Altimeter model
     # Returns estimated measurement (1x1) and Jacobian (1 x 16+3N)
     def h_alt(self, x):
-        assert x.shape == (xZ + 5 * self.len_features, 1)
+        # assert x.shape == (xZ + 5 * self.len_features, 1)
 
         h = -x[xPOS+2,:,None]
 
@@ -437,7 +426,7 @@ class VI_EKF():
     # Attitude Model
     # Returns the estimated attitude measurement (4x1) and Jacobian (3 x 16+3N)
     def h_att(self, x, **kwargs):
-        assert x.shape == (xZ + 5 * self.len_features, 1)
+        # assert x.shape == (xZ + 5 * self.len_features, 1)
 
         h = x[xATT:xATT + 4]
 
@@ -449,7 +438,7 @@ class VI_EKF():
     # Position Model
     # Returns the estimated Position measurement (3x1) and Jacobian (3 x 16+3N)
     def h_pos(self, x):
-        assert x.shape == (xZ + 5 * self.len_features, 1)
+        # assert x.shape == (xZ + 5 * self.len_features, 1)
 
         h = x[xPOS:xPOS + 3]
 
@@ -461,7 +450,7 @@ class VI_EKF():
     # Velocity Model
     # Returns the estimated Position measurement (3x1) and Jacobian (3 x 16+3N)
     def h_vel(self, x):
-        assert x.shape == (xZ + 5 * self.len_features, 1)
+        # assert x.shape == (xZ + 5 * self.len_features, 1)
 
         h = x[xVEL:xVEL + 3]
 
@@ -473,11 +462,8 @@ class VI_EKF():
     # Feature model for feature index i
     # Returns estimated measurement (3x1) and Jacobian (3 x 16+3N)
     def h_feat(self, x, **kwargs):
-        try:
-            i = self.global_to_local_feature_id[kwargs['i']]
-        except:
-            debg =1
-        assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int)
+        # assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int)
+        i = self.global_to_local_feature_id[kwargs['i']]
         dxZETA_i = dxZ + i * 3
         q_c_z = x[xZ+i*5:xZ+i*5+4]
 
@@ -491,10 +477,7 @@ class VI_EKF():
     # Feature depth measurement
     # Returns estimated measurement (1x1) and Jacobian (1 x 16+3N)
     def h_depth(self, x, i):
-        try:
-            assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int) and i in self.feature_ids
-        except:
-            debug = 1
+        # assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int) and i in self.feature_ids
         local_id = self.global_to_local_feature_id[i]
         rho = x[xZ+local_id*5+4,0]
 
@@ -508,7 +491,7 @@ class VI_EKF():
     # Feature inverse depth measurement
     # Returns estimated measurement (1x1) and Jacobian (1 x 16+3N)
     def h_inv_depth(self, x, i):
-        assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int)
+        # assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int)
         h = x[xZ+i*5+4,None]
 
         dhdx = np.zeros((1, dxZ+3*self.len_features))
@@ -519,7 +502,7 @@ class VI_EKF():
     # Feature pixel velocity measurement
     # Returns estimated measurement (2x1) and Jacobian (2 x 16+3N)
     def h_pixel_vel(self, x, i, u):
-        assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int) and u.shape == (6, 1)
+        # assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int) and u.shape == (6, 1)
 
         vel = x[xVEL:xVEL + 3]
         omega = u[uG:uG+3] - x[xB_G:xB_G+3]

@@ -113,7 +113,7 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
     q_b_c = Quaternion.from_R(np.array([[0, 1, 0],
                                         [0, 0, 1],
                                         [1, 0, 0]]))
-    p_b_c = np.array([[0.2, 0.0, 0.2]]).T
+    p_b_c = np.array([[0.16, -0.05, 0.1]]).T
 
     # Simulate Landmark Measurements
     # landmarks = np.random.uniform(-25, 25, (2,3))
@@ -126,7 +126,7 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
     #                       [-1, -1, 1, 10, np.inf],
     #                       [1, -1, 1, 20, np.inf],
     #                       [-1, 1, 1, 20, np.inf]])
-    N = 25
+    N = 50
     last_t = imu_data[-1,0]
     landmarks = np.hstack([np.random.uniform(-4, 4, (N, 1)),
                            np.random.uniform(-4, 4, (N,1)),

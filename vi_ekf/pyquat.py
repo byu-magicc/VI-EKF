@@ -28,7 +28,7 @@ qmat_matrix = np.array([[[1.0, 0, 0, 0],
                          [1.0, 0, 0, 0]]])
 
 def quat_arr_to_euler(array):
-    assert array.shape[0] == 4
+    # assert array.shape[0] == 4
     w = array[0,:]
     x = array[1,:]
     y = array[2,:]
@@ -40,7 +40,7 @@ def quat_arr_to_euler(array):
 
 
 def skew(v):
-    assert v.shape == (3, 1)
+    # assert v.shape == (3, 1)
     return cross_matrix.dot(v).squeeze()
 
 def norm(v, axis=None):
@@ -48,8 +48,8 @@ def norm(v, axis=None):
 
 class Quaternion():
     def __init__(self, v):
-        assert isinstance(v, np.ndarray)
-        assert v.shape == (4,1)
+        # assert isinstance(v, np.ndarray)
+        # assert v.shape == (4,1)
         self.arr = v
 
     def __str__(self):
@@ -70,7 +70,7 @@ class Quaternion():
         return self.boxplus(other)
 
     def __iadd__(self, other):
-        assert other.shape == (3, 1)
+        # assert other.shape == (3, 1)
         delta = other.copy()
 
         norm_delta = norm(delta)
@@ -150,7 +150,7 @@ class Quaternion():
     # Returns a quaternion
     @staticmethod
     def exp(v):
-        assert v.shape == (3,1)
+        # assert v.shape == (3,1)
         delta = v.copy()
 
         norm_delta = norm(delta)
@@ -174,7 +174,7 @@ class Quaternion():
 
     @staticmethod
     def log(q):
-        assert isinstance(q, Quaternion)
+        # assert isinstance(q, Quaternion)
 
         v = q.arr[1:]
         w = q.arr[0,0]
@@ -193,7 +193,7 @@ class Quaternion():
 
     # Perform an active rotation on v (same as q.R.T.dot(v), but faster) CONFIRMED
     def rot(self, v):
-        assert v.shape[0] == 3
+        # assert v.shape[0] == 3
         skew_xyz = skew(self.arr[1:])
         t = 2.0 * skew_xyz.dot(v)
         out = v + self.arr[0,0] * t + skew_xyz.dot(t)
@@ -201,7 +201,7 @@ class Quaternion():
 
     # Perform a passive rotation on v (same as q.R.dot(v), but faster) CONFIRMED
     def invrot(self, v):
-        assert v.shape[0] == 3
+        # assert v.shape[0] == 3
         skew_xyz = skew(self.arr[1:])
         t = 2.0 * skew_xyz.dot(v)
         return v - self.arr[0,0] * t + skew_xyz.dot(t)
@@ -220,8 +220,8 @@ class Quaternion():
     # q.rot(u) = v and q.invrot(v) = u
     @staticmethod
     def from_two_unit_vectors(u, v):
-        assert u.shape == (3,1)
-        assert v.shape == (3,1)
+        # assert u.shape == (3,1)
+        # assert v.shape == (3,1)
         u = u.copy()
         v = v.copy()
 
@@ -269,7 +269,7 @@ class Quaternion():
 
     @staticmethod
     def from_axis_angle(axis, angle):
-        assert axis.shape == (3,1) and isinstance(angle, float)
+        # assert axis.shape == (3,1) and isinstance(angle, float)
         alpha_2 = np.array([[angle/2.0]])
         return Quaternion(np.vstack((np.cos(alpha_2), axis*np.sin(alpha_2))))
 
@@ -293,7 +293,7 @@ class Quaternion():
         return q_new
 
     def boxplus(self, delta):
-        assert delta.shape == (3,1)
+        # assert delta.shape == (3,1)
         return self.otimes(Quaternion.exp(delta))
 
 

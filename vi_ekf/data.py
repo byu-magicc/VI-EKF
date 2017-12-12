@@ -67,9 +67,12 @@ class Data(object):
             assert all([gyro is None, acc is None]) or not all([gyro is None, acc is None])
             if zetas is not None:
                 assert len(zetas) == len(depths) == len(ids)
-                assert zetas[0].shape == (4, 1) if len(zetas) > 0 else True, zetas[0].shape
-                assert depths[0].shape == (1, 1) if len(depths) > 0 else True, depths[0].shape
-                assert all([type(id) == int or type(id) == np.int64 for id in ids]), type(ids[0])
+                for z, d, i in zip(zetas, depths, ids):
+                    assert np.isfinite(z).all()
+                    assert np.isfinite(d).all()
+                    assert type(i) == int
+                    assert z.shape == (4,1)
+                    assert d.shape == (1,1)
             assert type(t) == float or type(t) == np.float64, type(t)
             assert type(t) == np.float64
             assert ((pos.shape == (3, 1)) if pos is not None else True), pos.shape
@@ -187,12 +190,12 @@ class ROSbagData(Data):
             acc = self.data['imu'][self.imu_indexer[i], 4:7, None]
 
         if self.feature_indexer[i] - self.feature_indexer[i - 1] != 0:
-            ids = list(self.data['ids'][self.feature_indexer[i], :])
+            ids = list(self.data['ids'][self.feature_indexer[i]])
             zetas = []
             depths = []
-            for feat, l in enumerate(ids):
-                zetas.append(self.data['zetas'][feat][self.feature_indexer[i], :, None])
-                depths.append(self.data['depths'][feat][self.feature_indexer[i], :, None])
+            for id in ids:
+                zetas.append(self.data['zetas'][id][self.feature_indexer[i], :, None])
+                depths.append(self.data['depths'][id][self.feature_indexer[i], :, None])
 
         return t, pos, vel, att, gyro, acc, zetas, depths, ids
 

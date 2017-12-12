@@ -28,7 +28,7 @@ qmat_matrix = np.array([[[1.0, 0, 0, 0],
                          [1.0, 0, 0, 0]]])
 
 def quat_arr_to_euler(array):
-    assert array.shape[0] == 4
+    # assert array.shape[0] == 4
     w = array[0,:]
     x = array[1,:]
     y = array[2,:]
@@ -40,7 +40,7 @@ def quat_arr_to_euler(array):
 
 
 def skew(v):
-    assert v.shape == (3, 1)
+    # assert v.shape == (3, 1)
     return cross_matrix.dot(v).squeeze()
 
 def norm(v, axis=None):
@@ -48,8 +48,8 @@ def norm(v, axis=None):
 
 class Quaternion():
     def __init__(self, v):
-        assert isinstance(v, np.ndarray)
-        assert v.shape == (4,1)
+        # assert isinstance(v, np.ndarray)
+        # assert v.shape == (4,1)
         self.arr = v
 
     def __str__(self):
@@ -70,7 +70,7 @@ class Quaternion():
         return self.boxplus(other)
 
     def __iadd__(self, other):
-        assert other.shape == (3, 1)
+        # assert other.shape == (3, 1)
         delta = other.copy()
 
         norm_delta = norm(delta)
@@ -90,92 +90,6 @@ class Quaternion():
         if dq.w < 0.0:
             dq.arr *= -1.0
         return self.log(dq)
-
-    @staticmethod
-    def __test__():
-        # Make sure that active rotations are active rotations
-        v = np.array([[0, 0, 1.]]).T
-        v_active_rotated = np.array([[0, -0.5**0.5, 0.5**0.5]]).T
-        beta = np.array([[1., 0, 0]]).T
-        q_x_45 = Quaternion.from_axis_angle(beta, 45.0 * np.pi / 180.0)
-        assert norm(q_x_45.rot(v) - v_active_rotated) < 1e-8
-
-        # And that passive rotations are passive rotations
-        v_passive_rotated = np.array([[0, 0.5 ** 0.5, 0.5 ** 0.5]]).T
-        assert norm(q_x_45.invrot(v) - v_passive_rotated) < 1e-8
-
-        import pyquaternion
-        for i in range(100):
-            v = np.random.uniform(-100, 100, (3,1))
-            v_small = np.random.normal(-1/4., 1/4., (3,1))
-            q = Quaternion(np.random.uniform(-1, 1, (4,1)))
-            q.normalize()
-            q2 = Quaternion(np.random.uniform(-1, 1, (4,1)))
-            q2.normalize()
-
-            # Check against oracle
-            # (pyquaternion returns the active rotation matrix because it is stupid)
-            oracle_q = pyquaternion.Quaternion(q.arr)
-            oracle_q2 = pyquaternion.Quaternion(q2.arr)
-            assert norm(oracle_q.rotation_matrix.T - q.R) < 1e-8 # make sure they create the same rotation matrix
-            assert norm((oracle_q2 * oracle_q).elements[:,None] - (q2 * q).elements) < 1e-8 # make sure they do the same thing for quat multiplication
-
-            # Check equivalence of rot, invrot and R
-            assert norm(q.rot(v) - q.R.T.dot(v)) < 1e-8
-            assert norm(q.invrot(v) - q.R.dot(v)) < 1e-8
-
-            # Check that rotations are inverses of each other
-            assert norm(q.rot(q.invrot(v)) - v) < 1e-8
-            assert norm(q.invrot(q.rot(v)) - v) < 1e-8
-            assert norm(q.R.dot(q.R.T.dot(v)) - v) < 1e-8
-            assert norm(q.R.T.dot(q.R.dot(v)) - v) < 1e-8
-
-            # Check from_two_vectors
-            v1 = np.random.uniform(-100, 100, (3,1))
-            v2 = np.random.uniform(-100, 100, (3,1))
-            v1 /= norm(v1)
-            v2 /= norm(v2)
-            assert norm(Quaternion.from_two_unit_vectors(v1, v2).rot(v1) - v2) < 1e-8
-            assert norm(Quaternion.from_two_unit_vectors(v2, v1).invrot(v1)  - v2) < 1e-8
-
-            # Check from_R
-            R = q.R
-            qR = Quaternion.from_R(R)
-            assert norm(qR.rot(v) - R.T.dot(v)) < 1e-8
-
-            assert norm((q*q.inverse).elements - np.array([[1., 0, 0, 0]]).T) < 1e-8
-
-            # Check that qexp is right by comparing with rotation matrix qexp and axis-angle
-            import scipy.linalg
-            omega = np.random.uniform(-1, 1, (3,1))
-            R_omega_exp = scipy.linalg.expm(skew(omega))
-            q_R_omega_exp = Quaternion.from_R(R_omega_exp.T)
-            q_omega = Quaternion.from_axis_angle(omega/norm(omega), norm(omega))
-            q_omega_exp = Quaternion.exp(omega)
-            assert norm(q_R_omega_exp.elements - q_omega.elements) < 1e-8
-            assert norm(q_omega_exp.elements - q_omega.elements) < 1e-8
-
-            # Check qexp and qlog are the inverses of each other
-            assert norm(Quaternion.log(Quaternion.exp(v_small)) - v_small) < 1e-8
-            assert norm(Quaternion.exp(v_small).elements) - 1.0 < 1e-8
-
-            # Check boxplus and boxminus
-            delta1 = np.random.normal(-0.25, 0.25, (3,1))
-            delta2 = np.random.normal(-0.25, 0.25, (3, 1))
-            assert norm((q + np.zeros((3,1))).elements - q.elements) < 1e-8
-            assert norm((q + (q2 - q)).elements - q2.elements) < 1e-8 or norm((q + (q2 - q)).elements + q2.elements) < 1e-8
-            assert norm(((q + delta1) - q) - delta1) < 1e-8
-            assert norm((q + delta1) - (q + delta1)) <= norm(delta1 - delta2)
-
-            # Check iadd and imul
-            qcopy = q.copy()
-            qcopy += delta1
-            assert norm(qcopy.elements - (q+delta1).elements) < 1e-8
-            qcopy = q.copy()
-            qcopy *= q2
-            assert norm(qcopy.elements - (q * q2).elements) < 1e-8
-
-        print "pyquat test [PASSED]"
 
     @property
     def w(self):
@@ -236,7 +150,7 @@ class Quaternion():
     # Returns a quaternion
     @staticmethod
     def exp(v):
-        assert v.shape == (3,1)
+        # assert v.shape == (3,1)
         delta = v.copy()
 
         norm_delta = norm(delta)
@@ -260,7 +174,7 @@ class Quaternion():
 
     @staticmethod
     def log(q):
-        assert isinstance(q, Quaternion)
+        # assert isinstance(q, Quaternion)
 
         v = q.arr[1:]
         w = q.arr[0,0]
@@ -279,7 +193,7 @@ class Quaternion():
 
     # Perform an active rotation on v (same as q.R.T.dot(v), but faster) CONFIRMED
     def rot(self, v):
-        assert v.shape[0] == 3
+        # assert v.shape[0] == 3
         skew_xyz = skew(self.arr[1:])
         t = 2.0 * skew_xyz.dot(v)
         out = v + self.arr[0,0] * t + skew_xyz.dot(t)
@@ -287,7 +201,7 @@ class Quaternion():
 
     # Perform a passive rotation on v (same as q.R.dot(v), but faster) CONFIRMED
     def invrot(self, v):
-        assert v.shape[0] == 3
+        # assert v.shape[0] == 3
         skew_xyz = skew(self.arr[1:])
         t = 2.0 * skew_xyz.dot(v)
         return v - self.arr[0,0] * t + skew_xyz.dot(t)
@@ -306,8 +220,8 @@ class Quaternion():
     # q.rot(u) = v and q.invrot(v) = u
     @staticmethod
     def from_two_unit_vectors(u, v):
-        assert u.shape == (3,1)
-        assert v.shape == (3,1)
+        # assert u.shape == (3,1)
+        # assert v.shape == (3,1)
         u = u.copy()
         v = v.copy()
 
@@ -355,9 +269,11 @@ class Quaternion():
 
     @staticmethod
     def from_axis_angle(axis, angle):
-        assert axis.shape == (3,1) and isinstance(angle, float)
+        # assert axis.shape == (3,1) and isinstance(angle, float)
         alpha_2 = np.array([[angle/2.0]])
-        return Quaternion(np.vstack((np.cos(alpha_2), axis*np.sin(alpha_2))))
+        arr = np.vstack((np.cos(alpha_2), axis*np.sin(alpha_2)))
+        arr /= norm(arr)
+        return Quaternion(arr)
 
 
     @staticmethod
@@ -379,10 +295,98 @@ class Quaternion():
         return q_new
 
     def boxplus(self, delta):
-        assert delta.shape == (3,1)
+        # assert delta.shape == (3,1)
         return self.otimes(Quaternion.exp(delta))
 
+
+def run_tests():
+    # Make sure that active rotations are active rotations
+    v = np.array([[0, 0, 1.]]).T
+    v_active_rotated = np.array([[0, -0.5 ** 0.5, 0.5 ** 0.5]]).T
+    beta = np.array([[1., 0, 0]]).T
+    q_x_45 = Quaternion.from_axis_angle(beta, 45.0 * np.pi / 180.0)
+    assert norm(q_x_45.rot(v) - v_active_rotated) < 1e-8
+
+    # And that passive rotations are passive rotations
+    v_passive_rotated = np.array([[0, 0.5 ** 0.5, 0.5 ** 0.5]]).T
+    assert norm(q_x_45.invrot(v) - v_passive_rotated) < 1e-8
+
+    import pyquaternion
+    for i in range(100):
+        v = np.random.uniform(-100, 100, (3, 1))
+        v_small = np.random.normal(-1 / 4., 1 / 4., (3, 1))
+        q = Quaternion(np.random.uniform(-1, 1, (4, 1)))
+        q.normalize()
+        q2 = Quaternion(np.random.uniform(-1, 1, (4, 1)))
+        q2.normalize()
+
+        # Check against oracle
+        # (pyquaternion returns the active rotation matrix because it is stupid)
+        oracle_q = pyquaternion.Quaternion(q.arr)
+        oracle_q2 = pyquaternion.Quaternion(q2.arr)
+        assert norm(oracle_q.rotation_matrix.T - q.R) < 1e-8  # make sure they create the same rotation matrix
+        assert norm((oracle_q2 * oracle_q).elements[:, None] - (
+        q2 * q).elements) < 1e-8  # make sure they do the same thing for quat multiplication
+
+        # Check equivalence of rot, invrot and R
+        assert norm(q.rot(v) - q.R.T.dot(v)) < 1e-8
+        assert norm(q.invrot(v) - q.R.dot(v)) < 1e-8
+
+        # Check that rotations are inverses of each other
+        assert norm(q.rot(q.invrot(v)) - v) < 1e-8
+        assert norm(q.invrot(q.rot(v)) - v) < 1e-8
+        assert norm(q.R.dot(q.R.T.dot(v)) - v) < 1e-8
+        assert norm(q.R.T.dot(q.R.dot(v)) - v) < 1e-8
+
+        # Check from_two_vectors
+        v1 = np.random.uniform(-100, 100, (3, 1))
+        v2 = np.random.uniform(-100, 100, (3, 1))
+        v1 /= norm(v1)
+        v2 /= norm(v2)
+        assert norm(Quaternion.from_two_unit_vectors(v1, v2).rot(v1) - v2) < 1e-8
+        assert norm(Quaternion.from_two_unit_vectors(v2, v1).invrot(v1) - v2) < 1e-8
+
+        # Check from_R
+        R = q.R
+        qR = Quaternion.from_R(R)
+        assert norm(qR.rot(v) - R.T.dot(v)) < 1e-8
+
+        assert norm((q * q.inverse).elements - np.array([[1., 0, 0, 0]]).T) < 1e-8
+
+        # Check that qexp is right by comparing with rotation matrix qexp and axis-angle
+        import scipy.linalg
+        omega = np.random.uniform(-1, 1, (3, 1))
+        R_omega_exp = scipy.linalg.expm(skew(omega))
+        q_R_omega_exp = Quaternion.from_R(R_omega_exp.T)
+        q_omega = Quaternion.from_axis_angle(omega / norm(omega), norm(omega))
+        q_omega_exp = Quaternion.exp(omega)
+        assert norm(q_R_omega_exp.elements - q_omega.elements) < 1e-8
+        assert norm(q_omega_exp.elements - q_omega.elements) < 1e-8
+
+        # Check qexp and qlog are the inverses of each other
+        assert norm(Quaternion.log(Quaternion.exp(v_small)) - v_small) < 1e-8
+        assert norm(Quaternion.exp(v_small).elements) - 1.0 < 1e-8
+
+        # Check boxplus and boxminus
+        delta1 = np.random.normal(-0.25, 0.25, (3, 1))
+        delta2 = np.random.normal(-0.25, 0.25, (3, 1))
+        assert norm((q + np.zeros((3, 1))).elements - q.elements) < 1e-8
+        assert norm((q + (q2 - q)).elements - q2.elements) < 1e-8 or norm(
+            (q + (q2 - q)).elements + q2.elements) < 1e-8
+        assert norm(((q + delta1) - q) - delta1) < 1e-8
+        assert norm((q + delta1) - (q + delta1)) <= norm(delta1 - delta2)
+
+        # Check iadd and imul
+        qcopy = q.copy()
+        qcopy += delta1
+        assert norm(qcopy.elements - (q + delta1).elements) < 1e-8
+        qcopy = q.copy()
+        qcopy *= q2
+        assert norm(qcopy.elements - (q * q2).elements) < 1e-8
+
+    print "pyquat test [PASSED]"
+
 if __name__ == '__main__':
-    Quaternion.__test__()
+    run_tests()
 
 

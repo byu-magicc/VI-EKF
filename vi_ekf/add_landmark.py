@@ -4,10 +4,10 @@ import scipy.linalg
 from tqdm import tqdm
 from math_helper import norm, q_array_from_two_unit_vectors
 
-def add_landmark(truth, landmarks, p_b_c, q_b_c):
-    assert truth.shape[1] > 7 and landmarks.shape[1] == 3
+def add_landmark(truth, landmarks, p_b_c, q_b_c, F, lambda_0):
+    assert truth.shape[1] > 7 and landmarks.shape[1] == 5
 
-    feature_array = np.zeros((truth.shape[0], 1 + 5*len(landmarks)))
+    feature_array = np.zeros((truth.shape[0], 1 + 5*landmarks.shape[0]))
     # bearing = np.zeros((truth_pos.shape[0], len(landmarks), 3))
     # depth = np.zeros((len(truth_pos), len(landmarks)))
 
@@ -20,7 +20,7 @@ def add_landmark(truth, landmarks, p_b_c, q_b_c):
 
     for i in range(len(truth)):
         q = Quaternion(truth[i, 4:8, None])
-        delta_pose = landmarks - (truth[i, 1:4] + q.invrot(p_b_c).T)
+        delta_pose = landmarks[:,:3] - (truth[i, 1:4] + q.invrot(p_b_c).T)
         dist = norm(delta_pose, axis=1)
         q = Quaternion(truth[i,4:8,None])
         zetas = q_b_c.invrot(q.rot((delta_pose/dist[:,None]).T))
@@ -33,13 +33,22 @@ def add_landmark(truth, landmarks, p_b_c, q_b_c):
 
     zetas = []
     depths = []
-    feature_time = feature_array[:,0]
-    for l in range(len(landmarks)):
+    t = truth[:,0]
+    ids = [[] for i in t]
+    for l, landmark in enumerate(landmarks):
+        start = landmark[3]
+        end = landmark[4]
+        # NaN out the features that aren't visible
+        feature_array[(start > t) | (t > end), l * 5 + 1:l * 5 + 5] = np.nan
+        feature_array[(start > t) | (t > end), l * 5 + 5:l * 5 + 6] = np.nan
+        # Append to the zetas list
         zetas.append(feature_array[:, l * 5 + 1:l * 5 + 5])
         depths.append(feature_array[:, l * 5 + 5:l * 5 + 6])
-    ids = np.tile(np.arange(0, len(landmarks), 1), (len(truth), 1))
+        for i in range(len(t)):
+            if np.isfinite(feature_array[i, l*5+1]):
+                ids[i].append(l)
 
-    return feature_time, zetas, depths, ids
+    return t, zetas, depths, ids
 
 def test():
     landmarks = np.random.uniform(-100, 100, (3,10))

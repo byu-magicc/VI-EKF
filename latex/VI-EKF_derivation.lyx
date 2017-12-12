@@ -2552,7 +2552,7 @@ reference "eq:pixel_velocity_model"
 \begin_layout Standard
 \begin_inset Formula 
 \[
-a\begin{aligned}\frac{\partial h_{\dot{\lambda}}}{\partial\beta_{\omega}} & =\frac{\partial}{\partial\beta_{\omega}}\left(-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\omega_{c/I}^{I}\right)\right)\\
+\begin{aligned}\frac{\partial h_{\dot{\lambda}}}{\partial\beta_{\omega}} & =\frac{\partial}{\partial\beta_{\omega}}\left(-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\omega_{c/I}^{I}\right)\right)\\
  & =\frac{\partial}{\partial\beta_{\omega}}\left(-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\left(y_{\omega}-\beta_{\omega}\right)\right)\right)\\
  & =\frac{\partial}{\partial\beta_{\omega}}\left(-I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\left(y_{\omega}-\beta_{\omega}\right)\right)\\
  & =I_{2\times3}\left\lfloor fe_{z}\right\rfloor \left(I-\zeta\zeta^{\top}\right)\\

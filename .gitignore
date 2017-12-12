@@ -12,6 +12,7 @@
 *.user
 *.pyc
 *.lyx~
+*.lyx#
 *.swp
 *.ipynb_checkpoints/*
 

@@ -121,7 +121,7 @@ def htest(fn, ekf, **kwargs):
         x_prime = ekf.boxplus(ekf.x, (I[i] * epsilon)[:, None])
         z_prime = fn(x_prime, **kwargs)[0]
         if 'type' in kwargs.keys():
-            if kwargs['type'] == 'feat':
+            if kwargs['type'] == 'qzeta':
                 finite_difference[:,i] = (q_feat_boxminus(Quaternion(z_prime), Quaternion(z0)) / epsilon)[:,0]
             elif kwargs['type'] == 'att':
                 finite_difference[:, i] = ((Quaternion(z_prime) - Quaternion(z0)) / epsilon)[:, 0]
@@ -153,19 +153,20 @@ def htest(fn, ekf, **kwargs):
 
 def all_h_tests(x, u, ekf):
     num_errors = 0
-    num_errors += htest(ekf.h_acc, ekf)
-    num_errors += htest(ekf.h_pos, ekf)
-    num_errors += htest(ekf.h_vel, ekf)
-    num_errors += htest(ekf.h_alt, ekf)
-    num_errors += htest(ekf.h_att, ekf, type='att')
+    # num_errors += htest(ekf.h_acc, ekf)
+    # num_errors += htest(ekf.h_pos, ekf)
+    # num_errors += htest(ekf.h_vel, ekf)
+    # num_errors += htest(ekf.h_alt, ekf)
+    # num_errors += htest(ekf.h_att, ekf, type='att')
     for i in range(ekf.len_features):
-        num_errors += htest(ekf.h_feat, ekf, i=i, type='feat')
-        num_errors += htest(ekf.h_depth, ekf, i=i)
-        num_errors += htest(ekf.h_inv_depth, ekf, i=i)
+        num_errors += htest(ekf.h_feat, ekf, i=i)
+        # num_errors += htest(ekf.h_qzeta, ekf, i=i, type='qzeta')
+        # num_errors += htest(ekf.h_depth, ekf, i=i)
+        # num_errors += htest(ekf.h_inv_depth, ekf, i=i)
         # num_errors += htest(ekf.h_pixel_vel, ekf, i=i, u=u)
     return num_errors
 
-def run():
+def run_tests():
     np.set_printoptions(suppress=True, linewidth=300, threshold=1000)
 
     # Set nominal inputs
@@ -203,13 +204,14 @@ def run():
 
         # Initialize Random Features
         for j in range(1):
-            zeta = np.random.randn(3)[:, None]
-            # zeta = np.array([[0, 1.0, 1.0]]).T
-            zeta /= scipy.linalg.norm(zeta)
-            qzeta = Quaternion.from_two_unit_vectors(zeta, np.array([[0, 0, 1.]]).T).elements
+            axis = np.array([[np.random.uniform(-1, 1, [])],
+                             [np.random.uniform(-1, 1, [])],
+                             [0]])
+            angle = np.random.uniform(-60*np.pi/180.0, 60*np.pi/180.0)
+            qzeta = Quaternion.from_axis_angle(axis, angle)
             depth = np.abs(np.random.randn(1))[:,None]
             # depth = np.ones((1,1))
-            ekf.init_feature(qzeta, j, depth=depth * 10)
+            ekf.init_feature(qzeta.elements, j, depth=depth * 10)
 
         # Initialize Inputs
         acc = nominal_acc + np.random.normal(0, 1, (3,1))
@@ -233,4 +235,4 @@ def run():
         print(bcolors.FAIL + "[FAILED] %d tests" % errors)
 
 if __name__ == '__main__':
-    run()
+    run_tests()

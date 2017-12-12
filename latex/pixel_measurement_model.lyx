@@ -140,15 +140,15 @@ s & =\frac{e_{z}\cdot fe_{z}}{e_{z}\dot{\zeta}}\\
 \end_layout
 
 \begin_layout Standard
-If we consider that the focal length in the 
-\begin_inset Formula $x$
+If we map into pixel coordinates, (where 
+\begin_inset Formula $\left(0,0\right)$
 \end_inset
 
- and 
-\begin_inset Formula $y$
+ is located at the top of the image, with center pixel 
+\begin_inset Formula $\lambda_{c}=\left[c_{x},c_{y}\right]^{\top}$
 \end_inset
 
- axes are not equal, we split them up into the appropriate axes with 
+ and focal lengths 
 \begin_inset Formula $f_{x}$
 \end_inset
 
@@ -156,7 +156,12 @@ If we consider that the focal length in the
 \begin_inset Formula $f_{y}$
 \end_inset
 
- respectively.
+, we get the following expression for pixel locations given a particular
+ feature bearing vector 
+\begin_inset Formula $\zeta$
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
@@ -165,12 +170,12 @@ If we consider that the focal length in the
 \begin{aligned}\lambda & =\left[\begin{array}{ccc}
 1 & 0 & 0\\
 0 & 1 & 0
-\end{array}\right]s\zeta\\
+\end{array}\right]s\zeta+\lambda_{c}\\
  & =\left[\begin{array}{ccc}
 f_{x} & 0 & 0\\
 0 & f_{y} & 0
-\end{array}\right]\frac{1}{e_{z}\zeta}\zeta\\
- & =F\frac{1}{e_{z}\zeta}\zeta
+\end{array}\right]\frac{1}{e_{z}\zeta}\zeta+\lambda_{c}\\
+ & =F\frac{1}{e_{z}\zeta}\zeta+\lambda_{c}
 \end{aligned}
 \]
 
@@ -224,26 +229,12 @@ Jacobian
 \end_layout
 
 \begin_layout Standard
-You have to use the quotient rule to deal with the 
-\begin_inset Formula $\zeta$
-\end_inset
-
- on the bottom, and the chain rule to deal with the 
-\begin_inset Formula $\zeta$
-\end_inset
-
- multiplied.
- Something is still wrong though, because the sizes don't match up for the
- first term.
-\end_layout
-
-\begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\frac{\partial\lambda}{\partial q_{c}^{\zeta}} & =\frac{\partial}{\partial q_{c}^{\zeta}}\left(F\frac{1}{e_{z}^{\top}\zeta}\zeta\right)\in\mathbb{R}^{2\times2}\\
- & =F\left(\frac{\frac{\partial}{\partial q_{c}^{\zeta}}\left(\zeta\right)}{e_{z}^{\top}\zeta}+\frac{\partial}{\partial q_{c}^{\zeta}}\left(\frac{1}{e_{z}^{\top}\zeta}\right)\zeta	\right)\\
- & =F\left(-\frac{\left\lfloor \zeta\right\rfloor T_{\zeta}}{e_{z}^{\top}\zeta}+\left(\frac{e_{z}^{\top}\frac{\partial}{\partial q_{c}^{\zeta}}\zeta}{\left(e_{z}^{\top}\zeta\right)^{2}}\right)\zeta\right)\\
- & =f\left(\frac{\zeta e_{z}^{\top}\left\lfloor \zeta\right\rfloor T_{\zeta}}{\left(e_{z}^{\top}\zeta\right)^{2}}-\frac{\left\lfloor \zeta\right\rfloor T_{\zeta}}{e_{z}^{\top}\zeta}\right)
+\begin{aligned}\frac{\partial\lambda}{\partial q_{c}^{\zeta}} & =\frac{\partial}{\partial q_{c}^{\zeta}}\left(F\zeta\frac{1}{e_{z}^{\top}\zeta}+\lambda_{c}\right)\in\mathbb{R}^{2\times2}\\
+ & =F\left(\frac{\frac{\partial}{\partial q_{c}^{\zeta}}\left(\zeta\right)}{e_{z}^{\top}\zeta}+\zeta\frac{\partial}{\partial q_{c}^{\zeta}}\left(\frac{1}{e_{z}^{\top}\zeta}\right)	+0\right)\\
+ & =F\left(-\frac{\left\lfloor \zeta\right\rfloor T_{\zeta}}{e_{z}^{\top}\zeta}+\zeta\left(\frac{e_{z}^{\top}\frac{\partial}{\partial q_{c}^{\zeta}}\zeta}{\left(e_{z}^{\top}\zeta\right)^{2}}\right)\right)\\
+ & =F\left(\frac{\zeta e_{z}^{\top}\left\lfloor \zeta\right\rfloor T_{\zeta}}{\left(e_{z}^{\top}\zeta\right)^{2}}-\frac{\left\lfloor \zeta\right\rfloor T_{\zeta}}{e_{z}^{\top}\zeta}\right)
 \end{aligned}
 \]
 

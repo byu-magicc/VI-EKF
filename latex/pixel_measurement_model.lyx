@@ -220,7 +220,7 @@ You have to use the quotient rule to deal with the
 \begin{aligned}\frac{\partial\lambda}{\partial q_{c}^{\zeta}} & =\frac{\partial}{\partial q_{c}^{\zeta}}\left(I_{2\times3}\frac{f}{e_{z}^{\top}\zeta}\zeta\right)\in\mathbb{R}^{2\times2}\\
  & =I_{2\times3}f\left(\frac{\frac{\partial}{\partial q_{c}^{\zeta}}\left(\zeta\right)}{e_{z}^{\top}\zeta}+\frac{\partial}{\partial q_{c}^{\zeta}}\left(\frac{1}{e_{z}^{\top}\zeta}\right)\zeta	\right)\\
  & =I_{2\times3}f\left(\frac{\left\lfloor \zeta\right\rfloor T_{\zeta}}{e_{z}^{\top}\zeta}+\left(\frac{-e_{z}^{\top}\frac{\partial}{\partial q_{c}^{\zeta}}\zeta}{\left(e_{z}^{\top}\zeta\right)^{2}}\right)\zeta\right)\\
- & =I_{2\times3}f\left(\frac{\left\lfloor \zeta\right\rfloor T_{\zeta}}{e_{z}^{\top}\zeta}+\left(\frac{-\zeta e_{z}^{\top}\left\lfloor \zeta\right\rfloor T_{\zeta}}{\left(e_{z}^{\top}\zeta\right)^{2}}\right)\right)
+ & =I_{2\times3}f\left(\frac{\left\lfloor \zeta\right\rfloor T_{\zeta}}{e_{z}^{\top}\zeta}-\left(\frac{\zeta e_{z}^{\top}\left\lfloor \zeta\right\rfloor T_{\zeta}}{\left(e_{z}^{\top}\zeta\right)^{2}}\right)\right)
 \end{aligned}
 \]
 

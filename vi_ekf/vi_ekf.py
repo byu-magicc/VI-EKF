@@ -98,6 +98,7 @@ class VI_EKF():
         self.measurement_functions['att'] = self.h_att
         self.measurement_functions['pos'] = self.h_pos
         self.measurement_functions['vel'] = self.h_vel
+        self.measurement_functions['qzeta'] = self.h_qzeta
         self.measurement_functions['feat'] = self.h_feat
         self.measurement_functions['pixel_vel'] = self.h_pixel_vel
         self.measurement_functions['depth'] = self.h_depth
@@ -113,6 +114,13 @@ class VI_EKF():
 
         self.last_propagate = None
         self.initialized = False
+        self.cam_center = np.array([[320.0, 240.0]]).T
+        self.cam_F = np.array([[250.0, 250.0]]).dot(I_2x3)
+
+    def set_camera_intrinsics(self, center, focal_length):
+        assert center.shape == (2,1) and focal_length.shape ==(2,1)
+        self.cam_center = center
+        self.cam_F = focal_length.T.dot(I_2x3)
 
     def set_camera_to_IMU(self, translation, rotation):
         # assert translation.shape == (3,1) and isinstance(rotation, Quaternion)
@@ -240,7 +248,7 @@ class VI_EKF():
 
     # Used to initialize a new feature.  Returns the feature id associated with this feature
     def init_feature(self, q_zeta, id, depth=None):
-        # assert q_zeta.shape == (4, 1) and depth.shape == (1, 1) and abs(1.0 - norm(q_zeta)) < 1e-
+        assert q_zeta.shape == (4, 1) and depth.shape == (1, 1) and abs(1.0 - norm(q_zeta)) < 1e-8
 
         self.len_features += 1
         self.feature_ids.append(self.next_feature_id)
@@ -459,9 +467,9 @@ class VI_EKF():
 
         return h, dhdx
 
-    # Feature model for feature index i
-    # Returns estimated measurement (3x1) and Jacobian (3 x 16+3N)
-    def h_feat(self, x, **kwargs):
+    # qzeta model for feature index i
+    # Returns estimated qzeta (4x1) and Jacobian (3 x 16+3N)
+    def h_qzeta(self, x, **kwargs):
         # assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int)
         i = self.global_to_local_feature_id[kwargs['i']]
         dxZETA_i = dxZ + i * 3
@@ -471,6 +479,26 @@ class VI_EKF():
 
         dhdx = np.zeros((2, dxZ+3*self.len_features))
         dhdx[:, dxZETA_i:dxZETA_i+2] = I_2x2
+
+        return h, dhdx
+
+    # Feature model for feature index i
+    # Returns estimated measurement (3x1) and Jacobian (3 x 16+3N)
+    def h_feat(self, x, **kwargs):
+        # assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int)
+        i = self.global_to_local_feature_id[kwargs['i']]
+        dxZETA_i = dxZ + i * 3
+        q_zeta = Quaternion(x[xZ+i*5:xZ+i*5+4])
+
+        zeta = q_zeta.rot(self.khat)
+        sk_zeta = skew(zeta)
+        ezT_zeta = (self.khat.T.dot(zeta)).squeeze()
+        T_z = T_zeta(q_zeta)
+
+        h = self.cam_F.dot(zeta)/ezT_zeta + self.cam_center
+
+        dhdx = np.zeros((2, dxZ+3*self.len_features))
+        dhdx[:, dxZETA_i:dxZETA_i+2] = -self.cam_F.dot((sk_zeta.dot(T_z))/ezT_zeta - zeta.dot(self.khat.T).dot(sk_zeta).dot(T_z)/(ezT_zeta*ezT_zeta))
 
         return h, dhdx
 
@@ -535,6 +563,7 @@ class VI_EKF():
 
 
         return h, dhdx
+
 
 
 

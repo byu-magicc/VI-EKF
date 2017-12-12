@@ -271,7 +271,9 @@ class Quaternion():
     def from_axis_angle(axis, angle):
         # assert axis.shape == (3,1) and isinstance(angle, float)
         alpha_2 = np.array([[angle/2.0]])
-        return Quaternion(np.vstack((np.cos(alpha_2), axis*np.sin(alpha_2))))
+        arr = np.vstack((np.cos(alpha_2), axis*np.sin(alpha_2)))
+        arr /= norm(arr)
+        return Quaternion(arr)
 
 
     @staticmethod

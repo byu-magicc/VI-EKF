@@ -371,10 +371,10 @@ def run_tests():
         delta1 = np.random.normal(-0.25, 0.25, (3, 1))
         delta2 = np.random.normal(-0.25, 0.25, (3, 1))
         assert norm((q + np.zeros((3, 1))).elements - q.elements) < 1e-8
-        assert norm((q + (q2 - q)).elements - q2.elements) < 1e-8 or norm(
-            (q + (q2 - q)).elements + q2.elements) < 1e-8
+        assert norm((q + (q2 - q)).elements - q2.elements) < 1e-8 or \
+               norm((q + (q2 - q)).elements + q2.elements) < 1e-8
         assert norm(((q + delta1) - q) - delta1) < 1e-8
-        assert norm((q + delta1) - (q + delta1)) <= norm(delta1 - delta2)
+        assert norm((q + delta1) - (q + delta2)) <= norm(delta1 - delta2)
 
         # Check iadd and imul
         qcopy = q.copy()

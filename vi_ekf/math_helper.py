@@ -98,19 +98,20 @@ def run_tests():
 
     # Test T_zeta
     q2 = q_array_from_two_unit_vectors(e_z, v2)
-    # assert norm(T_zeta(Quaternion(q2)).T.dot(v2)) < 1e-8
+    assert norm(T_zeta(Quaternion(q2)).T.dot(v2)) < 1e-8
 
     # Check derivative of T_zeta - This was giving me trouble
     d_dTdq = np.zeros((2,2))
     q = Quaternion(np.random.uniform(-1, 1, (4,1)))
     q.arr[3] = 0.0
     q.normalize()
-    v = np.random.uniform(-1, 1, (2,1))
     x0 = T_zeta(q).T.dot(v2)
     epsilon = 1e-6
     I = np.eye(2)*epsilon
     for i in range(2):
-        d_dTdq[i, :, None] = (T_zeta(q_feat_boxplus(q, I[:,i,None])).T.dot(v2) - x0)/epsilon
+        qplus = q_feat_boxplus(q, I[:,i,None])
+        xprime = T_zeta(qplus).T.dot(v2)
+        d_dTdq[i, :, None] = (xprime - x0)/epsilon
     a_dTdq = -T_zeta(q).T.dot(skew(v2).dot(T_zeta(q)))
     assert (abs(a_dTdq - d_dTdq) < 1e-6).all()
 

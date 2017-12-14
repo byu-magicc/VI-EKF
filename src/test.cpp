@@ -2,6 +2,7 @@
 #include "gtest/gtest.h"
 #include <iostream>
 #include <eigen3/unsupported/Eigen/MatrixFunctions>
+#include "math_helper.h"
 
 #define EXPECT_QUATERNION_EQUALS(q1, q2) \
   EXPECT_NEAR((q1).w(), (q1).w(), 1e-8); \
@@ -10,9 +11,23 @@
   EXPECT_NEAR((q1).z(), (q1).z(), 1e-8)
 
 #define EXPECT_VECTOR3_EQUALS(v1, v2) \
-  EXPECT_NEAR((v1).x(), (v1).x(), 1e-8); \
-  EXPECT_NEAR((v1).y(), (v1).y(), 1e-8); \
-  EXPECT_NEAR((v1).z(), (v1).z(), 1e-8)
+  EXPECT_NEAR((v1)(0,0), (v1)(0,0), 1e-8); \
+  EXPECT_NEAR((v1)(1,0), (v1)(1,0), 1e-8); \
+  EXPECT_NEAR((v1)(2,0), (v1)(2,0), 1e-8)
+
+#define EXPECT_VECTOR2_EQUALS(v1, v2) \
+  EXPECT_NEAR((v1)(0,0), (v1)(0,0), 1e-8); \
+  EXPECT_NEAR((v1)(1,0), (v1)(1,0), 1e-8)
+
+#define EXPECT_MATRIX_EQUAL(m1, m2, tol) {\
+  for (int row = 0; row < m1.rows(); row++ ) \
+{ \
+  for (int col = 0; col < m1.cols(); col++) \
+{ \
+  EXPECT_NEAR((m1)(row, col), (m2)(row, col), tol); \
+  } \
+  } \
+  }
 
 
 using namespace quat;
@@ -139,6 +154,89 @@ TEST(Quaternion, inplace_add_and_mul)
     q_copy = q.copy();
     q_copy *= q2;
     EXPECT_QUATERNION_EQUALS(q_copy, q*q2);
+  }
+}
+
+TEST(math_helper, T_zeta)
+{
+  Eigen::Vector3d v2;
+  for (int i = 0; i < 100; i++)
+  {
+    v2.setRandom();
+    v2 /= v2.norm();
+    Quaternion q2 = Quaternion::from_two_unit_vectors(e_z, v2);
+    Eigen::Vector2d T_z_v2 = T_zeta(q2).transpose() * v2;
+    EXPECT_LE(T_z_v2.norm(), 1e-8);
+  }
+}
+
+TEST(math_helper, d_dTdq)
+{
+  for (int j = 0; j < 100; j++)
+  {
+    Eigen::Matrix2d d_dTdq;
+    d_dTdq.setZero();
+    Eigen::Vector3d v2;
+    v2.setRandom();
+    Quaternion q = Quaternion::Random();
+    q.setZ(0);
+    q.normalize();
+    auto T_z = T_zeta(q);
+    Eigen::Vector2d x0 = T_z.transpose() * v2;
+    double epsilon = 1e-6;
+    Eigen::Matrix2d I = Eigen::Matrix2d::Identity() * epsilon;
+    Eigen::Matrix2d a_dTdq = -T_z.transpose() * skew(v2) * T_z;
+    for (int i = 0; i < 2; i++)
+    {
+      quat::Quaternion qplus = q_feat_boxplus(q, I.col(i));
+      Eigen::Vector2d xprime = T_zeta(qplus).transpose() * v2;
+      Eigen::Vector2d dx = xprime - x0;
+      d_dTdq.row(i) = (dx) / epsilon;
+    }
+    EXPECT_MATRIX_EQUAL(d_dTdq, a_dTdq, 1e-6);
+  }
+}
+
+TEST(math_helper, dqzeta_dqzeta)
+{
+  for(int j = 0; j < 100; j++)
+  {
+    Eigen::Matrix2d d_dqdq;
+    quat::Quaternion q = quat::Quaternion::Random();
+    if (j == 0)
+      q = quat::Quaternion::Identity();
+    double epsilon = 1e-6;
+    Eigen::Matrix2d I = Eigen::Matrix2d::Identity() * epsilon;
+    for (int i = 0; i < 2; i++)
+    {
+      quat::Quaternion q_prime = q_feat_boxplus(q, I.col(i));
+      Eigen::Vector2d dq  = q_feat_boxminus(q_prime, q);
+      d_dqdq.row(i) = dq /epsilon;
+    }
+    Eigen::Matrix2d a_dqdq = T_zeta(q).transpose() * T_zeta(q);
+    EXPECT_MATRIX_EQUAL(a_dqdq, d_dqdq, 1e-2);
+  }
+}
+
+TEST(math_helper, manifold_operations)
+{
+  Eigen::Vector3d omega, omega2;
+  Eigen::Vector2d dx, zeros;
+  zeros.setZero();
+  for (int i = 0; i < 100; i++)
+  {
+    omega.setRandom();
+    omega2.setRandom();
+    dx.setRandom();
+    dx /= 2.0;
+    omega(2) = 0;
+    omega2(2) = 0;
+    Quaternion x = Quaternion::exp(omega);
+    Quaternion y = Quaternion::exp(omega2);
+
+    EXPECT_QUATERNION_EQUALS( q_feat_boxplus(x, zeros), x);
+    EXPECT_VECTOR3_EQUALS( q_feat_boxplus( x, q_feat_boxminus(y, x)).rot(e_z), y.rot(e_z));
+    EXPECT_VECTOR2_EQUALS( q_feat_boxminus(q_feat_boxplus(x, dx), x), dx);
   }
 }
 

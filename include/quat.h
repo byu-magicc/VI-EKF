@@ -1,3 +1,5 @@
+#pragma once
+
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <unsupported/Eigen/CXX11/Tensor>
@@ -22,15 +24,19 @@ public:
   inline double x() const { return arr_(1); }
   inline double y() const { return arr_(2); }
   inline double z() const { return arr_(3); }
+  inline void setW(double w) { arr_(0) = w; }
+  inline void setX(double x) { arr_(1) = x; }
+  inline void setY(double y) { arr_(2) = y; }
+  inline void setZ(double z) { arr_(3) = z; }
   inline Eigen::Vector4d elements() const { return arr_;}
 
   Quaternion operator* (const Quaternion q) { return otimes(q); }
   Quaternion& operator *= (const Quaternion q)
   {
     arr_ <<  w() * q.w() - x() *q.x() - y() * q.y() - z() * q.z(),
-             w() * q.x() + x() *q.w() - y() * q.z() + z() * q.y(),
-             w() * q.y() + x() *q.z() + y() * q.w() - z() * q.x(),
-             w() * q.z() - x() *q.y() + y() * q.x() + z() * q.w();
+             w() * q.x() + x() *q.w() + y() * q.z() - z() * q.y(),
+             w() * q.y() - x() *q.z() + y() * q.w() + z() * q.x(),
+             w() * q.z() + x() *q.y() - y() * q.x() + z() * q.w();
   }
 
   Quaternion& operator= (const Quaternion q)
@@ -53,19 +59,19 @@ public:
         tmp *= std::sin(norm_v / 2.)/norm_v;
         q_new << std::cos(norm_v/2.0), v(0), v(1), v(2);
 
-        arr_ <<  w() * q_new(0) - x()*q_new(1) - y() * q_new(2) - z() * q_new(3),
-                 w() * q_new(1) + x()*q_new(0) - y() * q_new(3) + z() * q_new(2),
-                 w() * q_new(2) + x()*q_new(3) + y() * q_new(0) - z() * q_new(1),
-                 w() * q_new(3) - x()*q_new(2) + y() * q_new(1) + z() * q_new(0);
+        arr_ <<  w() * q_new(0) - x() *q_new(1) - y() * q_new(2) - z() * q_new(3),
+                 w() * q_new(1) + x() *q_new(0) + y() * q_new(3) - z() * q_new(2),
+                 w() * q_new(2) - x() *q_new(3) + y() * q_new(0) + z() * q_new(1),
+                 w() * q_new(3) + x() *q_new(2) - y() * q_new(1) + z() * q_new(0);
     }
     else
     {
       tmp *= 0.5;
       q_new << 0.0, v(0), v(1), v(2);
-      q_new <<  w() * q_new(0) - x()*q_new(1) - y() * q_new(2) - z() * q_new(3),
-               w() * q_new(1) + x()*q_new(0) - y() * q_new(3) + z() * q_new(2),
-               w() * q_new(2) + x()*q_new(3) + y() * q_new(0) - z() * q_new(1),
-               w() * q_new(3) - x()*q_new(2) + y() * q_new(1) + z() * q_new(0);
+      q_new <<  w() * q_new(0) - x() *q_new(1) - y() * q_new(2) - z() * q_new(3),
+                w() * q_new(1) + x() *q_new(0) + y() * q_new(3) - z() * q_new(2),
+                w() * q_new(2) - x() *q_new(3) + y() * q_new(0) + z() * q_new(1),
+                w() * q_new(3) + x() *q_new(2) - y() * q_new(1) + z() * q_new(0);
        arr_ += q_new;
        arr_ /= arr_.norm();
     }
@@ -265,10 +271,10 @@ public:
     arr_ /= arr_.norm();
   }
 
-  Eigen::Vector3d rot(Eigen::Vector3d v)
+  Eigen::MatrixXd rot(Eigen::MatrixXd v)
   {
     Eigen::Matrix3d skew_xyz = skew(arr_.block<3,1>(1,0));
-    Eigen::Vector3d t = 2.0*skew_xyz * v;
+    Eigen::MatrixXd t = 2.0*skew_xyz * v;
     return v + w() * t + skew_xyz * t;
   }
 
@@ -295,9 +301,9 @@ public:
   {
     Eigen::Vector4d new_arr;
     new_arr <<  w() * q.w() - x() *q.x() - y() * q.y() - z() * q.z(),
-                w() * q.x() + x() *q.w() - y() * q.z() + z() * q.y(),
-                w() * q.y() + x() *q.z() + y() * q.w() - z() * q.x(),
-                w() * q.z() - x() *q.y() + y() * q.x() + z() * q.w();
+                w() * q.x() + x() *q.w() + y() * q.z() - z() * q.y(),
+                w() * q.y() - x() *q.z() + y() * q.w() + z() * q.x(),
+                w() * q.z() + x() *q.y() - y() * q.x() + z() * q.w();
     return Quaternion(new_arr);
   }
 

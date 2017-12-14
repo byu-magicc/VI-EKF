@@ -18,6 +18,7 @@ private:
 
 public:
 
+  Quaternion() {}
   Quaternion(Eigen::Vector4d arr) : arr_(arr) {}
 
   inline double w() const { return arr_(0); }

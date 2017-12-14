@@ -82,9 +82,6 @@ class VI_EKF():
         self.initialized_features = set()
         self.global_to_local_feature_id = {}
 
-        # A map which corresponds to which feature id is occupying which index in the state vector np array
-        self.feature_ids = []
-
         # Body-to-Camera transform
         self.q_b_c = Quaternion(np.array([[1, 0, 0, 0]]).T) # Rotation from body to camera
         self.p_b_c = np.array([[0, 0, 0]]).T # translation from body to camera (in body frame)

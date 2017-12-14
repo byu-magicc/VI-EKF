@@ -3,6 +3,7 @@
 #include <iostream>
 #include <eigen3/unsupported/Eigen/MatrixFunctions>
 #include "math_helper.h"
+#include "vi_ekf.h"
 
 #define EXPECT_QUATERNION_EQUALS(q1, q2) \
   EXPECT_NEAR((q1).w(), (q1).w(), 1e-8); \
@@ -238,6 +239,12 @@ TEST(math_helper, manifold_operations)
     EXPECT_VECTOR3_EQUALS( q_feat_boxplus( x, q_feat_boxminus(y, x)).rot(e_z), y.rot(e_z));
     EXPECT_VECTOR2_EQUALS( q_feat_boxminus(q_feat_boxplus(x, dx), x), dx);
   }
+}
+
+TEST(VI_EKF, jacobians_test)
+{
+  Eigen::VectorXd x0((int)vi_ekf::VIEKF::xZ);
+  vi_ekf::VIEKF ekf(x0);
 }
 
 int main(int argc, char **argv) {

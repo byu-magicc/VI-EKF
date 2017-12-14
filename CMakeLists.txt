@@ -22,7 +22,6 @@ include_directories(
 add_library(vi_ekf
   src/vi_ekf.cpp
   include/vi_ekf.h
-  src/math_helper.cpp
   include/math_helper.h
   include/quat.h
 )

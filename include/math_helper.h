@@ -1,3 +1,4 @@
+#pragma once
 #include "quat.h"
 
 #include <Eigen/Core>
@@ -8,6 +9,17 @@ static const Eigen::Matrix<double, 2, 3> I_2x3 = [] {
          0, 1.0, 0;
   return tmp;
 }();
+
+static const Eigen::Matrix3d I_3x3 = [] {
+  Eigen::Matrix3d tmp = Eigen::Matrix3d::Identity();
+  return tmp;
+}();
+
+static const Eigen::Matrix2d I_2x2 = [] {
+  Eigen::Matrix2d tmp = Eigen::Matrix2d::Identity();
+  return tmp;
+}();
+
 
 static const Eigen::Vector3d e_x = [] {
   Eigen::Vector3d tmp;

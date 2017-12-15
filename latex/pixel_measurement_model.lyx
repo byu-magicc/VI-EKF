@@ -128,8 +128,8 @@ Camera Pixel and feature vector geometry
 \begin{aligned}e_{z}\cdot\left(-fe_{z}+s\zeta\right) & =0\\
 \left(e_{z}\cdot s\zeta\right)-\left(e_{z}\cdot fe_{z}\right) & =0\\
 s\left(e_{z}\cdot\zeta\right) & =\left(e_{z}\cdot fe_{z}\right)\\
-s & =\frac{e_{z}\cdot fe_{z}}{e_{z}\dot{\zeta}}\\
- & =\frac{f}{e_{z}\zeta}\\
+s & =\frac{e_{z}\cdot fe_{z}}{e_{z}^{\top}\dot{\zeta}}\\
+ & =\frac{f}{e_{z}^{\top}\zeta}\\
  & =\frac{f}{e_{z}^{\top}\zeta}
 \end{aligned}
 \]
@@ -170,12 +170,12 @@ If we map into pixel coordinates, (where
 \begin{aligned}\lambda & =\left[\begin{array}{ccc}
 1 & 0 & 0\\
 0 & 1 & 0
-\end{array}\right]s\zeta+\lambda_{c}\\
+\end{array}\right]\zeta s+\lambda_{c}\\
  & =\left[\begin{array}{ccc}
 f_{x} & 0 & 0\\
 0 & f_{y} & 0
-\end{array}\right]\frac{1}{e_{z}\zeta}\zeta+\lambda_{c}\\
- & =F\frac{1}{e_{z}\zeta}\zeta+\lambda_{c}
+\end{array}\right]\zeta\frac{1}{e_{z}^{\top}\zeta}+\lambda_{c}\\
+ & =F\zeta\frac{1}{e_{z}^{\top}\zeta}+\lambda_{c}
 \end{aligned}
 \]
 

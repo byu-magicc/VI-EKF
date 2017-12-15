@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Eigen/Core"
 #include "Eigen/Geometry"
 
@@ -10,6 +12,9 @@
 
 namespace vi_ekf
 {
+
+class VIEKF;
+typedef void (VIEKF::*measurement_function_ptr)(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);
 
 static const Eigen::Vector3d gravity = [] {
   Eigen::Vector3d tmp;
@@ -40,7 +45,7 @@ public:
     dxPOS = 0,
     dxVEL = 3,
     dxATT = 6,
-    dxX_A = 9,
+    dxB_A = 9,
     dxB_G = 12,
     dxMU = 15,
     dxZ = 16
@@ -72,13 +77,13 @@ private:
   int next_feature_id_;
   std::set<int> initialized_features_;
   std::map<int, int> global_to_local_feature_id_;
-  std::map<measurement_type_t, std::function<void(const Eigen::VectorXd&, Eigen::VectorXd&, Eigen::MatrixXd&, const int)>> measurement_functions_;
+  std::map<measurement_type_t, measurement_function_ptr> measurement_functions_;
 
   // Matrix Workspace
-  Eigen::MatrixXd A;
-  Eigen::MatrixXd G;
-  Eigen::MatrixXd I_big;
-  Eigen::VectorXd dx;
+  Eigen::MatrixXd A_;
+  Eigen::MatrixXd G_;
+  Eigen::MatrixXd I_big_;
+  Eigen::VectorXd dx_;
 
   bool use_drag_term;
   double prev_t_;
@@ -92,7 +97,8 @@ private:
 public:
 
   VIEKF(Eigen::MatrixXd x0, bool multirotor=true);
-  void set_camera_to_IMU(const Eigen::Vector3d translation, const quat::Quaternion rotation);
+  void set_camera_to_IMU(const Eigen::Vector3d& translation, const quat::Quaternion& rotation);
+  void set_camera_intrinsics(const Eigen::Vector2d& center, const Eigen::Vector2d& focal_len);
   Eigen::VectorXd get_depths();
   Eigen::MatrixXd get_zetas();
   Eigen::MatrixXd get_qzetas();
@@ -115,6 +121,7 @@ public:
 
   void h_acc(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);
   void h_alt(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);
+  void h_att(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);
   void h_pos(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);
   void h_vel(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);
   void h_qzeta(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);

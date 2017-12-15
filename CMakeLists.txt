@@ -29,4 +29,4 @@ add_library(vi_ekf
 add_executable(test
     src/test.cpp
 )
-target_link_libraries(test ${GTEST_LIBRARIES} pthread)
+target_link_libraries(test ${GTEST_LIBRARIES} pthread vi_ekf)

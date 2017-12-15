@@ -1,8 +1,6 @@
-#include "quat.h"
 #include "gtest/gtest.h"
 #include <iostream>
 #include <eigen3/unsupported/Eigen/MatrixFunctions>
-#include "math_helper.h"
 #include "vi_ekf.h"
 
 #define EXPECT_QUATERNION_EQUALS(q1, q2) \
@@ -243,7 +241,7 @@ TEST(math_helper, manifold_operations)
 
 TEST(VI_EKF, jacobians_test)
 {
-  Eigen::VectorXd x0((int)vi_ekf::VIEKF::xZ);
+  Eigen::Matrix<double,(int)vi_ekf::VIEKF::xZ, 1>  x0;
   vi_ekf::VIEKF ekf(x0);
 }
 

@@ -201,17 +201,18 @@ def run_tests():
         q_b_c = Quaternion.random()
         # q_b_c = Quaternion.Identity()
         ekf.set_camera_to_IMU(p_b_c, q_b_c)
+        ekf.set_camera_intrinsics(np.array([[319.5, 239.5]]).T, np.array([[570.3422, 570.3422]]).T)
 
         # Initialize Random Features
-        for j in range(1):
+        for j in range(10):
             axis = np.array([[np.random.uniform(-1, 1, [])],
                              [np.random.uniform(-1, 1, [])],
                              [0]])
             angle = np.random.uniform(-60*np.pi/180.0, 60*np.pi/180.0)
-            qzeta = Quaternion.from_axis_angle(axis, angle)
+            l = np.array([[np.random.uniform(0, 640), np.random.uniform(0, 480)]]).T
             depth = np.abs(np.random.randn(1))[:,None]
             # depth = np.ones((1,1))
-            ekf.init_feature(qzeta.elements, j, depth=depth * 10)
+            ekf.init_feature(l, j, depth=depth * 10)
 
         # Initialize Inputs
         acc = nominal_acc + np.random.normal(0, 1, (3,1))

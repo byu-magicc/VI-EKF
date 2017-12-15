@@ -215,29 +215,23 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
         _, image_height, image_width = image_data.shape
         _, depth_height, depth_width = depth_data.shape
 
-        zetas, depths, ids, feat_time = [], [], [], []
+        lambdas, depths, ids, feat_time = [], [], [], []
 
         for i, image in enumerate(image_data):
             frame_lambdas, frame_ids = tracker.load_image(image)
 
-            frame_zetas = []
             frame_depths = []
             nearest_depth = np.abs(depth_time - image_time[i]).argmin()
             for y, x in frame_lambdas[:, 0]:
                 dx = (x / float(image_width))*depth_width
                 dy = (y / float(image_height))*depth_height
 
-                a = np.array([[x, y, -1]]).T
-                a /= np.sqrt(a.T.dot(a))
-                ez = np.array([[0, 0, 1]]).T
+                d = bilinear_interpolate(depth_data[nearest_depth], dx, dy)
 
-                zeta = Quaternion.from_two_unit_vectors(a, ez)
+                frame_depths.append(d if d > 0 else np.nan)
 
-                frame_zetas.append(zeta)
-                frame_depths.append(bilinear_interpolate(depth_data[nearest_depth], dx, dy))
-
-            depths.append(frame_depths)
-            zetas.append(frame_zetas)
+            depths.append(np.array(frame_depths)[:,None])
+            lambdas.append(frame_lambdas[:,0])
             ids.append(frame_ids)
             feat_time.append(image_time[i])
 
@@ -252,23 +246,25 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
     # if lambdas is not None and len(lambdas) > 0:
     #     lambdas = np.pad(lambdas[:, 0], [(0, 0), (0, 1)], 'constant', constant_values=0)
 
-    if plot_trajectory:
-        plot_3d_trajectory(ground_truth[:,1:4], ground_truth[:,4:8], qzetas=zetas, depths=depths, p_b_c=p_b_c, q_b_c=q_b_c)
+    # if plot_trajectory:
+    #     plot_3d_trajectory(ground_truth[:,1:4], ground_truth[:,4:8], qzetas=zetas, depths=depths, p_b_c=p_b_c, q_b_c=q_b_c)
 
     out_dict = dict()
     out_dict['imu'] = imu_data
     out_dict['truth'] = ground_truth
     out_dict['feat_time'] = feat_time
-    out_dict['zetas'] = zetas
+    out_dict['lambdas'] = lambdas
     out_dict['depths'] = depths
     out_dict['ids'] = ids
     out_dict['p_b_c'] = p_b_c
     out_dict['q_b_c'] = q_b_c
-    out_dict['image'] = image_data
+    # out_dict['image'] = image_data
     out_dict['image_t'] = image_time
 
-    out_dict['depth'] = depth_data
+    # out_dict['depth'] = depth_data
     out_dict['depth_t'] = depth_time
+    out_dict['cam_center'] = np.array([[319.5, 239.5]]).T
+    out_dict['cam_F'] = np.array([[570.3422, 570.3422]]).T
 
     return out_dict
 

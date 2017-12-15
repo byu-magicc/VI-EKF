@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 class KLT_tracker:
-    def __init__(self, num_features=25, show_image=True):
+    def __init__(self, num_features=25, show_image=False):
 
         self.prev_image = []
         self.initialized = False

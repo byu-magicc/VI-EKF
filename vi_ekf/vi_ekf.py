@@ -62,7 +62,7 @@ class VI_EKF():
                            1e-7])                   # mu
 
         # Initial Covariance estimate for new features
-        self.P0_feat = np.diag([0.01, 0.01, 10.0]) # x, y, and 1/depth
+        self.P0_feat = np.diag([0.01, 0.01, 0.1]) # x, y, and 1/depth
 
         # gravity vector (NED)
         self.gravity = np.array([[0, 0, 9.80665]]).T
@@ -120,7 +120,7 @@ class VI_EKF():
     def set_camera_intrinsics(self, center, focal_length):
         assert center.shape == (2,1) and focal_length.shape ==(2,1)
         self.cam_center = center
-        self.cam_F = focal_length.T.dot(I_2x3)
+        self.cam_F = focal_length * I_2x3
 
     def set_camera_to_IMU(self, translation, rotation):
         # assert translation.shape == (3,1) and isinstance(rotation, Quaternion)
@@ -214,12 +214,12 @@ class VI_EKF():
         # If we haven't seen this feature before, then initialize it
         if measurement_type == 'feat':
             if kwargs['i'] not in self.global_to_local_feature_id.keys():
-                self.init_feature(z, id=kwargs['i'], depth=(kwargs['depth'] if 'depth' in kwargs else np.array([[1.0]])))
+                self.init_feature(z, id=kwargs['i'], depth=(kwargs['depth'] if 'depth' in kwargs else np.array([[1.5]])))
 
         zhat, H = self.measurement_functions[measurement_type](self.x, **kwargs)
 
         # Calculate residual in the proper manner
-        if measurement_type == 'feat':
+        if measurement_type == 'qzeta':
             residual = q_feat_boxminus(Quaternion(z), Quaternion(zhat))
         elif measurement_type == 'att':
             residual = Quaternion(z) - Quaternion(zhat)
@@ -247,13 +247,22 @@ class VI_EKF():
         self.x[xB_A:xB_A+3] = b_a
 
     # Used to initialize a new feature.  Returns the feature id associated with this feature
-    def init_feature(self, q_zeta, id, depth=None):
-        assert q_zeta.shape == (4, 1) and depth.shape == (1, 1) and abs(1.0 - norm(q_zeta)) < 1e-8
+    def init_feature(self, l, id, depth=None):
+        assert l.shape == (2, 1) and depth.shape == (1, 1)
 
         self.len_features += 1
         self.feature_ids.append(self.next_feature_id)
         self.global_to_local_feature_id[id] = self.next_feature_id
         self.next_feature_id += 1
+
+        # Adjust lambdas to be with respect to the center of the image
+        l_centered = l - self.cam_center
+
+        # Calculate Quaternion to feature
+        f = self.cam_F[0,0]
+        zeta = np.array([[ l_centered[0,0], l_centered[1,0], f]]).T
+        zeta /= norm(zeta)
+        q_zeta = Quaternion.from_two_unit_vectors(self.khat, zeta).elements
 
         self.x = np.vstack((self.x, q_zeta, 1./depth)) # add 5 states to the state vector
 

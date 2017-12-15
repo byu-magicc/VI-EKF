@@ -8,17 +8,18 @@ from plot_helper import plot_3d_trajectory
 
 # data = ETHData(filename='/mnt/pccfs/not_backed_up/eurocmav/V1_01_easy/mav0', start=5.0, end=120.0, sim_features=True, load_new=True)
 # data = ROSbagData(filename='data/truth_imu_flight.bag', start=30.0, end=68.0, sim_features=True, load_new=True)
-data = ROSbagData(filename='data/truth_imu_depth_mono.bag', start=8.0, end=np.inf, sim_features=False, load_new=True)
+data = ROSbagData(filename='data/truth_imu_depth_mono.bag', start=8.0, end=9.0, sim_features=False, load_new=False)
 data.__test__()
 
 ekf = viekf.VI_EKF(data.x0)
 ekf.set_camera_to_IMU(data.data['p_b_c'], data.data['q_b_c'])
+ekf.set_camera_intrinsics(data.data['cam_center'], data.data['cam_F'])
 h = History()
 
-for i, (t, pos, vel, att, gyro, acc, qzetas, depths, ids) in enumerate(tqdm(data)):
+for i, (t, pos, vel, att, gyro, acc, lambdas, depths, ids) in enumerate(tqdm(data)):
     h.store(t, pos=pos, vel=vel, att=att)
     h.store(t, gyro=gyro, acc=acc)
-    h.store(t, qzetas=qzetas, depths=depths, ids=ids)
+    h.store(t, lambdas=lambdas, depths=depths, ids=ids)
 
     # propagate if this tick contains data
     if acc is not None and gyro is not None:
@@ -29,22 +30,22 @@ for i, (t, pos, vel, att, gyro, acc, qzetas, depths, ids) in enumerate(tqdm(data
     if pos is not None:
         h.store(t, alt_res=ekf.update(-pos[2], 'alt', data.R['alt'], passive=True)[0])
         h.store(t, att_res=ekf.update(att, 'att', data.R['att'], passive=False)[0],
-                pos_res=ekf.update(pos, 'pos', data.R['pos'], passive=True)[0],
-                vel_res=ekf.update(vel, 'vel', data.R['vel'], passive=True)[0])
+                pos_res=ekf.update(pos, 'pos', data.R['pos'], passive=False)[0],
+                vel_res=ekf.update(vel, 'vel', data.R['vel'], passive=False)[0])
 
     if acc is not None:
-        h.store(t, acc_res=ekf.update(acc[:2], 'acc', data.R['acc'], passive=False)[0])
+        h.store(t, acc_res=ekf.update(acc[:2], 'acc', data.R['acc'], passive=True)[0])
 
     # feature updates
     if ids is not None and len(ids) > 0:
         ekf.keep_only_features(ids)
-        for qzeta, depth, id in zip(qzetas, depths, ids):
-            zeta_res, qzeta_hat = ekf.update(qzeta, 'feat', data.R['zeta'], passive=False, i=id)
-            depth_res, depth_hat = ekf.update(depth, 'depth', data.R['depth'], passive=True, i=id)
-
-            h.store(t, id, zeta_res=zeta_res, depth_res=depth_res, zeta=Quaternion(qzeta).rot(ekf.khat), Pfeat=ekf.P[viekf.dxZ:, viekf.dxZ:])
-            h.store(t, id, zeta_hat=ekf.get_zeta(id), depth_hat=depth_hat, depth=depth)
-            h.store(t, id, qzeta=qzeta, qzeta_hat=qzeta_hat)
+        for l, depth, id in zip(lambdas, depths, ids):
+            lambda_res, lambda_hat = ekf.update(l, 'feat', data.R['lambda'], passive=False, i=id)
+            depth_res, depth_hat = ekf.update(depth, 'depth', data.R['depth'], passive=np.isnan(depth), i=id)
+            h.store(t, id, depth_hat=depth_hat, depth=depth, depth_res=depth_res)
+            h.store(t, id, lambda_res=lambda_res, lambda_hat=lambda_hat, lmda=l)
+            dxRHO_i = viekf.dxZ+3*ekf.global_to_local_feature_id[id]+2
+            h.store(t, id, Pfeat=ekf.P[dxRHO_i, dxRHO_i,None,None])
 
 # plot
 if True:
@@ -77,27 +78,32 @@ if True:
                 ids.append(id)
 
     for i in ids:
-        plot_side_by_side('x_feat_{}'.format(i), 0, 3, h.t.zeta_hat[i], h.zeta_hat[i], truth_t=h.t.zeta[i], truth=h.zeta[i], labels=['x', 'y', 'z'])
-        plot_side_by_side('x_qfeat_{}'.format(i), 0, 4, h.t.qzeta_hat[i], h.qzeta_hat[i], truth_t=h.t.qzeta[i], truth=h.qzeta[i], labels=['w','x', 'y', 'z'])
-        plot_side_by_side('x_rho_{}'.format(i), 0, 1, h.t.depth_hat[i], h.depth_hat[i], cov=h.Pfeat, truth_t=h.t.depth[i], truth=h.depth[i], labels=[r'$\frac{1}{\rho}$'], cov_bounds=(3*i+2, 3*i+3))
+        plot_side_by_side('lambda_{}'.format(i), 0, 2, h.t.lambda_hat[i], h.lambda_hat[i], truth_t=h.t.lmda[i], truth=h.lmda[i], labels=['u','v'])
+        # plot_side_by_side('x_feat_{}'.format(i), 0, 3, h.t.zeta_hat[i], h.zeta_hat[i], truth_t=h.t.zeta[i], truth=h.zeta[i], labels=['x', 'y', 'z'])
+        # plot_side_by_side('x_qfeat_{}'.format(i), 0, 4, h.t.qzeta_hat[i], h.qzeta_hat[i], truth_t=h.t.qzeta[i], truth=h.qzeta[i], labels=['w','x', 'y', 'z'])
 
-
-        plot_side_by_side('z_zeta_{}_residual'.format(i), 0, 2, h.t.zeta_res[i], h.zeta_res[i], labels=['x', 'y'])
-        plot_side_by_side('z_depth_{}_residual'.format(i), 0, 1, h.t.depth_res[i], h.depth_res[i], labels=['rho'])
-
-
-
-
-
-
-
-
+        if i in h.depth.keys():
+            plot_side_by_side('x_rho_{}'.format(i), 0, 1, h.t.depth_hat[i], h.depth_hat[i], cov=h.Pfeat[i], truth_t=h.t.depth[i], truth=h.depth[i], labels=[r'$\frac{1}{\rho}$'])
+        else:
+            plot_side_by_side('x_rho_{}'.format(i), 0, 1, h.t.depth_hat[i], h.depth_hat[i], cov=h.Pfeat[i], labels=[r'$\frac{1}{\rho}$'])
+        #
+        #
+        # plot_side_by_side('z_zeta_{}_residual'.format(i), 0, 2, h.t.zeta_res[i], h.zeta_res[i], labels=['x', 'y'])
+        # plot_side_by_side('z_depth_{}_residual'.format(i), 0, 1, h.t.depth_res[i], h.depth_res[i], labels=['rho'])
 
 
 
 
 
 
+
+
+
+
+
+
+
+quit()
 
 if True:
     depth_hats, qzeta_hats = [], []

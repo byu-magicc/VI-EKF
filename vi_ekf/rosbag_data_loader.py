@@ -12,6 +12,9 @@ import rosbag
 from mpl_toolkits.mplot3d import Axes3D
 import scipy.signal
 from plot_helper import plot_3d_trajectory
+import klt_tracker
+import struct
+import scipy.interpolate
 
 def to_list(vector3):
     return [vector3.x, vector3.y, vector3.z]
@@ -54,6 +57,33 @@ def calculate_velocity_from_position(t, position, orientation):
     vel_data = np.array(vel_data).squeeze()
     return vel_data
 
+# https://stackoverflow.com/questions/12729228/simple-efficient-bilinear-interpolation-of-images-in-numpy-and-python
+def bilinear_interpolate(im, x, y):
+    x = np.asarray(x)
+    y = np.asarray(y)
+
+    x0 = np.floor(x).astype(int)
+    x1 = x0 + 1
+    y0 = np.floor(y).astype(int)
+    y1 = y0 + 1
+
+    x0 = np.clip(x0, 0, im.shape[1]-1)
+    x1 = np.clip(x1, 0, im.shape[1]-1)
+    y0 = np.clip(y0, 0, im.shape[0]-1)
+    y1 = np.clip(y1, 0, im.shape[0]-1)
+
+    Ia = im[y0, x0]
+    Ib = im[y1, x0]
+    Ic = im[y0, x1]
+    Id = im[y1, x1]
+
+    wa = (x1-x) * (y1-y)
+    wb = (x1-x) * (y-y0)
+    wc = (x-x0) * (y1-y)
+    wd = (x-x0) * (y-y0)
+
+    return wa*Ia + wb*Ib + wc*Ic + wd*Id
+
 
 def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=False, plot_trajectory=True):
     print "loading rosbag", filename
@@ -61,6 +91,11 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
     bag = rosbag.Bag(filename)
     imu_data = []
     truth_pose_data = []
+    image_data = []
+    depth_data = []
+    image_time = []
+    depth_time = []
+    #bridge = CvBridge()
 
     topic_list = ['/imu/data',
                   '/vrpn_client_node/Leo/pose',
@@ -69,10 +104,11 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
                   '/sonar/data',
                   '/is_flying',
                   '/gps/data',
-                  '/mag/data']
+                  '/mag/data',
+                  '/camera/rgb/image_raw/compressed',
+                  '/camera/depth/image/compressedDepth']
 
     for topic, msg, t in tqdm(bag.read_messages(topics=topic_list), total=bag.get_message_count(topic_list) ):
-
         if topic == '/imu/data':
             imu_meas = [msg.header.stamp.to_sec(),
                         msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z,
@@ -85,9 +121,32 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
                           -msg.pose.orientation.w, -msg.pose.orientation.z, msg.pose.orientation.x, msg.pose.orientation.y]
             truth_pose_data.append(truth_meas)
 
+        if topic == '/camera/rgb/image_raw/compressed':
+            np_arr = np.fromstring(msg.data, np.uint8)
+            image = cv2.imdecode(np_arr, cv2.IMREAD_GRAYSCALE)
+            image_time.append(msg.header.stamp.to_sec())
+            image_data.append(image)
+
+
+
+        if topic == '/camera/depth/image/compressedDepth':
+            # https://stackoverflow.com/questions/41051998/ros-compresseddepth-to-numpy-or-cv2
+            # https://github.com/ros-perception/image_transport_plugins/blob/indigo-devel/compressed_depth_image_transport/src/codec.cpp
+            raw = cv2.imdecode(np.fromstring(msg.data[12:], np.uint8), cv2.IMREAD_UNCHANGED)
+            fmt, a, b = struct.unpack('iff', msg.data[:12])
+
+            scaled = a / (raw.astype(np.float32) - b)
+            scaled[raw == 0] = 0
+
+            depth_time.append(msg.header.stamp.to_sec())
+            depth_data.append(scaled)
 
     imu_data = np.array(imu_data)
     truth_pose_data = np.array(truth_pose_data)
+    image_data = np.array(image_data)
+    depth_data = np.array(depth_data)
+    image_time = np.array(image_time)
+    depth_time = np.array(depth_time)
 
     # assert np.abs(truth_pose_data[0, 0] - imu_data[0, 0]) < 1e5, 'truth and imu timestamps are vastly different: {} (truth) vs. {} (imu)'.format(truth_pose_data[0, 0], imu_data[0, 0])
 
@@ -104,10 +163,16 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
     gt_t0 = ground_truth[0,0]
     imu_data[:,0] -= imu_t0
     ground_truth[:,0] -= gt_t0
+    image_time -= imu_t0
+    depth_time -= imu_t0
 
     # Chop Data to start and end
     imu_data = imu_data[(imu_data[:,0] > start) & (imu_data[:,0] < end), :]
     ground_truth = ground_truth[(ground_truth[:, 0] > start) & (ground_truth[:, 0] < end), :]
+    image_data = image_data[(image_time > start) & (image_time < end)]
+    depth_data = depth_data[(depth_time > start) & (depth_time < end)]
+    image_time = image_time[(image_time > start) & (image_time < end)]
+    depth_time = depth_time[(depth_time > start) & (depth_time < end)]
 
     # Simulate camera-to-body transform
     q_b_c = Quaternion.from_R(np.array([[0, 1, 0],
@@ -115,33 +180,77 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
                                         [1, 0, 0]]))
     p_b_c = np.array([[0.16, -0.05, 0.1]]).T
 
-    # Simulate Landmark Measurements
-    # landmarks = np.random.uniform(-25, 25, (2,3))
-    # landmarks = np.array([[1, 0, 1, 0, np.inf],
-    #                       [0, 1, 1, 0, np.inf],
-    #                       [0, 0, 1, 0, 3],
-    #                       [1, 1, 1, 0, 3],
-    #                       [-1, 0, 1, 10, 25],
-    #                       [0, -1, 1, 10, 25],
-    #                       [-1, -1, 1, 10, np.inf],
-    #                       [1, -1, 1, 20, np.inf],
-    #                       [-1, 1, 1, 20, np.inf]])
-    N = 50
-    last_t = imu_data[-1,0]
-    landmarks = np.hstack([np.random.uniform(-4, 4, (N, 1)),
-                           np.random.uniform(-4, 4, (N,1)),
-                           np.random.uniform(-4, 4, (N, 1)),
-                           np.random.uniform(start - 5, last_t, (N,1)),
-                           np.random.uniform(start, last_t + 5, (N, 1))])
-    backwards_index = landmarks[:,3] < landmarks[:,4]
-    tmp = landmarks[backwards_index,3]
-    landmarks[backwards_index,3] = landmarks[backwards_index,4]
-    landmarks[backwards_index,3] = tmp
+    if sim_features:
+        # Simulate Landmark Measurements
+        # landmarks = np.random.uniform(-25, 25, (2,3))
+        # landmarks = np.array([[1, 0, 1, 0, np.inf],
+        #                       [0, 1, 1, 0, np.inf],
+        #                       [0, 0, 1, 0, 3],
+        #                       [1, 1, 1, 0, 3],
+        #                       [-1, 0, 1, 10, 25],
+        #                       [0, -1, 1, 10, 25],
+        #                       [-1, -1, 1, 10, np.inf],
+        #                       [1, -1, 1, 20, np.inf],
+        #                       [-1, 1, 1, 20, np.inf]])
+        N = 50
+        last_t = imu_data[-1,0]
+        landmarks = np.hstack([np.random.uniform(-4, 4, (N, 1)),
+                               np.random.uniform(-4, 4, (N,1)),
+                               np.random.uniform(-4, 4, (N, 1)),
+                               np.random.uniform(start - 5, last_t, (N,1)),
+                               np.random.uniform(start, last_t + 5, (N, 1))])
+        backwards_index = landmarks[:,3] < landmarks[:,4]
+        tmp = landmarks[backwards_index,3]
+        landmarks[backwards_index,3] = landmarks[backwards_index,4]
+        landmarks[backwards_index,3] = tmp
 
-    landmarks[landmarks[:,3] < start, 3] = start
-    landmarks[landmarks[:,4] > end, 4] = end
+        landmarks[landmarks[:,3] < start, 3] = start
+        landmarks[landmarks[:,4] > end, 4] = end
 
-    feat_time, zetas, depths, ids = add_landmark(ground_truth, landmarks, p_b_c, q_b_c)
+        feat_time, zetas, depths, ids = add_landmark(ground_truth, landmarks, p_b_c, q_b_c)
+
+    else:
+        tracker = klt_tracker.KLT_tracker(25)
+
+        _, image_height, image_width = image_data.shape
+        _, depth_height, depth_width = depth_data.shape
+
+        zetas, depths, ids, feat_time = [], [], [], []
+
+        for i, image in enumerate(image_data):
+            frame_lambdas, frame_ids = tracker.load_image(image)
+
+            frame_zetas = []
+            frame_depths = []
+            nearest_depth = np.abs(depth_time - image_time[i]).argmin()
+            for y, x in frame_lambdas[:, 0]:
+                dx = (x / float(image_width))*depth_width
+                dy = (y / float(image_height))*depth_height
+
+                a = np.array([[x, y, -1]]).T
+                a /= np.sqrt(a.T.dot(a))
+                ez = np.array([[0, 0, 1]]).T
+
+                zeta = Quaternion.from_two_unit_vectors(a, ez)
+
+                frame_zetas.append(zeta)
+                frame_depths.append(bilinear_interpolate(depth_data[nearest_depth], dx, dy))
+
+            depths.append(frame_depths)
+            zetas.append(frame_zetas)
+            ids.append(frame_ids)
+            feat_time.append(image_time[i])
+
+    # self.undistort, P = data_loader.make_undistort_funtion(intrinsics=self.data['cam0_sensor']['intrinsics'],
+    #                                                     resolution=self.data['cam0_sensor']['resolution'],
+    #                                                     distortion_coefficients=self.data['cam0_sensor']['distortion_coefficients'])
+
+    # self.inverse_projection = np.linalg.inv(P)
+
+    # lambdas, ids = self.tracker.load_image(image)
+    #
+    # if lambdas is not None and len(lambdas) > 0:
+    #     lambdas = np.pad(lambdas[:, 0], [(0, 0), (0, 1)], 'constant', constant_values=0)
 
     if plot_trajectory:
         plot_3d_trajectory(ground_truth[:,1:4], ground_truth[:,4:8], qzetas=zetas, depths=depths, p_b_c=p_b_c, q_b_c=q_b_c)
@@ -155,11 +264,16 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
     out_dict['ids'] = ids
     out_dict['p_b_c'] = p_b_c
     out_dict['q_b_c'] = q_b_c
+    out_dict['image'] = image_data
+    out_dict['image_t'] = image_time
+
+    out_dict['depth'] = depth_data
+    out_dict['depth_t'] = depth_time
 
     return out_dict
 
 
 
 if __name__ == '__main__':
-    data = load_data('data/truth_imu_flight.bag')
+    data = load_data('data/truth_imu_depth_mono.bag')
     print "done"

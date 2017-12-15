@@ -3,7 +3,6 @@ import numpy as np
 import eth_data_loader
 import rosbag_data_loader
 import cv2
-import klt_tracker
 import cPickle
 from collections import defaultdict, deque
 import eth_data_loader as data_loader
@@ -139,27 +138,6 @@ class ROSbagData(Data):
         self.truth_indexer = self.indexer(self.time, self.data['truth'][:, 0])
         self.imu_indexer = self.indexer(self.time, self.data['imu'][:, 0])
         self.feature_indexer = self.indexer(self.time, self.data['feat_time'])
-
-        # self.tracker = klt_tracker.KLT_tracker(25)
-        # self.undistort, P = data_loader.make_undistort_funtion(intrinsics=self.data['cam0_sensor']['intrinsics'],
-        #                                                     resolution=self.data['cam0_sensor']['resolution'],
-        #                                                     distortion_coefficients=self.data['cam0_sensor']['distortion_coefficients'])
-
-        # self.inverse_projection = np.linalg.inv(P)
-
-    def compute_features(self, image):
-        image = self.undistort(image)[..., None]
-
-        zetas, ids = [], []
-        lambdas, ids = self.tracker.load_image(image)
-
-        if lambdas is not None and len(lambdas) > 0:
-            lambdas = np.pad(lambdas[:, 0], [(0, 0), (0, 1)], 'constant', constant_values=0)
-
-            zetas = self.inverse_projection.dot(lambdas.T).T[..., None]
-            zetas /= np.sqrt((zetas * zetas).sum(axis=1, keepdims=True))
-
-        return list(zetas), list(ids)
 
     @property
     def x0(self):

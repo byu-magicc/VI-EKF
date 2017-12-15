@@ -4,7 +4,7 @@ import scipy.linalg
 from tqdm import tqdm
 from math_helper import norm, q_array_from_two_unit_vectors
 
-def add_landmark(truth, landmarks, p_b_c, q_b_c, F, lambda_0):
+def add_landmark(truth, landmarks, p_b_c, q_b_c, F=None, lambda_0=None):
     assert truth.shape[1] > 7 and landmarks.shape[1] == 5
 
     feature_array = np.zeros((truth.shape[0], 1 + 5*landmarks.shape[0]))

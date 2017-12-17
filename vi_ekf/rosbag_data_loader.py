@@ -9,12 +9,14 @@ from add_landmark import add_landmark
 import yaml
 import matplotlib.pyplot as plt
 import rosbag
+import rospy
 from mpl_toolkits.mplot3d import Axes3D
 import scipy.signal
 from plot_helper import plot_3d_trajectory
 import klt_tracker
 import struct
 import scipy.interpolate
+import cPickle
 
 def to_list(vector3):
     return [vector3.x, vector3.y, vector3.z]
@@ -86,67 +88,74 @@ def bilinear_interpolate(im, x, y):
 
 
 def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=False, plot_trajectory=True):
-    print "loading rosbag", filename
-    # First, load IMU data
-    bag = rosbag.Bag(filename)
-    imu_data = []
-    truth_pose_data = []
-    image_data = []
-    depth_data = []
-    image_time = []
-    depth_time = []
-    #bridge = CvBridge()
 
-    topic_list = ['/imu/data',
-                  '/vrpn_client_node/Leo/pose',
-                  '/vrpn/Leo/pose',
-                  '/baro/data',
-                  '/sonar/data',
-                  '/is_flying',
-                  '/gps/data',
-                  '/mag/data',
-                  '/camera/rgb/image_raw/compressed',
-                  '/camera/depth/image/compressedDepth']
+    if not os.path.isfile('data/bag_tmp.pkl'):
+        print "loading rosbag", filename
+        # First, load IMU data
+        bag = rosbag.Bag(filename)
+        imu_data = []
+        truth_pose_data = []
+        image_data = []
+        depth_data = []
+        image_time = []
+        depth_time = []
 
-    for topic, msg, t in tqdm(bag.read_messages(topics=topic_list), total=bag.get_message_count(topic_list) ):
-        if topic == '/imu/data':
-            imu_meas = [msg.header.stamp.to_sec(),
-                        msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z,
-                        msg.linear_acceleration.x, msg.linear_acceleration.y, msg.linear_acceleration.z]
-            imu_data.append(imu_meas)
+        topic_list = ['/imu/data',
+                      '/vrpn_client_node/Leo/pose',
+                      '/vrpn/Leo/pose',
+                      '/baro/data',
+                      '/sonar/data',
+                      '/is_flying',
+                      '/gps/data',
+                      '/mag/data',
+                      '/camera/depth/image_rect',
+                      '/camera/rgb/image_rect_mono/compressed']
 
-        if topic == '/vrpn_client_node/Leo/pose' or topic == '/vrpn/Leo/pose':
-            truth_meas = [msg.header.stamp.to_sec(),
-                          msg.pose.position.z, -msg.pose.position.x, -msg.pose.position.y,
-                          -msg.pose.orientation.w, -msg.pose.orientation.z, msg.pose.orientation.x, msg.pose.orientation.y]
-            truth_pose_data.append(truth_meas)
+        for topic, msg, t in tqdm(bag.read_messages(topics=topic_list), total=bag.get_message_count(topic_list)):
+            if topic == '/imu/data':
+                imu_meas = [msg.header.stamp.to_sec(),
+                            msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z,
+                            msg.linear_acceleration.x, msg.linear_acceleration.y, msg.linear_acceleration.z]
+                imu_data.append(imu_meas)
 
-        if topic == '/camera/rgb/image_raw/compressed':
-            np_arr = np.fromstring(msg.data, np.uint8)
-            image = cv2.imdecode(np_arr, cv2.IMREAD_GRAYSCALE)
-            image_time.append(msg.header.stamp.to_sec())
-            image_data.append(image)
+            if topic == '/vrpn_client_node/Leo/pose' or topic == '/vrpn/Leo/pose':
+                truth_meas = [msg.header.stamp.to_sec(),
+                              msg.pose.position.z, -msg.pose.position.x, -msg.pose.position.y,
+                              -msg.pose.orientation.w, -msg.pose.orientation.z, msg.pose.orientation.x, msg.pose.orientation.y]
+                truth_pose_data.append(truth_meas)
+
+            if topic == '/camera/rgb/image_rect_mono/compressed':
+                np_arr = np.fromstring(msg.data, np.uint8)
+                image = cv2.imdecode(np_arr, cv2.IMREAD_GRAYSCALE)
+                image_time.append(msg.header.stamp.to_sec())
+                image_data.append(image)
 
 
 
-        if topic == '/camera/depth/image/compressedDepth':
-            # https://stackoverflow.com/questions/41051998/ros-compresseddepth-to-numpy-or-cv2
-            # https://github.com/ros-perception/image_transport_plugins/blob/indigo-devel/compressed_depth_image_transport/src/codec.cpp
-            raw = cv2.imdecode(np.fromstring(msg.data[12:], np.uint8), cv2.IMREAD_UNCHANGED)
-            fmt, a, b = struct.unpack('iff', msg.data[:12])
+            if topic == '/camera/depth/image_rect':
+                img = np.fromstring(msg.data, np.float32).reshape(msg.height, msg.width)
 
-            scaled = a / (raw.astype(np.float32) - b)
-            scaled[raw == 0] = 0
+                depth_time.append(msg.header.stamp.to_sec())
+                depth_data.append(img)
 
-            depth_time.append(msg.header.stamp.to_sec())
-            depth_data.append(scaled)
+        tmp_dict = dict()
+        tmp_dict['imu_data'] = np.array(imu_data)
+        tmp_dict['truth_pose_data'] = np.array(truth_pose_data)
+        tmp_dict['image_data'] = np.array(image_data)
+        tmp_dict['depth_data'] = np.array(depth_data)
+        tmp_dict['image_time'] = np.array(image_time)
+        tmp_dict['depth_time'] = np.array(depth_time)
+        cPickle.dump(tmp_dict, open('data/bag_tmp.pkl', 'wb'), protocol=2)
+    else:
+        tmp_dict = cPickle.load(open('data/bag_tmp.pkl', 'rb'))
 
-    imu_data = np.array(imu_data)
-    truth_pose_data = np.array(truth_pose_data)
-    image_data = np.array(image_data)
-    depth_data = np.array(depth_data)
-    image_time = np.array(image_time)
-    depth_time = np.array(depth_time)
+    imu_data = tmp_dict['imu_data']
+    truth_pose_data = tmp_dict['truth_pose_data']
+    image_data = tmp_dict['image_data']
+    depth_data = tmp_dict['depth_data']
+    image_time = tmp_dict['image_time']
+    depth_time = tmp_dict['depth_time']
+
 
     # assert np.abs(truth_pose_data[0, 0] - imu_data[0, 0]) < 1e5, 'truth and imu timestamps are vastly different: {} (truth) vs. {} (imu)'.format(truth_pose_data[0, 0], imu_data[0, 0])
 
@@ -178,7 +187,9 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
     q_b_c = Quaternion.from_R(np.array([[0, 1, 0],
                                         [0, 0, 1],
                                         [1, 0, 0]]))
-    p_b_c = np.array([[0.16, -0.05, 0.1]]).T
+    # q_b_c = Quaternion.Identity()
+    # p_b_c = np.array([[0.16, -0.05, 0.1]]).T
+    p_b_c = np.zeros((3,1))
 
     if sim_features:
         # Simulate Landmark Measurements
@@ -210,28 +221,43 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
         feat_time, zetas, depths, ids = add_landmark(ground_truth, landmarks, p_b_c, q_b_c)
 
     else:
-        tracker = klt_tracker.KLT_tracker(25)
+        tracker = klt_tracker.KLT_tracker(50, show_image=True)
+        lambdas, depths, ids, feat_time = [], [], [], []
 
         _, image_height, image_width = image_data.shape
         _, depth_height, depth_width = depth_data.shape
 
-        lambdas, depths, ids, feat_time = [], [], [], []
+        assert image_height == depth_height and image_width == depth_width
 
         for i, image in enumerate(image_data):
             frame_lambdas, frame_ids = tracker.load_image(image)
 
+            # KLT tracker doesn't consider image bounds :(
+            frame_lambdas = np.clip(frame_lambdas[:, 0], [0, 0], image_data[0].T.shape)
+
             frame_depths = []
             nearest_depth = np.abs(depth_time - image_time[i]).argmin()
-            for y, x in frame_lambdas[:, 0]:
-                dx = (x / float(image_width))*depth_width
-                dy = (y / float(image_height))*depth_height
+            for y, x in frame_lambdas:
+                try:
+                    d = depth_data[nearest_depth][x, y]
+                except IndexError as e:
+                    debug = 1
+                frame_depths.append(d)
 
-                d = bilinear_interpolate(depth_data[nearest_depth], dx, dy)
-
-                frame_depths.append(d if d > 0 else np.nan)
+            # plt.ion()
+            # plt.figure(1, figsize=(10,5))
+            # plt.clf()
+            # plt.subplot(121)
+            # plt.imshow(255 - image, cmap='Greys')
+            # plt.plot(frame_lambdas[:,0], frame_lambdas[:,1], 'mx', markersize=10)
+            # plt.subplot(122)
+            # plt.imshow(depth_data[nearest_depth], cmap='Greys')
+            # plt.plot(frame_lambdas[:, 0], frame_lambdas[:, 1], 'mx', markersize=10)
+            # plt.show()
+            # plt.pause(0.005)
 
             depths.append(np.array(frame_depths)[:,None])
-            lambdas.append(frame_lambdas[:,0])
+            lambdas.append(frame_lambdas)
             ids.append(frame_ids)
             feat_time.append(image_time[i])
 
@@ -249,6 +275,7 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
     # if plot_trajectory:
     #     plot_3d_trajectory(ground_truth[:,1:4], ground_truth[:,4:8], qzetas=zetas, depths=depths, p_b_c=p_b_c, q_b_c=q_b_c)
 
+    plt.ioff()
     out_dict = dict()
     out_dict['imu'] = imu_data
     out_dict['truth'] = ground_truth

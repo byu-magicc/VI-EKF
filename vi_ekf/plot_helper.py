@@ -6,13 +6,20 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
 import os
 
-def init_plots():
+plot_start = None
+plot_end = None
+
+def init_plots(start, end):
     # Set the colormap to 'jet'
     plt.jet()
     plt.set_cmap('jet')
     plt.rcParams['image.cmap'] = 'jet'
     plt.rcParams['figure.max_open_warning'] = 100
     os.system("rm plots/*.png")
+
+    global plot_start, plot_end
+    plot_start = start
+    plot_end = end
 
 def get_colors(num_rows, cmap):
     return cmap(np.linspace(0, 1, num_rows))
@@ -47,15 +54,20 @@ def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None
         plt.plot(est_t[::skip], estimate[::skip, i], label=labels[i] + 'hat')
 
         if isinstance(cov, np.ndarray):
-            plt.plot(est_t[::skip], estimate[::skip, i].flatten() + 2 * cov_copy[::skip, i, i].flatten(), 'k-', alpha=0.5)
-            plt.plot(est_t[::skip], estimate[::skip, i].flatten() - 2 * cov_copy[::skip, i, i].flatten(), 'k-', alpha=0.5)
+            try:
+                plt.plot(est_t[::skip], estimate[::skip, i].flatten() + 2 * cov_copy[::skip, i, i].flatten(), 'k-', alpha=0.5)
+                plt.plot(est_t[::skip], estimate[::skip, i].flatten() - 2 * cov_copy[::skip, i, i].flatten(), 'k-', alpha=0.5)
+            except:
+                debug = 1
 
+        plt.xlim(plot_start, plot_end)
         plt.legend()
         if i == 0:
             plt.title(title)
 
     if save:
         plt.savefig('plots/'+title+'.png')
+        plt.close()
 
 def plot_cube(q_I_b, zetas, zeta_truth):
 

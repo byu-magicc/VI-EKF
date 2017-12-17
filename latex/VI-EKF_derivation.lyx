@@ -1521,7 +1521,7 @@ Rotating the above into the camera frame results (and notationally dropping
 \begin_inset Formula 
 \[
 \begin{aligned}0 & =R\left(q_{I}^{c}\right)v_{c/I}^{I}-R\left(q_{I}^{c}\right)R\left(q_{c}^{I}\right)\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)+R\left(q_{I}^{c}\right)R\left(q_{c}^{I}\right)\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-R\left(q_{I}^{c}\right)R\left(q_{c}^{I}\right)\zeta_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}\\
- & =v_{c/I}^{c}+\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)+\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-\zeta_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}
+ & =v_{c/I}^{c}-\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)+\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-\zeta_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}
 \end{aligned}
 \]
 
@@ -1554,9 +1554,9 @@ Now, we need to isolate both
 \begin_layout Standard
 \begin_inset Formula 
 \begin{equation}
-\begin{aligned}0 & =\left(d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \right)v_{c/I}^{c}+\left(d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \right)\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)+\left(d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \right)\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-\left(d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \right)\zeta_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}\\
- & =d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}-d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \omega_{c/I}^{c}d\left(\rho_{i}\right)+d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \zeta_{i}^{c}\frac{\dot{\rho}}{\rho}\\
- & =d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}-T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \omega_{c/I}^{c}+T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}
+\begin{aligned}0 & =\left(d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \right)v_{c/I}^{c}-\left(d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \right)\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)+\left(d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \right)\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-\left(d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \right)\zeta_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}\\
+ & =d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}+d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \omega_{c/I}^{c}d\left(\rho_{i}\right)+d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \zeta_{i}^{c}\frac{\dot{\rho}}{\rho}\\
+ & =d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}+T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \omega_{c/I}^{c}+T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}
 \end{aligned}
 \label{eq:unsolved_camera_dynamics}
 \end{equation}
@@ -1577,7 +1577,7 @@ Using the identity
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}0 & =d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}+T_{\zeta}^{\top}\omega_{c/I}^{c}-T_{\zeta}^{\top}T_{\zeta}\dot{q}_{c}^{\zeta}\end{aligned}
+\begin{aligned}0 & =d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}-T_{\zeta}^{\top}\omega_{c/I}^{c}+T_{\zeta}^{\top}T_{\zeta}\dot{q}_{c}^{\zeta}\end{aligned}
 \]
 
 \end_inset
@@ -1593,8 +1593,8 @@ Then, using
 
 \begin_inset Formula 
 \[
-\begin{aligned}0 & =d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}+T_{\zeta}^{\top}\omega_{c/I}^{c}-\dot{q}_{c}^{\zeta}\\
-\dot{q}_{c}^{\zeta} & =T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}+\omega_{c/I}^{c}\right)
+\begin{aligned}0 & =d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}-T_{\zeta}^{\top}\omega_{c/I}^{c}+\dot{q}_{c}^{\zeta}\\
+\dot{q}_{c}^{\zeta} & =T_{\zeta}^{\top}\left(\omega_{c/I}^{c}-\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}\right)
 \end{aligned}
 \]
 
@@ -1625,11 +1625,11 @@ reference "eq:unsolved_camera_dynamics"
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}0 & =-\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}\left(v_{c/I}^{c}+\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)+\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-\zeta_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}\right)\\
- & =-\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}v_{c/I}^{c}-\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)-\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)+\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}\zeta_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}\\
- & =-\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}v_{c/I}^{c}+\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \omega_{c/I}^{c}d\left(\rho_{i}\right)-\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)+\dot{\rho}\\
- & =-\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}v_{c/I}^{c}+\dot{\rho}\\
-\dot{\rho} & =\rho^{2}\left(\zeta_{i}^{c}\right)^{\top}v_{c/I}^{c}
+\begin{aligned}0 & =-\rho^{2}\zeta_{i}^{c}^{\top}\left(v_{c/I}^{c}-\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)+\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-\zeta_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}\right)\\
+ & =-\rho^{2}\zeta_{i}^{c}^{\top}v_{c/I}^{c}+\rho^{2}\zeta_{i}^{c}^{\top}\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)-\rho^{2}\zeta_{i}^{c}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)+\rho^{2}\zeta_{i}^{c}^{\top}\zeta_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}\\
+ & =-\rho^{2}\zeta_{i}^{c}^{\top}v_{c/I}^{c}-\rho^{2}\zeta_{i}^{c}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \omega_{c/I}^{c}d\left(\rho_{i}\right)-\rho^{2}\zeta_{i}^{c}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)+\dot{\rho}\\
+ & =-\rho^{2}\zeta_{i}^{c}^{\top}v_{c/I}^{c}+\dot{\rho}\\
+\dot{\rho} & =\rho^{2}\zeta_{i}^{c}^{\top}v_{c/I}^{c}
 \end{aligned}
 \]
 
@@ -1683,7 +1683,7 @@ Then rotating into the camera frame
 \begin_layout Standard
 \begin_inset Formula 
 \begin{equation}
-\begin{aligned}R\left(q_{b}^{c}\right)R\left(q_{i}^{b}\right)v_{c/i}^{i} & =R\left(q_{b}^{c}\right)R\left(q_{i}^{b}\right)v_{b/i}^{i}-R\left(q_{b}^{c}\right)R\left(q_{i}^{b}\right)R\left(q_{i}^{b}\right)^{\top}\left\lfloor \omega_{b/I}^{b}\right\rfloor p_{cb}^{b}\\
+\begin{aligned}R\left(q_{b}^{c}\right)R\left(q_{i}^{b}\right)v_{c/i}^{i} & =R\left(q_{b}^{c}\right)R\left(q_{i}^{b}\right)v_{b/i}^{i}-R\left(q_{b}^{c}\right)R\left(q_{i}^{b}\right)R\left(q_{I}^{b}\right)^{\top}\left\lfloor \omega_{b/I}^{b}\right\rfloor p_{cb}^{b}\\
 v_{c/i}^{c} & =R\left(q_{b}^{c}\right)v_{b/i}^{b}-R\left(q_{b}^{c}\right)\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\\
 v_{c/i}^{c} & =R\left(q_{b}^{c}\right)\left(v_{b/i}^{b}-\left\lfloor \omega_{b/i}^{b}\right\rfloor p_{cb}^{b}\right)
 \end{aligned}
@@ -1745,11 +1745,11 @@ y_{\omega}
 \begin_inset Formula 
 \begin{equation}
 \begin{aligned}\dot{p}_{bI}^{I} & =R^{\top}\left(q_{I}^{b}\right)v_{bI}^{b}\\
-v_{b/I}^{b} & =\left\lfloor v_{b/I}^{b}\right\rfloor \left(y_{\omega}-\beta_{\omega}\right)+R\left(q_{I}^{b}\right)g+\left[\begin{array}{ccc}
+\dot{v}_{b/I}^{b} & =\left\lfloor v_{b/I}^{b}\right\rfloor \left(y_{\omega}-\beta_{\omega}\right)+R\left(q_{I}^{b}\right)g+\left[\begin{array}{ccc}
 0 & 0 & 0\\
 0 & 0 & 0\\
 0 & 0 & 1
-\end{array}\right]\left(y_{a}-\beta_{a}\right)-\mu_{t}\left[\begin{array}{ccc}
+\end{array}\right]\left(y_{a}-\beta_{a}\right)-\mu\left[\begin{array}{ccc}
 1 & 0 & 0\\
 0 & 1 & 0\\
 0 & 0 & 0
@@ -1758,7 +1758,7 @@ v_{b/I}^{b} & =\left\lfloor v_{b/I}^{b}\right\rfloor \left(y_{\omega}-\beta_{\om
 \dot{\beta}_{a} & =\eta_{\beta_{a}}\\
 \dot{\beta}_{\omega} & =\eta_{\beta_{\boldsymbol{\omega}}}\\
 \dot{\mu} & =\eta_{\mu}\\
-\dot{q}_{c}^{\zeta_{i}} & =T_{\zeta}^{\top}\left(-\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor \left(v_{c/I}^{c}\right)+\omega_{c/I}^{I}\right)\\
+\dot{q}_{c}^{\zeta_{i}} & =T_{\zeta}^{\top}\left(\omega_{c/I}^{c}-\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}\right)\\
 \dot{\rho_{i}} & =\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}v_{c/I}^{c}
 \end{aligned}
 \label{eq:full_dynamics}
@@ -1958,7 +1958,7 @@ Bearing Quaternion Jacobians
 \[
 \begin{aligned}\dfrac{\partial}{\partial q_{c}^{\zeta_{i}}}\dot{q}_{c}^{\zeta_{i}} & =\dfrac{\partial}{\partial q_{c}^{\zeta_{i}}}\left(T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/i}^{c}+\omega_{c/i}^{c}\right)\right)\\
  & =-T_{\zeta}^{\top}\left\lfloor \rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right\rfloor T_{\zeta}\dfrac{\partial}{\partial q_{c}^{\zeta_{i}}}\left(\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right)\\
- & =-T_{\zeta}^{\top}\left\lfloor \rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right\rfloor \left(\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \right)T_{\zeta}
+ & =-T_{\zeta}^{\top}\left(\left\lfloor \rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right\rfloor +\left(\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \right)\right)T_{\zeta}
 \end{aligned}
 \]
 

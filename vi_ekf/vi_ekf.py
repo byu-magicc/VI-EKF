@@ -34,6 +34,7 @@ class VI_EKF():
         # 17 main states + 5N feature states
         # pos, vel, att, b_gyro, b_acc, mu, q_feat, rho_feat, q_feat, rho_feat ...
         self.x = x0
+        self.u = np.zeros((6,1))
 
         # Process noise matrix for the 16 main delta states
         self.Qx = np.diag([0.001, 0.001, 0.001,     # pos
@@ -111,6 +112,7 @@ class VI_EKF():
         self.dx = np.zeros((dxZ, 1))
 
         self.use_drag_term = True
+        self.default_depth = np.array([[1.5]])
 
         self.last_propagate = None
         self.initialized = False
@@ -151,6 +153,13 @@ class VI_EKF():
         for i in range(self.len_features):
             qzetas[i,:,None] = self.x[xZ+5*i:xZ+5*i+4]   # 4-vector quaternion
         return qzetas
+
+    def get_camera_state(self):
+        vel = self.x[xVEL:xVEL + 3]
+        omega = self.u[uG:uG+3] - self.x[xB_G:xB_G+3]
+        vel_c_i = self.q_b_c.invrot(vel + skew(omega).dot(self.p_b_c))
+        omega_c_i = self.q_b_c.invrot(omega)
+        return vel_c_i, omega_c_i
 
     # Adds the state with the delta state on the manifold
     def boxplus(self, x, dx):
@@ -193,10 +202,11 @@ class VI_EKF():
         if self.last_propagate is not None:
             # calculate dt from t
             dt = t - self.last_propagate
-            u = np.vstack((y_acc, y_gyro))
+            self.u[uA:uA+3] = y_acc
+            self.u[uG:uG+3] = y_gyro
 
             # Propagate
-            xdot, A, G = self.dynamics(self.x, u)
+            xdot, A, G = self.dynamics(self.x, self.u)
             Pdot = A.dot(self.P) + self.P.dot(A.T) + G.dot(self.Qu).dot(G.T) + self.Qx
             self.x = self.boxplus(self.x, xdot * dt)
             self.P += Pdot*dt
@@ -214,7 +224,7 @@ class VI_EKF():
         # If we haven't seen this feature before, then initialize it
         if measurement_type == 'feat':
             if kwargs['i'] not in self.global_to_local_feature_id.keys():
-                self.init_feature(z, id=kwargs['i'], depth=(kwargs['depth'] if 'depth' in kwargs else np.array([[1.5]])))
+                self.init_feature(z, id=kwargs['i'], depth=(kwargs['depth'] if 'depth' in kwargs else np.nan))
 
         zhat, H = self.measurement_functions[measurement_type](self.x, **kwargs)
 
@@ -234,9 +244,12 @@ class VI_EKF():
 
         # Perform state and covariance update
         if not passive_update:
-            K = self.P.dot(H.T).dot(scipy.linalg.inv(R + H.dot(self.P).dot(H.T)))
-            self.P = (self.I_big - K.dot(H)).dot(self.P)
-            self.x = self.boxplus(self.x, K.dot(residual))
+            try:
+                K = self.P.dot(H.T).dot(scipy.linalg.inv(R + H.dot(self.P).dot(H.T)))
+                self.P = (self.I_big - K.dot(H)).dot(self.P)
+                self.x = self.boxplus(self.x, K.dot(residual))
+            except:
+                print "Nan detected in", measurement_type, "update"
 
         return residual, zhat
 
@@ -247,7 +260,7 @@ class VI_EKF():
         self.x[xB_A:xB_A+3] = b_a
 
     # Used to initialize a new feature.  Returns the feature id associated with this feature
-    def init_feature(self, l, id, depth=None):
+    def init_feature(self, l, id, depth=np.nan):
         assert l.shape == (2, 1) and depth.shape == (1, 1)
 
         self.len_features += 1
@@ -264,6 +277,12 @@ class VI_EKF():
         zeta /= norm(zeta)
         q_zeta = Quaternion.from_two_unit_vectors(self.khat, zeta).elements
 
+        if np.isnan(depth):
+            # Best guess of depth without other information
+            if self.len_features > 0:
+                depth = np.average(1.0/self.x[xZ + 4::5])
+            else:
+                depth = self.default_depth
         self.x = np.vstack((self.x, q_zeta, 1./depth)) # add 5 states to the state vector
 
         # Add three states to the process noise matrix
@@ -367,8 +386,8 @@ class VI_EKF():
         self.G[dxATT:dxATT+3, uG:uG+3] = I_3x3
 
         # Camera Dynamics
-        vel_c_i = self.q_b_c.invrot(vel + skew(omega).dot(self.p_b_c))
         omega_c_i = self.q_b_c.invrot(omega)
+        vel_c_i = self.q_b_c.invrot(vel - skew(omega).dot(self.p_b_c))
 
 
         for i in range(self.len_features):
@@ -395,18 +414,18 @@ class VI_EKF():
             #################################
             ## FEATURE STATE JACOBIAN
             self.A[dxZETA_i:dxZETA_i+2, dxVEL:dxVEL+3] = -rho*T_z.T.dot(skew_zeta).dot(R_b_c)
-            self.A[dxZETA_i:dxZETA_i+2, dxB_G:dxB_G+3] = -T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c) + R_b_c)
-            self.A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = T_z.T.dot(skew(omega_c_i - rho*skew_zeta.dot(vel_c_i)) - (rho*skew_vel_c.dot(skew_zeta))).dot(T_z)
+            self.A[dxZETA_i:dxZETA_i+2, dxB_G:dxB_G+3] = T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c) - R_b_c)
+            self.A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = T_z.T.dot(skew(rho * skew_zeta.dot(vel_c_i) + omega_c_i) - (rho * skew_vel_c.dot(skew_zeta))).dot(T_z)
             self.A[dxZETA_i:dxZETA_i+2, dxRHO_i,None] = -T_z.T.dot(skew_zeta).dot(vel_c_i)
             self.A[dxRHO_i, dxVEL:dxVEL+3] = rho2*zeta.T.dot(R_b_c)
-            self.A[dxRHO_i, dxB_G:dxB_G+3] = rho2*zeta.T.dot(R_b_c).dot(skew_p_b_c)
+            self.A[dxRHO_i, dxB_G:dxB_G+3] = -rho2*zeta.T.dot(R_b_c).dot(skew_p_b_c)
             self.A[dxRHO_i, dxZETA_i:dxZETA_i+2] = -rho2*vel_c_i.T.dot(skew_zeta).dot(T_z)
             self.A[dxRHO_i, dxRHO_i] = 2*rho*zeta.T.dot(vel_c_i).squeeze()
 
             #################################
             ## FEATURE INPUT JACOBIAN
-            self.G[dxZETA_i:dxZETA_i+2, uG:uG+3] = T_z.T.dot(R_b_c + rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c))
-            self.G[dxRHO_i, uG:] = -rho2*zeta.T.dot(R_b_c).dot(skew_p_b_c)
+            self.G[dxZETA_i:dxZETA_i+2, uG:uG+3] = T_z.T.dot(R_b_c - rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c))
+            self.G[dxRHO_i, uG:] = rho2*zeta.T.dot(R_b_c).dot(skew_p_b_c)
 
         return self.dx, self.A, self.G
 

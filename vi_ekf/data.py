@@ -15,11 +15,11 @@ class Data(object):
         self.R = {'alt': 0.01,
                   'acc': np.diag([0.5, 0.5]),
                   'att': np.diag([0.01, 0.01, 0.01]),
-                  'vel': np.diag([0.0001, 0.0001, 0.0001]),
+                  'vel': np.diag([0.01, 0.01, 0.01]),
                   'pos': np.diag([0.1, 0.1, 0.1]),
                   'zeta': np.diag([0.01, 0.01]),
                   'lambda': np.diag([1., 1.]),
-                  'depth': 0.01}
+                  'depth': 0.1}
 
     def indexer(self, target_time, source_time):
         index_for_target = []

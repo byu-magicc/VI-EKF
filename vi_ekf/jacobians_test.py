@@ -129,7 +129,7 @@ def htest(fn, ekf, **kwargs):
             finite_difference[:, i] = ((z_prime - z0) / epsilon)[:, 0]
 
     # The Feature Jacobian is really sensitive
-    err_thresh = 1e-3
+    err_thresh = max((1e-3 * norm(analytical), 1e-5))
 
     error = analytical - finite_difference
     for key, item in indexes.iteritems():
@@ -153,16 +153,16 @@ def htest(fn, ekf, **kwargs):
 
 def all_h_tests(x, u, ekf):
     num_errors = 0
-    # num_errors += htest(ekf.h_acc, ekf)
-    # num_errors += htest(ekf.h_pos, ekf)
-    # num_errors += htest(ekf.h_vel, ekf)
-    # num_errors += htest(ekf.h_alt, ekf)
-    # num_errors += htest(ekf.h_att, ekf, type='att')
+    num_errors += htest(ekf.h_acc, ekf)
+    num_errors += htest(ekf.h_pos, ekf)
+    num_errors += htest(ekf.h_vel, ekf)
+    num_errors += htest(ekf.h_alt, ekf)
+    num_errors += htest(ekf.h_att, ekf, type='att')
     for i in range(ekf.len_features):
         num_errors += htest(ekf.h_feat, ekf, i=i)
-        # num_errors += htest(ekf.h_qzeta, ekf, i=i, type='qzeta')
-        # num_errors += htest(ekf.h_depth, ekf, i=i)
-        # num_errors += htest(ekf.h_inv_depth, ekf, i=i)
+        num_errors += htest(ekf.h_qzeta, ekf, i=i, type='qzeta')
+        num_errors += htest(ekf.h_depth, ekf, i=i)
+        num_errors += htest(ekf.h_inv_depth, ekf, i=i)
         # num_errors += htest(ekf.h_pixel_vel, ekf, i=i, u=u)
     return num_errors
 

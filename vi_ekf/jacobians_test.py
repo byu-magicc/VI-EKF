@@ -201,10 +201,10 @@ def run_tests():
         q_b_c = Quaternion.random()
         # q_b_c = Quaternion.Identity()
         ekf.set_camera_to_IMU(p_b_c, q_b_c)
-        ekf.set_camera_intrinsics(np.array([[319.5, 239.5]]).T, np.array([[570.3422, 570.3422]]).T)
+        ekf.set_camera_intrinsics(np.array([[319.5, 239.5]]).T, np.array([[570.3422, 0, 0], [0, 570.3422, 0]]))
 
         # Initialize Random Features
-        for j in range(10):
+        for j in range(25):
             axis = np.array([[np.random.uniform(-1, 1, [])],
                              [np.random.uniform(-1, 1, [])],
                              [0]])

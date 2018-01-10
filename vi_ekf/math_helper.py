@@ -30,20 +30,20 @@ def T_zeta(q_zeta):
     return q_zeta.rot(e_x_e_y)
 
 # Finds the difference between two feature quaternions
-def q_feat_boxminus(q0, q1):
-    assert isinstance(q0, Quaternion) and isinstance(q1, Quaternion)
+def q_feat_boxminus(qi, qj):
+    assert isinstance(qi, Quaternion) and isinstance(qj, Quaternion)
 
-    zeta0 = q0.rot(e_z)
-    zeta1 = q1.rot(e_z)
+    zetai = qi.rot(e_z)
+    zetaj = qj.rot(e_z)
 
-    if norm(zeta0 - zeta1) > 1e-16:
-        z1_x_z0 = skew(zeta1).dot(zeta0)
-        v = z1_x_z0 / norm(z1_x_z0) # The vector about which rotation occurs (normalized)
-        theta = np.arccos(zeta1.T.dot(zeta0)) # the magnitude of the rotation
+    if norm(zetai - zetaj) > 1e-16:
+        zj_x_zi = skew(zetaj).dot(zetai)
+        s = zj_x_zi / norm(zj_x_zi) # The vector about which rotation occurs (normalized)
+        theta = np.arccos(zetaj.T.dot(zetai)) # the magnitude of the rotation
         # The rotation vector exists in the plane normal to the feature vector.  Therefore if we rotate to this
         # basis, then all the information is stored in the x and y components only.  This reduces the dimensionality
         # of the delta-feature quaternion
-        dq = theta * T_zeta(q1).T.dot(v)
+        dq = theta * T_zeta(qj).T.dot(s)
         return dq
     else:
         return np.zeros((2,1))
@@ -51,7 +51,7 @@ def q_feat_boxminus(q0, q1):
 
 # Adds a delta feature quaternion to quaternion q, returns a quaternion
 def q_feat_boxplus(q, dq):
-    assert isinstance(q, Quaternion) and dq.shape == (2,1)
+    # assert isinstance(q, Quaternion) and dq.shape == (2,1)
     return Quaternion.exp(T_zeta(q).dot(dq)) * q
     # zeta = q_fast.rot(e_z)
     # return Quaternion.from_two_unit_vectors(e_z, zeta)

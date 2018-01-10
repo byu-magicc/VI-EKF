@@ -1,15 +1,15 @@
 import vi_ekf as viekf
 from tqdm import tqdm
-import numpy as np
-from plot_helper import plot_cube, plot_side_by_side, init_plots
-from data import FakeData, ETHData, ROSbagData, History
+from plot_helper import plot_side_by_side, init_plots, plot_3d_side_by_side, plot_3d_trajectory
+from data import ROSbagData, History
 from pyquat import Quaternion, quat_arr_to_euler
-from plot_helper import plot_3d_trajectory
+from math_helper import e_z
+import numpy as np
 
-start = 15.0
-end = 23.0
+start = 8.0
+end = 25    .0
 # data = ROSbagData(filename='data/truth_imu_flight.bag', start=30.0, end=68.0, sim_features=True, load_new=True)
-data = ROSbagData(filename='data/xtion_collect.bag', start=start, end=end, sim_features=False, load_new=True)
+data = ROSbagData(filename='data/xtion_collect.bag', start=start, end=end, sim_features=False, load_new=False)
 # data = ROSbagData(filename='data/hand_carried/roll.bag', start=start, end=end, sim_features=True, load_new=True)
 data.__test__()
 
@@ -18,7 +18,7 @@ ekf.set_camera_to_IMU(data.data['p_b_c'], data.data['q_b_c'])
 ekf.set_camera_intrinsics(data.data['cam_center'], data.data['cam_F'])
 h = History()
 
-for i, (t, pos, vel, att, gyro, acc, lambdas, depths, ids) in enumerate(tqdm(data)):
+for i, (t, pos, vel, att, gyro, acc, lambdas, depths, ids, qzetas) in enumerate(tqdm(data)):
     h.store(t, pos=pos, vel=vel, att=att)
     h.store(t, gyro=gyro, acc=acc)
     h.store(t, lambdas=lambdas, depths=depths, ids=ids)
@@ -43,13 +43,16 @@ for i, (t, pos, vel, att, gyro, acc, lambdas, depths, ids) in enumerate(tqdm(dat
     # feature updates
     if ids is not None and len(ids) > 0:
         ekf.keep_only_features(ids)
-        for j, (l, depth, id) in enumerate(zip(lambdas, depths, ids)):
+        for j, (l, depth, id, qz) in enumerate(zip(lambdas, depths, ids, qzetas)):
             lambda_res, lambda_hat = ekf.update(l, 'feat', data.R['lambda'], passive=True, i=id, depth=depth)
             depth_res, depth_hat = ekf.update(depth, 'depth', data.R['depth'], passive=True, i=id)
             h.store(t, id, depth_hat=depth_hat, depth=depth, depth_res=depth_res)
             h.store(t, id, lambda_res=lambda_res, lambda_hat=lambda_hat, lmda=l)
+            h.store(t, id, qzeta=qz, qzeta_hat=ekf.get_qzeta(id))
+            h.store(t, id, zeta=Quaternion(qz).rot(e_z), zeta_hat=ekf.get_zeta(id))
             dxRHO_i = viekf.dxZ+3*ekf.global_to_local_feature_id[id]+2
             h.store(t, id, Pfeat=ekf.P[dxRHO_i, dxRHO_i,None,None])
+        h.store(t, ids=ids)
 
 # plot
 if True:
@@ -86,6 +89,8 @@ if True:
 
     for i in ids:
         plot_side_by_side('lambda/x_{}'.format(i), 0, 2, h.t.lambda_hat[i], h.lambda_hat[i], truth_t=h.t.lmda[i], truth=h.lmda[i], labels=['u','v'])
+        plot_side_by_side('zeta/x_{}'.format(i), 0, 3, h.t.zeta_hat[i], h.zeta_hat[i], truth_t=h.t.zeta[i], truth=h.zeta[i], labels=['x', 'y', 'z'])
+        plot_side_by_side('qzeta/x_{}'.format(i), 0, 4, h.t.qzeta_hat[i], h.qzeta_hat[i], truth_t=h.t.qzeta[i], truth=h.qzeta[i], labels=['w', 'x', 'y', 'z'])
         # plot_side_by_side('x_feat_{}'.format(i), 0, 3, h.t.zeta_hat[i], h.zeta_hat[i], truth_t=h.t.zeta[i], truth=h.zeta[i], labels=['x', 'y', 'z'])
         # plot_side_by_side('x_qfeat_{}'.format(i), 0, 4, h.t.qzeta_hat[i], h.qzeta_hat[i], truth_t=h.t.qzeta[i], truth=h.qzeta[i], labels=['w','x', 'y', 'z'])
         # plot_side_by_side('lambda_{}_residual'.format(i), 0, 2, h.t.lambda_res[i], h.lambda_res[i], labels=['x', 'y'])
@@ -98,14 +103,5 @@ if True:
             #
             # plot_side_by_side('z_depth_{}_residual'.format(i), 0, 1, h.t.depth_res[i], h.depth_res[i], labels=['rho'])
 quit()
-
-if True:
-    depth_hats, qzeta_hats = [], []
-    for i in np.unique(h.ids):
-        qzeta_hats.append(h.qzeta_hat[i])
-        depth_hats.append(h.depth_hat[i])
-    depth_hats = np.array(depth_hats)
-    qzeta_hats = np.array(qzeta_hats)
-
-
-    plot_3d_trajectory(h.x_hat[:,viekf.xPOS:viekf.xPOS+3,0], h.x_hat[:,viekf.xATT:viekf.xATT+4, 0], qzetas=qzeta_hats, depths=depth_hats)
+    # Plot the 3d Trajectory and Estimate
+    # plot_3d_side_by_side(h, ekf.p_b_c, ekf.q_b_c)

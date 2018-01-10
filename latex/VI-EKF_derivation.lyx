@@ -804,7 +804,7 @@ Instead, we will use rotations in
 
  to define the represenation.
  Let 
-\begin_inset Formula $\boldsymbol{\zeta}_{i}$
+\begin_inset Formula $\zeta_{i}$
 \end_inset
 
  be the 3D unit vector directed at feature 
@@ -817,24 +817,24 @@ Instead, we will use rotations in
 
 .
  We then define 
-\begin_inset Formula $\boldsymbol{q}_{C}^{\zeta_{i}}$
+\begin_inset Formula $q_{C}^{\zeta_{i}}$
 \end_inset
 
 as the quaternion rotation between 
-\begin_inset Formula $\boldsymbol{e}_{z}$
+\begin_inset Formula $e_{z}$
 \end_inset
 
 , the z-axis of the camera frame and the 3D unit bearing vector
-\begin_inset Formula $\boldsymbol{\zeta}_{i}$
+\begin_inset Formula $\zeta_{i}$
 \end_inset
 
 .
  The change between two 3D unit vectors 
-\begin_inset Formula $\boldsymbol{\zeta}_{i}$
+\begin_inset Formula $\zeta_{i}$
 \end_inset
 
  and 
-\begin_inset Formula $\boldsymbol{\zeta}_{j}$
+\begin_inset Formula $\zeta_{j}$
 \end_inset
 
  can be described using an axis-angle representation, where the direction
@@ -893,7 +893,7 @@ As can be seen in the picture, there are only 2 degrees of freedom in this
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\boldsymbol{\zeta}=R\left(q_{c}^{\zeta}\right)^{\top}\boldsymbol{e}_{z}\in\mathcal{S}^{2}\subset\mathbb{R}^{3}
+\zeta=R\left(q_{c}^{\zeta}\right)^{\top}e_{z}\in\mathcal{S}^{2}\subset\mathbb{R}^{3}
 \]
 
 \end_inset
@@ -905,7 +905,7 @@ As can be seen in the picture, there are only 2 degrees of freedom in this
 \begin_inset Formula 
 \[
 T_{\zeta}=R\left(q_{c}^{\zeta}\right)^{\top}\left[\begin{array}{cc}
-\boldsymbol{e}_{x} & \boldsymbol{e}_{y}\end{array}\right]\in\mathbb{R}^{3\times2}
+e_{x} & e_{y}\end{array}\right]\in\mathbb{R}^{3\times2}
 \]
 
 \end_inset
@@ -929,9 +929,9 @@ Here are the definitions of the
 \begin_inset Formula 
 \begin{align}
 \boxplus & :SO\left(3\right)\times\mathbb{R}^{2}\rightarrow SO\left(3\right),\\
- & \boldsymbol{q}_{\zeta},\boldsymbol{u}\mapsto\exp(T_{\zeta}\boldsymbol{u})\otimes\boldsymbol{q}_{\zeta},\\
+ & q_{\zeta},\delta\mapsto\exp(T_{\zeta}\delta)\otimes q_{\zeta},\\
 \boxminus & :SO\left(3\right)\times SO\left(3\right)\rightarrow\mathbb{R}^{2},\\
- & \boldsymbol{q}_{\zeta_{i}},\boldsymbol{q}_{\zeta_{j}}\mapsto T_{\zeta_{j}}^{\top}\theta s\left(q_{\zeta_{i}},q_{\zeta_{j}}\right),
+ & q_{\zeta_{i}},q_{\zeta_{j}}\mapsto\theta T_{\zeta_{j}}^{\top}s\left(q_{\zeta_{i}},q_{\zeta_{j}}\right),
 \end{align}
 
 \end_inset
@@ -1020,10 +1020,10 @@ reference "eq:body_fixed_rotation_dynamics"
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\dot{\zeta}^{c\left(t\right)} & =\frac{d}{dt}R\left(q_{c\left(t\right)}^{\zeta}\right)^{\top}\boldsymbol{e}_{z}\\
- & =\frac{d}{dt}\left(R\left(q_{\zeta}^{c\left(t\right)}\right)\right)\boldsymbol{e}_{z}+R\left(q_{\zeta}^{c\left(t\right)}\right)\frac{d}{dt}\left(\boldsymbol{e}_{z}\right)\\
- & =-\left\lfloor \omega_{c\left(t\right)/\zeta}^{c\left(t\right)}\right\rfloor R\left(q_{\zeta}^{c\left(t\right)}\right)\boldsymbol{e}_{z}+0\\
- & =-\left\lfloor \omega_{c\left(t\right)/\zeta}^{c\left(t\right)}\right\rfloor R\left(q_{\zeta}^{c\left(t\right)}\right)R\left(q_{c\left(t\right)}^{\zeta}\right)R\left(q_{c\left(t\right)}^{\zeta}\right)^{\top}\boldsymbol{e}_{z}\\
+\begin{aligned}\dot{\zeta}^{c\left(t\right)} & =\frac{d}{dt}R\left(q_{c\left(t\right)}^{\zeta}\right)^{\top}e_{z}\\
+ & =\frac{d}{dt}\left(R\left(q_{\zeta}^{c\left(t\right)}\right)\right)e_{z}+R\left(q_{\zeta}^{c\left(t\right)}\right)\frac{d}{dt}\left(e_{z}\right)\\
+ & =-\left\lfloor \omega_{c\left(t\right)/\zeta}^{c\left(t\right)}\right\rfloor R\left(q_{\zeta}^{c\left(t\right)}\right)e_{z}+0\\
+ & =-\left\lfloor \omega_{c\left(t\right)/\zeta}^{c\left(t\right)}\right\rfloor R\left(q_{\zeta}^{c\left(t\right)}\right)R\left(q_{c\left(t\right)}^{\zeta}\right)R\left(q_{c\left(t\right)}^{\zeta}\right)^{\top}e_{z}\\
  & =-\left\lfloor \omega_{c\left(t\right)/\zeta}^{c\left(t\right)}\right\rfloor R\left(q_{\zeta}^{c\left(t\right)}\right)R\left(q_{c\left(t\right)}^{\zeta}\right)\zeta^{c\left(t\right)}\\
  & =-\left\lfloor \omega_{c\left(t\right)/\zeta}^{c\left(t\right)}\right\rfloor \zeta^{c\left(t\right)}\\
  & =\left\lfloor \zeta^{c\left(t\right)}\right\rfloor \omega_{c\left(t\right)/\zeta}^{c\left(t\right)}
@@ -1519,11 +1519,12 @@ Rotating the above into the camera frame results (and notationally dropping
  the explicit time dependence of the camera frame) simplifies things a bit
  
 \begin_inset Formula 
-\[
+\begin{equation}
 \begin{aligned}0 & =R\left(q_{I}^{c}\right)v_{c/I}^{I}-R\left(q_{I}^{c}\right)R\left(q_{c}^{I}\right)\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)+R\left(q_{I}^{c}\right)R\left(q_{c}^{I}\right)\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-R\left(q_{I}^{c}\right)R\left(q_{c}^{I}\right)\zeta_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}\\
  & =v_{c/I}^{c}-\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)+\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-\zeta_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}
 \end{aligned}
-\]
+\label{eq:feature_dynamics_starting_point}
+\end{equation}
 
 \end_inset
 
@@ -1544,7 +1545,15 @@ Now, we need to isolate both
 \begin_inset Formula $\dot{q}_{c}^{\zeta}$
 \end_inset
 
-, multiply by both sides by 
+, multiply both sides of Eq.
+ 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:feature_dynamics_starting_point"
+
+\end_inset
+
+  by 
 \begin_inset Formula $d\left(\rho_{i}\right)^{-1}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor $
 \end_inset
 
@@ -1758,7 +1767,7 @@ y_{\omega}
 \dot{\beta}_{a} & =\eta_{\beta_{a}}\\
 \dot{\beta}_{\omega} & =\eta_{\beta_{\boldsymbol{\omega}}}\\
 \dot{\mu} & =\eta_{\mu}\\
-\dot{q}_{c}^{\zeta_{i}} & =T_{\zeta}^{\top}\left(\omega_{c/I}^{c}-\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}\right)\\
+\dot{q}_{c}^{\zeta_{i}} & =-T_{\zeta}^{\top}\left(\omega_{c/I}^{c}+\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/I}^{c}\right)\\
 \dot{\rho_{i}} & =\rho_{i}^{2}\left(\zeta_{i}^{c}\right)^{\top}v_{c/I}^{c}
 \end{aligned}
 \label{eq:full_dynamics}

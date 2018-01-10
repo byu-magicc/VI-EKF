@@ -61,18 +61,19 @@ class Data(object):
         assert self.x0.shape == (17,1), self.x0.shape
         time = self.time[0]
         for x in self:
-            assert len(x) == 9
-            t,  pos, vel, att, gyro, acc, lambdas, depths, ids = x
+            assert len(x) == 10
+            t,  pos, vel, att, gyro, acc, lambdas, depths, ids, qzetas = x
             assert t >= time
             time = t
             assert all([gyro is None, acc is None]) or not all([gyro is None, acc is None])
             if lambdas is not None:
                 assert len(lambdas) == len(depths) == len(ids), (len(lambdas), len(depths), len(ids))
-                for l, d, i in zip(lambdas, depths, ids):
+                for l, d, i, qz in zip(lambdas, depths, ids, qzetas):
                     assert np.isfinite(l).all()
                     assert type(i) == int or type(i) == np.int64, type(i)
                     assert l.shape == (2,1), l.shape
                     assert d.shape == (1,1)
+                    assert qz.shape == (4,1)
             assert type(t) == float or type(t) == np.float64, type(t)
             assert type(t) == np.float64
             assert ((pos.shape == (3, 1)) if pos is not None else True), pos.shape
@@ -156,7 +157,7 @@ class ROSbagData(Data):
 
         try:
             pos, vel, att, gyro, acc = None, None, None, None, None
-            lambdas, ids, depths = None, None, None
+            qzetas, lambdas, ids, depths = None, None, None, None
 
             t = self.time[i]
 
@@ -173,11 +174,13 @@ class ROSbagData(Data):
                 ids = list(self.data['ids'][self.feature_indexer[i]])
                 lambdas = []
                 depths = []
+                qzetas = []
                 for j, id in enumerate(ids):
                     lambdas.append(self.data['lambdas'][self.feature_indexer[i]][j, :, None])
                     depths.append(self.data['depths'][self.feature_indexer[i]][j, :, None])
+                    qzetas.append(self.data['q_zetas'][self.feature_indexer[i]][j, :, None])
 
-            return t, pos, vel, att, gyro, acc, lambdas, depths, ids
+            return t, pos, vel, att, gyro, acc, lambdas, depths, ids, qzetas
         except IndexError as e:
             raise Exception(e), None, sys.exc_info()[2]
 

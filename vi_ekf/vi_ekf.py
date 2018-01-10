@@ -147,12 +147,17 @@ class VI_EKF():
         qzeta = self.x[xZ + 5 * ft_id:xZ + 5 * ft_id + 4, :]  # 4-vector quaternion
         return Quaternion(qzeta).rot(self.khat)  # 3-vector pointed at the feature in the camera frame
 
-    # Returns the quaternion which
-    def get_qzeta(self):
+    # Returns all quaternions which rotate the camera z axis to the bearing vectors directed at the tracked features
+    def get_qzetas(self):
         qzetas = np.zeros((self.len_features, 4))
         for i in range(self.len_features):
             qzetas[i,:,None] = self.x[xZ+5*i:xZ+5*i+4]   # 4-vector quaternion
         return qzetas
+
+    # Returns all quaternions which rotate the camera z axis to the bearing vectors directed at the tracked features
+    def get_qzeta(self, i):
+        ft_id = self.global_to_local_feature_id[i]
+        return self.x[xZ + 5 * ft_id:xZ + 5 * ft_id + 4, :]  # 4-vector quaternion
 
     def get_camera_state(self):
         vel = self.x[xVEL:xVEL + 3]
@@ -406,14 +411,14 @@ class VI_EKF():
 
             #################################
             ## FEATURE DYNAMICS
-            self.dx[dxZETA_i:dxZETA_i+2,:] = T_z.T.dot(omega_c_i - rho*skew_zeta.dot(vel_c_i))
+            self.dx[dxZETA_i:dxZETA_i+2,:] = -T_z.T.dot(omega_c_i + rho*skew_zeta.dot(vel_c_i))
             self.dx[dxRHO_i,:] = rho2*zeta.T.dot(vel_c_i)
 
             #################################
             ## FEATURE STATE JACOBIAN
             self.A[dxZETA_i:dxZETA_i+2, dxVEL:dxVEL+3] = -rho*T_z.T.dot(skew_zeta).dot(R_b_c)
-            self.A[dxZETA_i:dxZETA_i+2, dxB_G:dxB_G+3] = T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c) - R_b_c)
-            self.A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = T_z.T.dot(skew(rho * skew_zeta.dot(vel_c_i) + omega_c_i) - (rho * skew_vel_c.dot(skew_zeta))).dot(T_z)
+            self.A[dxZETA_i:dxZETA_i+2, dxB_G:dxB_G+3] = T_z.T.dot(rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c) + R_b_c)
+            self.A[dxZETA_i:dxZETA_i+2, dxZETA_i:dxZETA_i+2] = -T_z.T.dot(skew(rho * skew_zeta.dot(vel_c_i) + omega_c_i) + (rho * skew_vel_c.dot(skew_zeta))).dot(T_z)
             self.A[dxZETA_i:dxZETA_i+2, dxRHO_i,None] = -T_z.T.dot(skew_zeta).dot(vel_c_i)
             self.A[dxRHO_i, dxVEL:dxVEL+3] = rho2*zeta.T.dot(R_b_c)
             self.A[dxRHO_i, dxB_G:dxB_G+3] = -rho2*zeta.T.dot(R_b_c).dot(skew_p_b_c)
@@ -422,7 +427,7 @@ class VI_EKF():
 
             #################################
             ## FEATURE INPUT JACOBIAN
-            self.G[dxZETA_i:dxZETA_i+2, uG:uG+3] = T_z.T.dot(R_b_c - rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c))
+            self.G[dxZETA_i:dxZETA_i+2, uG:uG+3] = -T_z.T.dot(R_b_c + rho*skew_zeta.dot(R_b_c).dot(skew_p_b_c))
             self.G[dxRHO_i, uG:] = rho2*zeta.T.dot(R_b_c).dot(skew_p_b_c)
 
         return self.dx, self.A, self.G
@@ -509,7 +514,7 @@ class VI_EKF():
         return h, dhdx
 
     # Feature model for feature index i
-    # Returns estimated bearing vector measurement (3x1) and Jacobian (3 x 16+3N)
+    # Returns estimated pixel measurement (2x1) and Jacobian (2 x 16+3N)
     def h_feat(self, x, **kwargs):
         # assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int)
         i = self.global_to_local_feature_id[kwargs['i']]

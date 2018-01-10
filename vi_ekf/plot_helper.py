@@ -27,6 +27,27 @@ def init_plots(start, end):
 def get_colors(num_rows, cmap):
     return cmap(np.linspace(0, 1, num_rows))
 
+def plot_3d_side_by_side(h, p_b_c, q_b_c):
+    ground_truth = np.hstack([h.t.pos[:, None], h.pos[:, :, 0], h.att[:, :, 0], h.vel[:, :, 0]])
+    estimate = np.hstack([h.t.x_hat[:, None], h.x_hat[:, :, 0]])
+    qzetas, qzetahats, depths, depthhats = [], [], [], []
+    for frame, frame_id in enumerate(h.ids):
+        try:
+            qzetas.append(np.array([h.qzeta[i][frame][:,0] for i in frame_id]))
+            qzetahats.append(np.array([h.qzeta_hat[i][frame][:, 0] for i in frame_id]))
+            depths.append(np.array([h.depth[i][frame][0, 0] for i in frame_id]))
+            depthhats.append(np.array([h.depth_hat[i][frame][0, 0] for i in frame_id]))
+        except:
+            pass
+
+    plt.figure(100, figsize=(14,10))
+    ax1 = plt.subplot(211, projection='3d')
+    plot_3d_trajectory(ground_truth, h.t.ids, qzetas, depths, h.ids, p_b_c, q_b_c, ax1)
+    ax2 = plt.subplot(212, projection='3d')
+    plot_3d_trajectory(estimate, h.t.ids, qzetahats, depthhats, h.ids, p_b_c, q_b_c, ax2)
+    plt.show()
+
+
 def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None, truth=None, labels=None, skip=1, save=True, cov_bounds=None):
     estimate = estimate[:, start:end]
     if cov_bounds == None:
@@ -119,12 +140,15 @@ def plot_cube(q_I_b, zetas, zeta_truth):
     plt.ioff()
     plt.pause(0.001)
 
-def plot_3d_trajectory(ground_truth, feat_time=None, qzetas=None, depths=None, ids=None, p_b_c=np.zeros((3,1)), q_b_c=Quaternion.Identity()):
+def plot_3d_trajectory(ground_truth, feat_time=None, qzetas=None, depths=None, ids=None, p_b_c=np.zeros((3,1)), q_b_c=Quaternion.Identity(), fighandle=None):
     pos_time = ground_truth[:,0]
     position = ground_truth[:,1:4]
     orientation = ground_truth[:,4:8]
-    plt.figure(2, figsize=(14,10))
-    ax = plt.subplot(111, projection='3d')
+    if fighandle is not None:
+        ax = fighandle
+    else:
+        plt.figure(2, figsize=(14,10))
+        ax = plt.subplot(111, projection='3d')
     plt.plot(position[:1, 0],
              position[:1, 1],
              position[:1, 2], 'kx')
@@ -158,7 +182,6 @@ def plot_3d_trajectory(ground_truth, feat_time=None, qzetas=None, depths=None, i
                     q_c_z = Quaternion(qz[:,None])
                     zeta_end = camera_pos + q_i_b.rot(q_b_c.rot(q_c_z.rot(10.*e_z*d)))
                     plt.plot([camera_pos[0, 0], zeta_end[0, 0]], [camera_pos[1, 0], zeta_end[1, 0]], [camera_pos[2, 0], zeta_end[2, 0]], '--', color=colors[np.where(id_indices == id)[0][0]], lineWidth='1.0')
-    plt.show()
 
 def play_trajectory_with_sim_features(image_time, image_data, feat_time, ids, lambdas):
     id_indices = np.unique(np.hstack(ids))

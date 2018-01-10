@@ -6,11 +6,11 @@ from data import FakeData, ETHData, ROSbagData, History
 from pyquat import Quaternion, quat_arr_to_euler
 from plot_helper import plot_3d_trajectory
 
-start = 1.0
-end = 9.0
+start = 15.0
+end = 23.0
 # data = ROSbagData(filename='data/truth_imu_flight.bag', start=30.0, end=68.0, sim_features=True, load_new=True)
-# data = ROSbagData(filename='data/xtion_collect.bag', start=start, end=end, sim_features=False, load_new=True)
-data = ROSbagData(filename='data/hand_carried/roll.bag', start=start, end=end, sim_features=True, load_new=True)
+data = ROSbagData(filename='data/xtion_collect.bag', start=start, end=end, sim_features=False, load_new=True)
+# data = ROSbagData(filename='data/hand_carried/roll.bag', start=start, end=end, sim_features=True, load_new=True)
 data.__test__()
 
 ekf = viekf.VI_EKF(data.x0)

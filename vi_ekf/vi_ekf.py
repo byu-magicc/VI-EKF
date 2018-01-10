@@ -119,10 +119,10 @@ class VI_EKF():
         self.cam_center = np.array([[320.0, 240.0]]).T
         self.cam_F = np.array([[250.0, 250.0]]).dot(I_2x3)
 
-    def set_camera_intrinsics(self, center, focal_length):
-        assert center.shape == (2,1) and focal_length.shape ==(2,1)
+    def set_camera_intrinsics(self, center, F):
+        assert center.shape == (2,1) and F.shape ==(2,3)
         self.cam_center = center
-        self.cam_F = focal_length * I_2x3
+        self.cam_F = F
 
     def set_camera_to_IMU(self, translation, rotation):
         # assert translation.shape == (3,1) and isinstance(rotation, Quaternion)

@@ -1059,6 +1059,17 @@ F=\left[\begin{array}{ccccccccc}
 \begin_layout Standard
 \begin_inset Formula 
 \[
+\begin{aligned}\dfrac{\partial\dot{q}_{c}^{\zeta_{i}}}{\partial v_{b/i}^{i}} & =-\rho_{i}T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor R\left(q_{b}^{c}\right)\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
 \begin{aligned}\dfrac{\partial\dot{q}_{c}^{\zeta_{i}}}{\partial\beta_{\omega}} & =T_{\zeta}^{\top}\left(\rho_{i}\left\lfloor \zeta_{i}^{c}\right\rfloor R\left(q_{b}^{c}\right)\left\lfloor p_{cb}^{b}\right\rfloor -R\left(q_{b}^{c}\right)\right)\end{aligned}
 \]
 
@@ -1070,7 +1081,7 @@ F=\left[\begin{array}{ccccccccc}
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\dfrac{\partial\dot{q}_{c}^{\zeta_{i}}}{\partial q_{c}^{\zeta_{i}}} & =-T_{\zeta}^{\top}\left(\left\lfloor \rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right\rfloor +\left(\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \right)\right)T_{\zeta}\end{aligned}
+\begin{aligned}\dfrac{\partial\dot{q}_{c}^{\zeta_{i}}}{\partial q_{c}^{\zeta_{i}}} & =T_{\zeta}^{\top}\left(\left\lfloor \rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \zeta_{i}^{c}+\omega_{c/i}^{c}\right\rfloor -\left(\rho_{i}\left\lfloor v_{c/i}^{c}\right\rfloor \left\lfloor \zeta_{i}^{c}\right\rfloor \right)\right)T_{\zeta}\end{aligned}
 \]
 
 \end_inset
@@ -1081,7 +1092,7 @@ F=\left[\begin{array}{ccccccccc}
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\dfrac{\partial\dot{q}_{c}^{\zeta_{i}}}{\partial\rho_{i}} & =T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/i}^{c}\end{aligned}
+\begin{aligned}\dfrac{\partial\dot{q}_{c}^{\zeta_{i}}}{\partial\rho_{i}} & =-T_{\zeta}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor v_{c/i}^{c}\end{aligned}
 \]
 
 \end_inset
@@ -1114,7 +1125,7 @@ F=\left[\begin{array}{ccccccccc}
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}\frac{\partial\dot{\rho_{i}}}{\partial q_{c}^{\zeta_{i}}} & =\rho_{i}^{2}\left(v_{c/i}^{c}\right)^{\top}\left\lfloor \zeta\right\rfloor T_{\zeta}\end{aligned}
+\begin{aligned}\frac{\partial\dot{\rho_{i}}}{\partial q_{c}^{\zeta_{i}}} & =-\rho_{i}^{2}\left(v_{c/i}^{c}\right)^{\top}\left\lfloor \zeta\right\rfloor T_{\zeta}\end{aligned}
 \]
 
 \end_inset

@@ -238,9 +238,7 @@ class VI_EKF():
         else:
             residual = z - zhat
 
-        # Residual Saturation
-        # residual[residual > 0.1] = 0.1
-        # residual[residual < -0.1] = -0.1
+
 
         # Perform state and covariance update
         if not passive_update:
@@ -511,7 +509,7 @@ class VI_EKF():
         return h, dhdx
 
     # Feature model for feature index i
-    # Returns estimated measurement (3x1) and Jacobian (3 x 16+3N)
+    # Returns estimated bearing vector measurement (3x1) and Jacobian (3 x 16+3N)
     def h_feat(self, x, **kwargs):
         # assert x.shape == (xZ + 5 * self.len_features, 1) and isinstance(i, int)
         i = self.global_to_local_feature_id[kwargs['i']]

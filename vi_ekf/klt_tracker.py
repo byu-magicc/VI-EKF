@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 class KLT_tracker:
-    def __init__(self, num_features=25, show_image=False):
+    def __init__(self, num_features=25, show_image=False, radius=50):
 
         self.prev_image = []
         self.initialized = False
@@ -10,7 +10,7 @@ class KLT_tracker:
         self.plot_matches = show_image
 
         self.num_features = num_features
-        self.feature_nearby_radius = 25
+        self.feature_nearby_radius = radius
 
         self.features = np.zeros((self.num_features, 2, 1))
         self.ids = np.zeros(self.num_features)
@@ -25,6 +25,7 @@ class KLT_tracker:
 
         self.color = np.random.randint(0, 255, (self.num_features, 3))
         self.next_feature_id = 0
+        self.video = cv2.VideoWriter('plots/tracker_output.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 30, (640, 480))
 
     def load_image(self, img):
         # Load Image
@@ -99,9 +100,13 @@ class KLT_tracker:
                 cv2.putText(img, str(id), (x, y), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0))
 
             cv2.imshow("Image window", img)
+            self.video.write(img)
             cv2.waitKey(1)
 
         return self.features, self.ids
+
+    def close(self):
+        self.video.release()
 
 if __name__ == '__main__':
     cap = cv2.VideoCapture(0)

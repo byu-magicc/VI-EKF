@@ -6,11 +6,11 @@ from data import FakeData, ETHData, ROSbagData, History
 from pyquat import Quaternion, quat_arr_to_euler
 from plot_helper import plot_3d_trajectory
 
-start = 25.0
-end = 30.0
-# data = ETHData(filename='/mnt/pccfs/not_backed_up/eurocmav/V1_01_easy/mav0', start=5.0, end=120.0, sim_features=True, load_new=True)
+start = 1.0
+end = 9.0
 # data = ROSbagData(filename='data/truth_imu_flight.bag', start=30.0, end=68.0, sim_features=True, load_new=True)
-data = ROSbagData(filename='data/xtion_collect.bag', start=start, end=end, sim_features=False, load_new=True)
+# data = ROSbagData(filename='data/xtion_collect.bag', start=start, end=end, sim_features=False, load_new=True)
+data = ROSbagData(filename='data/hand_carried/roll.bag', start=start, end=end, sim_features=True, load_new=True)
 data.__test__()
 
 ekf = viekf.VI_EKF(data.x0)
@@ -33,8 +33,8 @@ for i, (t, pos, vel, att, gyro, acc, lambdas, depths, ids) in enumerate(tqdm(dat
     # sensor updates - save off residual information
     if pos is not None:
         h.store(t, alt_res=ekf.update(-pos[2], 'alt', data.R['alt'], passive=True)[0])
-        h.store(t, att_res=ekf.update(att, 'att', data.R['att'], passive=True)[0],
-                pos_res=ekf.update(pos, 'pos', data.R['pos'], passive=True)[0],
+        h.store(t, att_res=ekf.update(att, 'att', data.R['att'], passive=False)[0],
+                pos_res=ekf.update(pos, 'pos', data.R['pos'], passive=False)[0],
                 vel_res=ekf.update(vel, 'vel', data.R['vel'], passive=True)[0])
 
     if acc is not None:
@@ -44,13 +44,12 @@ for i, (t, pos, vel, att, gyro, acc, lambdas, depths, ids) in enumerate(tqdm(dat
     if ids is not None and len(ids) > 0:
         ekf.keep_only_features(ids)
         for j, (l, depth, id) in enumerate(zip(lambdas, depths, ids)):
-            lambda_res, lambda_hat = ekf.update(l, 'feat', data.R['lambda'], passive=False, i=id, depth=depth)
-            depth_res, depth_hat = ekf.update(depth, 'depth', data.R['depth'], passive=np.isnan(depth), i=id)
-            if j < 5:
-                h.store(t, id, depth_hat=depth_hat, depth=depth, depth_res=depth_res)
-                h.store(t, id, lambda_res=lambda_res, lambda_hat=lambda_hat, lmda=l)
-                dxRHO_i = viekf.dxZ+3*ekf.global_to_local_feature_id[id]+2
-                h.store(t, id, Pfeat=ekf.P[dxRHO_i, dxRHO_i,None,None])
+            lambda_res, lambda_hat = ekf.update(l, 'feat', data.R['lambda'], passive=True, i=id, depth=depth)
+            depth_res, depth_hat = ekf.update(depth, 'depth', data.R['depth'], passive=True, i=id)
+            h.store(t, id, depth_hat=depth_hat, depth=depth, depth_res=depth_res)
+            h.store(t, id, lambda_res=lambda_res, lambda_hat=lambda_hat, lmda=l)
+            dxRHO_i = viekf.dxZ+3*ekf.global_to_local_feature_id[id]+2
+            h.store(t, id, Pfeat=ekf.P[dxRHO_i, dxRHO_i,None,None])
 
 # plot
 if True:
@@ -76,8 +75,8 @@ if True:
     plot_side_by_side('u_gyro', 0, 3, h.t.gyro, h.gyro, labels=['x', 'y', 'z'])
     # plot_side_by_side('u_acc', 0, 3, h.t.acc, h.acc, labels=['x', 'y', 'z'])
 
-    plot_side_by_side('camera_vel', 0, 3, h.t.vel_c_i, h.vel_c_i, labels=['x','y','z'])
-    plot_side_by_side('camera_omega', 0, 3, h.t.omega_c_i, h.omega_c_i, labels=['x', 'y', 'z'])
+    # plot_side_by_side('camera_vel', 0, 3, h.t.vel_c_i, h.vel_c_i, labels=['x','y','z'])
+    # plot_side_by_side('camera_omega', 0, 3, h.t.omega_c_i, h.omega_c_i, labels=['x', 'y', 'z'])
 
     ids = []
     for step_ids in h.ids:
@@ -86,31 +85,18 @@ if True:
                 ids.append(id)
 
     for i in ids:
-        plot_side_by_side('lambda_{}'.format(i), 0, 2, h.t.lambda_hat[i], h.lambda_hat[i], truth_t=h.t.lmda[i], truth=h.lmda[i], labels=['u','v'])
+        plot_side_by_side('lambda/x_{}'.format(i), 0, 2, h.t.lambda_hat[i], h.lambda_hat[i], truth_t=h.t.lmda[i], truth=h.lmda[i], labels=['u','v'])
         # plot_side_by_side('x_feat_{}'.format(i), 0, 3, h.t.zeta_hat[i], h.zeta_hat[i], truth_t=h.t.zeta[i], truth=h.zeta[i], labels=['x', 'y', 'z'])
         # plot_side_by_side('x_qfeat_{}'.format(i), 0, 4, h.t.qzeta_hat[i], h.qzeta_hat[i], truth_t=h.t.qzeta[i], truth=h.qzeta[i], labels=['w','x', 'y', 'z'])
         # plot_side_by_side('lambda_{}_residual'.format(i), 0, 2, h.t.lambda_res[i], h.lambda_res[i], labels=['x', 'y'])
 
         if i in h.depth.keys():
-            plot_side_by_side('x_rho_{}'.format(i), 0, 1, h.t.depth_hat[i], h.depth_hat[i], truth_t=h.t.depth[i], truth=h.depth[i], labels=[r'$\frac{1}{\rho}$'])
+            plot_side_by_side('rho/x_{}'.format(i), 0, 1, h.t.depth_hat[i], h.depth_hat[i], truth_t=h.t.depth[i], truth=h.depth[i], labels=[r'$\frac{1}{\rho}$'])
         else:
-            plot_side_by_side('x_rho_{}'.format(i), 0, 1, h.t.depth_hat[i], h.depth_hat[i], labels=[r'$\frac{1}{\rho}$'])
+            plot_side_by_side('rho/x_{}'.format(i), 0, 1, h.t.depth_hat[i], h.depth_hat[i], labels=[r'$\frac{1}{\rho}$'])
             #
             #
             # plot_side_by_side('z_depth_{}_residual'.format(i), 0, 1, h.t.depth_res[i], h.depth_res[i], labels=['rho'])
-
-
-
-
-
-
-
-
-
-
-
-
-
 quit()
 
 if True:

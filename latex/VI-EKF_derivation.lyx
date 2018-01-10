@@ -1625,11 +1625,11 @@ reference "eq:unsolved_camera_dynamics"
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}0 & =-\rho^{2}\zeta_{i}^{c}^{\top}\left(v_{c/I}^{c}-\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)+\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-\zeta_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}\right)\\
- & =-\rho^{2}\zeta_{i}^{c}^{\top}v_{c/I}^{c}+\rho^{2}\zeta_{i}^{c}^{\top}\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)-\rho^{2}\zeta_{i}^{c}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)+\rho^{2}\zeta_{i}^{c}^{\top}\zeta_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}\\
- & =-\rho^{2}\zeta_{i}^{c}^{\top}v_{c/I}^{c}-\rho^{2}\zeta_{i}^{c}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \omega_{c/I}^{c}d\left(\rho_{i}\right)-\rho^{2}\zeta_{i}^{c}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)+\dot{\rho}\\
- & =-\rho^{2}\zeta_{i}^{c}^{\top}v_{c/I}^{c}+\dot{\rho}\\
-\dot{\rho} & =\rho^{2}\zeta_{i}^{c}^{\top}v_{c/I}^{c}
+\begin{aligned}0 & =-\rho^{2}\zeta_{i}^{c}{}^{\top}\left(v_{c/I}^{c}-\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)+\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)-\zeta_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}\right)\\
+ & =-\rho^{2}\zeta_{i}^{c}{}^{\top}v_{c/I}^{c}+\rho^{2}\zeta_{i}^{c}{}^{\top}\left\lfloor \omega_{c/I}^{c}\right\rfloor \zeta_{i}^{c}d\left(\rho_{i}\right)-\rho^{2}\zeta_{i}^{c}{}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)+\rho^{2}\zeta_{i}^{c}{}^{\top}\zeta_{i}^{c}\frac{\dot{\rho}}{\rho^{2}}\\
+ & =-\rho^{2}\zeta_{i}^{c}{}^{\top}v_{c/I}^{c}-\rho^{2}\zeta_{i}^{c}{}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor \omega_{c/I}^{c}d\left(\rho_{i}\right)-\rho^{2}\zeta_{i}^{c}{}^{\top}\left\lfloor \zeta_{i}^{c}\right\rfloor T_{\zeta}\dot{q}_{c}^{\zeta}d\left(\rho_{i}\right)+\dot{\rho}\\
+ & =-\rho^{2}\zeta_{i}^{c}{}^{\top}v_{c/I}^{c}+\dot{\rho}\\
+\dot{\rho} & =\rho^{2}\zeta_{i}^{c}{}^{\top}v_{c/I}^{c}
 \end{aligned}
 \]
 
@@ -2225,18 +2225,77 @@ Feature Point
 \end_layout
 
 \begin_layout Standard
-We assume that we have a known camera calibration matrix of the following
- form
+\begin_inset Float figure
+placement h
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename /home/superjax/Code/VI-EKF/latex/figures/pixel_geometry.eps
+	width 80text%
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:pixel_geometry"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Camera Pixel and feature vector geometry
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+We now derive the measurement model for pixels in the image frame 
+\begin_inset Formula $\lambda$
+\end_inset
+
+ given focal length 
+\begin_inset Formula $f$
+\end_inset
+
+ and feature bearing vector 
+\begin_inset Formula $\zeta$
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}K & =\left[\begin{array}{ccc}
-f_{x} & s & x_{0}\\
-0 & f_{y} & y_{0}\\
-0 & 0 & 1
-\end{array}\right]\end{aligned}
+\begin{aligned}e_{z}\cdot\left(-fe_{z}+s\zeta\right) & =0\\
+\left(e_{z}\cdot s\zeta\right)-\left(e_{z}\cdot fe_{z}\right) & =0\\
+s\left(e_{z}\cdot\zeta\right) & =\left(e_{z}\cdot fe_{z}\right)\\
+s & =\frac{e_{z}\cdot fe_{z}}{e_{z}\dot{\zeta}}\\
+ & =\frac{f}{e_{z}\zeta}\\
+ & =\frac{f}{e_{z}^{\top}\zeta}
+\end{aligned}
 \]
 
 \end_inset
@@ -2245,90 +2304,42 @@ f_{x} & s & x_{0}\\
 \end_layout
 
 \begin_layout Standard
-Which maps world 
-\begin_inset Formula $\left[\begin{array}{ccc}
-X & Y & Z\end{array}\right]^{\top}$
+If we map into pixel coordinates, (where 
+\begin_inset Formula $\left(0,0\right)$
 \end_inset
 
-units to images pixels 
-\begin_inset Formula $\left[\begin{array}{ccc}
-u & v & 1\end{array}\right]^{\top}$
+ is located at the top of the image, with center pixel 
+\begin_inset Formula $\lambda_{c}=\left[c_{x},c_{y}\right]^{\top}$
 \end_inset
 
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-\left[\begin{array}{c}
-u\\
-v\\
-1
-\end{array}\right]=K\left[\begin{array}{c}
-X\\
-Y\\
-Z
-\end{array}\right]
-\]
-
+ and focal lengths 
+\begin_inset Formula $f_{x}$
 \end_inset
 
-
-\end_layout
-
-\begin_layout Standard
-Without depth information, we can only find a vector directed at a feature
- 
-\begin_inset Formula $i$
+ and 
+\begin_inset Formula $f_{y}$
 \end_inset
 
- in the camera frame to a scale factor, by inverting the camera matrix
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-K^{-1}\left[\begin{array}{c}
-u\\
-v\\
-1
-\end{array}\right]=\left[\begin{array}{c}
-X\\
-Y\\
-Z
-\end{array}\right]
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-If we normalize 
-\begin_inset Formula $\left[\begin{array}{ccc}
-X & Y & Z\end{array}\right]^{\top}$
-\end_inset
-
-, then we get a direct measurement of 
-\begin_inset Formula $\zeta_{i}$
+) we get the following expression for pixel locations given a particular
+ feature bearing vector 
+\begin_inset Formula $\zeta$
 \end_inset
 
 .
- We then use this to create a measurement of the quaternion to the bearing
- vector 
-\begin_inset Formula $q_{c}^{\zeta_{i}}$
-\end_inset
-
-
 \end_layout
 
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\begin{aligned}h_{\zeta_{i}}(x,u,\eta_{\zeta_{i}}) & =q_{c}^{\zeta_{i}}\boxplus\eta_{\zeta}\\
- & =q_{c}^{\zeta_{i}}
+\begin{aligned}h_{\lambda_{i}}(x,u,\eta_{\lambda_{i}}) & =\left[\begin{array}{ccc}
+1 & 0 & 0\\
+0 & 1 & 0
+\end{array}\right]s\zeta+\lambda_{c}+\eta_{\lambda_{i}}\\
+ & =\left[\begin{array}{ccc}
+f_{x} & 0 & 0\\
+0 & f_{y} & 0
+\end{array}\right]\frac{1}{e_{z}\zeta}\zeta+\lambda_{c}+\eta_{\lambda_{i}}\\
+ & =F\frac{1}{e_{z}\zeta}\zeta+\lambda_{c}+\eta_{\lambda_{i}}
 \end{aligned}
 \]
 
@@ -2340,7 +2351,11 @@ X & Y & Z\end{array}\right]^{\top}$
 \begin_layout Standard
 \begin_inset Formula 
 \[
-\frac{\partial h_{\zeta_{i}}}{\partial q_{c}^{\zeta_{i}}}=I_{2\times2}
+\begin{aligned}\frac{\partial h_{\lambda_{i}}(x,u,\eta_{\zeta_{i}})}{\partial q_{c}^{\zeta}} & =\frac{\partial}{\partial q_{c}^{\zeta}}\left(F\zeta\frac{1}{e_{z}^{\top}\zeta}+\lambda_{c}\right)\in\mathbb{R}^{2\times2}\\
+ & =F\left(\frac{\frac{\partial}{\partial q_{c}^{\zeta}}\left(\zeta\right)}{e_{z}^{\top}\zeta}+\zeta\frac{\partial}{\partial q_{c}^{\zeta}}\left(\frac{1}{e_{z}^{\top}\zeta}\right)+0\right)\\
+ & =F\left(-\frac{\left\lfloor \zeta\right\rfloor T_{\zeta}}{e_{z}^{\top}\zeta}+\zeta\left(\frac{e_{z}^{\top}\frac{\partial}{\partial q_{c}^{\zeta}}\zeta}{\left(e_{z}^{\top}\zeta\right)^{2}}\right)\right)\\
+ & =F\left(\frac{\zeta e_{z}^{\top}\left\lfloor \zeta\right\rfloor T_{\zeta}}{\left(e_{z}^{\top}\zeta\right)^{2}}-\frac{\left\lfloor \zeta\right\rfloor T_{\zeta}}{e_{z}^{\top}\zeta}\right)
+\end{aligned}
 \]
 
 \end_inset

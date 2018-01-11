@@ -219,7 +219,7 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
 
 
     else:
-        tracker = klt_tracker.KLT_tracker(3, show_image=True)
+        tracker = klt_tracker.KLT_tracker(15, show_image=show_image)
         lambdas, depths, ids, feat_time, q_zetas = [], [], [], [], []
 
         _, image_height, image_width = image_data.shape
@@ -228,7 +228,7 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
         assert image_height == depth_height and image_width == depth_width
 
         for i, image in enumerate(image_data):
-            frame_lambdas, frame_ids = tracker.load_image(image)
+            frame_lambdas, frame_ids = tracker.load_image(image, image_time[i])
 
             # KLT tracker doesn't consider image bounds :(
             frame_lambdas = np.clip(frame_lambdas[:, 0], [0, 0], [639, 479] )

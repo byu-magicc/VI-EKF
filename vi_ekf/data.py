@@ -123,10 +123,10 @@ class FakeData(Data):
 
 
 class ROSbagData(Data):
-    def __init__(self, filename='truth_imu_flight.bag', start=-1, end=np.inf, sim_features=False, load_new=False):
+    def __init__(self, filename='truth_imu_flight.bag', start=-1, end=np.inf, sim_features=False, load_new=True, show_video=True):
         super(ROSbagData, self).__init__()
         if load_new:
-            self.data = rosbag_data_loader.load_data(filename, start, end, sim_features)
+            self.data = rosbag_data_loader.load_data(filename, start, end, sim_features, show_image=show_video)
             cPickle.dump(self.data, open('data/data.pkl', 'wb'))
         else:
             self.data = cPickle.load(open('data/data.pkl', 'rb'))

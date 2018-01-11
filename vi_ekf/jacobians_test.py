@@ -177,7 +177,7 @@ def run_tests():
                              [0.0],
                              [0.0]])
     errors = 0
-    for i in tqdm(range(1)):
+    for i in tqdm(range(25)):
         # Set nominal Values for x0
         x0 = np.zeros((xZ, 1))
         x0[xATT] = 1
@@ -204,14 +204,9 @@ def run_tests():
         ekf.set_camera_intrinsics(np.array([[319.5, 239.5]]).T, np.array([[570.3422, 0, 0], [0, 570.3422, 0]]))
 
         # Initialize Random Features
-        for j in range(25):
-            axis = np.array([[np.random.uniform(-1, 1, [])],
-                             [np.random.uniform(-1, 1, [])],
-                             [0]])
-            angle = np.random.uniform(-60*np.pi/180.0, 60*np.pi/180.0)
+        for j in range(3):
             l = np.array([[np.random.uniform(0, 640), np.random.uniform(0, 480)]]).T
-            depth = np.abs(np.random.randn(1))[:,None]
-            # depth = np.ones((1,1))
+            depth = np.abs(10.0*np.random.randn(1))[:,None]
             ekf.init_feature(l, j, depth=depth * 10)
 
         # Initialize Inputs

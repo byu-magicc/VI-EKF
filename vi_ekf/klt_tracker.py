@@ -27,7 +27,7 @@ class KLT_tracker:
         self.next_feature_id = 0
         self.video = cv2.VideoWriter('plots/tracker_output.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 30, (640, 480))
 
-    def load_image(self, img):
+    def load_image(self, img, t=None):
         # Load Image
         # If first time initialize the feature
         if not self.initialized:
@@ -98,6 +98,9 @@ class KLT_tracker:
                 x, y = point.ravel()
                 cv2.circle(img, (x, y), 5, self.color[id % self.num_features].tolist(), -1)
                 cv2.putText(img, str(id), (x, y), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 0))
+
+            if t is not None:
+                cv2.putText(img, "t={:.2f}".format(t), (560, 20), cv2.FONT_HERSHEY_COMPLEX, 0.5, (255, 0, 100))
 
             cv2.imshow("Image window", img)
             self.video.write(img)

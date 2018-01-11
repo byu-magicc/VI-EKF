@@ -48,7 +48,7 @@ def plot_3d_side_by_side(h, p_b_c, q_b_c):
     plt.show()
 
 
-def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None, truth=None, labels=None, skip=1, save=True, cov_bounds=None):
+def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None, truth=None, labels=None, skip=1, save=True, cov_bounds=None, start_t=None, end_t=None):
     estimate = estimate[:, start:end]
     if cov_bounds == None:
         cov_bounds = (start,end)
@@ -56,8 +56,11 @@ def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None
     if isinstance(cov, np.ndarray):
         cov_copy = cov[:, cov_bounds[0]:cov_bounds[1], cov_bounds[0]:cov_bounds[1]].copy()
 
-    start_t = est_t[0]
-    end_t = est_t[-1]
+    if start_t is None:
+        start_t = est_t[0]
+
+    if end_t is None:
+        end_t = est_t[-1]
 
     if isinstance(truth_t, np.ndarray):
         truth_t_copy = truth_t[(truth_t > start_t) & (truth_t < end_t)].copy()

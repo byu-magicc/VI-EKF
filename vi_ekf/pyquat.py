@@ -384,6 +384,40 @@ def run_tests():
         qcopy *= q2
         assert norm(qcopy.elements - (q * q2).elements) < 1e-8
 
+        # Check derivative of d(Rv)/dq and d(R.T.v)/dq
+        for j in range(100):
+            d = np.zeros((3,3))
+            v = np.random.uniform(-1, 1, (3,1))
+            if j == 0:
+                q = Quaternion.Identity()
+            else:
+                q = Quaternion.random()
+            epsilon = 1e-6
+            I_3x3 = np.eye(3) * epsilon
+            for k in range(3):
+                d[k,:,None] = ((q + I_3x3[:,k,None]).invrot(v) - q.invrot(v)) / epsilon
+            a = -skew(q.R.dot(v))
+            assert (np.abs(a - d) < 1e-3).all()
+
+        for j in range(100):
+            d = np.zeros((3,3))
+            v = np.random.uniform(-1, 1, (3,1))
+            # if j == 0:
+            #     q = Quaternion.Identity()
+            # else:
+            q = Quaternion.random()
+            epsilon = 1e-6
+            I_3x3 = np.eye(3) * epsilon
+            for k in range(3):
+                d[k,:,None] = ((q + I_3x3[:,k,None]).rot(v) - q.rot(v)) / epsilon
+            a = skew(v).dot(q.R)
+            assert (np.abs(a - d) < 1e-3).all()
+
+
+
+
+
+
     print "pyquat test [PASSED]"
 
 if __name__ == '__main__':

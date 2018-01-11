@@ -129,7 +129,7 @@ def htest(fn, ekf, **kwargs):
             finite_difference[:, i] = ((z_prime - z0) / epsilon)[:, 0]
 
     # The Feature Jacobian is really sensitive
-    err_thresh = 1e-3
+    err_thresh = max((1e-3 * norm(analytical), 1e-5))
 
     error = analytical - finite_difference
     for key, item in indexes.iteritems():
@@ -153,16 +153,16 @@ def htest(fn, ekf, **kwargs):
 
 def all_h_tests(x, u, ekf):
     num_errors = 0
-    # num_errors += htest(ekf.h_acc, ekf)
-    # num_errors += htest(ekf.h_pos, ekf)
-    # num_errors += htest(ekf.h_vel, ekf)
-    # num_errors += htest(ekf.h_alt, ekf)
-    # num_errors += htest(ekf.h_att, ekf, type='att')
+    num_errors += htest(ekf.h_acc, ekf)
+    num_errors += htest(ekf.h_pos, ekf)
+    num_errors += htest(ekf.h_vel, ekf)
+    num_errors += htest(ekf.h_alt, ekf)
+    num_errors += htest(ekf.h_att, ekf, type='att')
     for i in range(ekf.len_features):
         num_errors += htest(ekf.h_feat, ekf, i=i)
-        # num_errors += htest(ekf.h_qzeta, ekf, i=i, type='qzeta')
-        # num_errors += htest(ekf.h_depth, ekf, i=i)
-        # num_errors += htest(ekf.h_inv_depth, ekf, i=i)
+        num_errors += htest(ekf.h_qzeta, ekf, i=i, type='qzeta')
+        num_errors += htest(ekf.h_depth, ekf, i=i)
+        num_errors += htest(ekf.h_inv_depth, ekf, i=i)
         # num_errors += htest(ekf.h_pixel_vel, ekf, i=i, u=u)
     return num_errors
 
@@ -177,7 +177,7 @@ def run_tests():
                              [0.0],
                              [0.0]])
     errors = 0
-    for i in tqdm(range(1)):
+    for i in tqdm(range(25)):
         # Set nominal Values for x0
         x0 = np.zeros((xZ, 1))
         x0[xATT] = 1
@@ -201,17 +201,13 @@ def run_tests():
         q_b_c = Quaternion.random()
         # q_b_c = Quaternion.Identity()
         ekf.set_camera_to_IMU(p_b_c, q_b_c)
+        ekf.set_camera_intrinsics(np.array([[319.5, 239.5]]).T, np.array([[570.3422, 0, 0], [0, 570.3422, 0]]))
 
         # Initialize Random Features
-        for j in range(1):
-            axis = np.array([[np.random.uniform(-1, 1, [])],
-                             [np.random.uniform(-1, 1, [])],
-                             [0]])
-            angle = np.random.uniform(-60*np.pi/180.0, 60*np.pi/180.0)
-            qzeta = Quaternion.from_axis_angle(axis, angle)
-            depth = np.abs(np.random.randn(1))[:,None]
-            # depth = np.ones((1,1))
-            ekf.init_feature(qzeta.elements, j, depth=depth * 10)
+        for j in range(3):
+            l = np.array([[np.random.uniform(0, 640), np.random.uniform(0, 480)]]).T
+            depth = np.abs(10.0*np.random.randn(1))[:,None]
+            ekf.init_feature(l, j, depth=depth * 10)
 
         # Initialize Inputs
         acc = nominal_acc + np.random.normal(0, 1, (3,1))

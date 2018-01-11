@@ -6,6 +6,7 @@ import cv2
 import cPickle
 from collections import defaultdict, deque
 import eth_data_loader as data_loader
+import sys
 
 
 class Data(object):
@@ -14,9 +15,10 @@ class Data(object):
         self.R = {'alt': 0.01,
                   'acc': np.diag([0.5, 0.5]),
                   'att': np.diag([0.01, 0.01, 0.01]),
-                  'vel': np.diag([0.0001, 0.0001, 0.0001]),
+                  'vel': np.diag([0.01, 0.01, 0.01]),
                   'pos': np.diag([0.1, 0.1, 0.1]),
                   'zeta': np.diag([0.01, 0.01]),
+                  'lambda': np.diag([1., 1.]),
                   'depth': 0.1}
 
     def indexer(self, target_time, source_time):
@@ -59,19 +61,19 @@ class Data(object):
         assert self.x0.shape == (17,1), self.x0.shape
         time = self.time[0]
         for x in self:
-            assert len(x) == 9
-            t,  pos, vel, att, gyro, acc, zetas, depths, ids = x
+            assert len(x) == 10
+            t,  pos, vel, att, gyro, acc, lambdas, depths, ids, qzetas = x
             assert t >= time
             time = t
             assert all([gyro is None, acc is None]) or not all([gyro is None, acc is None])
-            if zetas is not None:
-                assert len(zetas) == len(depths) == len(ids)
-                for z, d, i in zip(zetas, depths, ids):
-                    assert np.isfinite(z).all()
-                    assert np.isfinite(d).all()
-                    assert type(i) == int
-                    assert z.shape == (4,1)
+            if lambdas is not None:
+                assert len(lambdas) == len(depths) == len(ids), (len(lambdas), len(depths), len(ids))
+                for l, d, i, qz in zip(lambdas, depths, ids, qzetas):
+                    assert np.isfinite(l).all()
+                    assert type(i) == int or type(i) == np.int64, type(i)
+                    assert l.shape == (2,1), l.shape
                     assert d.shape == (1,1)
+                    assert qz.shape == (4,1)
             assert type(t) == float or type(t) == np.float64, type(t)
             assert type(t) == np.float64
             assert ((pos.shape == (3, 1)) if pos is not None else True), pos.shape
@@ -121,10 +123,10 @@ class FakeData(Data):
 
 
 class ROSbagData(Data):
-    def __init__(self, filename='truth_imu_flight.bag', start=-1, end=np.inf, sim_features=False, load_new=False):
+    def __init__(self, filename='truth_imu_flight.bag', start=-1, end=np.inf, sim_features=False, load_new=True, show_video=True):
         super(ROSbagData, self).__init__()
         if load_new:
-            self.data = rosbag_data_loader.load_data(filename, start, end, sim_features)
+            self.data = rosbag_data_loader.load_data(filename, start, end, sim_features, show_image=show_video)
             cPickle.dump(self.data, open('data/data.pkl', 'wb'))
         else:
             self.data = cPickle.load(open('data/data.pkl', 'rb'))
@@ -153,29 +155,34 @@ class ROSbagData(Data):
         if i >= len(self):
             raise IndexError
 
-        pos, vel, att, gyro, acc = None, None, None, None, None
-        zetas, ids, depths = None, None, None
+        try:
+            pos, vel, att, gyro, acc = None, None, None, None, None
+            qzetas, lambdas, ids, depths = None, None, None, None
 
-        t = self.time[i]
+            t = self.time[i]
 
-        # if self.truth_indexer[i] - self.truth_indexer[i - 1] != 0:
-        pos = self.data['truth'][self.truth_indexer[i], 1:4, None]
-        vel = self.data['truth'][self.truth_indexer[i], 8:11, None]
-        att = self.data['truth'][self.truth_indexer[i], 4:8, None]
+            # if self.truth_indexer[i] - self.truth_indexer[i - 1] != 0:
+            pos = self.data['truth'][self.truth_indexer[i], 1:4, None]
+            vel = self.data['truth'][self.truth_indexer[i], 8:11, None]
+            att = self.data['truth'][self.truth_indexer[i], 4:8, None]
 
-        if self.imu_indexer[i] - self.imu_indexer[i - 1] != 0:
-            gyro = self.data['imu'][self.imu_indexer[i], 1:4, None]
-            acc = self.data['imu'][self.imu_indexer[i], 4:7, None]
+            if self.imu_indexer[i] - self.imu_indexer[i - 1] != 0:
+                gyro = self.data['imu'][self.imu_indexer[i], 1:4, None]
+                acc = self.data['imu'][self.imu_indexer[i], 4:7, None]
 
-        if self.feature_indexer[i] - self.feature_indexer[i - 1] != 0:
-            ids = list(self.data['ids'][self.feature_indexer[i]])
-            zetas = []
-            depths = []
-            for id in ids:
-                zetas.append(self.data['zetas'][id][self.feature_indexer[i], :, None])
-                depths.append(self.data['depths'][id][self.feature_indexer[i], :, None])
+            if self.feature_indexer[i] - self.feature_indexer[i - 1] != 0:
+                ids = list(self.data['ids'][self.feature_indexer[i]])
+                lambdas = []
+                depths = []
+                qzetas = []
+                for j, id in enumerate(ids):
+                    lambdas.append(self.data['lambdas'][self.feature_indexer[i]][j, :, None])
+                    depths.append(self.data['depths'][self.feature_indexer[i]][j, :, None])
+                    qzetas.append(self.data['q_zetas'][self.feature_indexer[i]][j, :, None])
 
-        return t, pos, vel, att, gyro, acc, zetas, depths, ids
+            return t, pos, vel, att, gyro, acc, lambdas, depths, ids, qzetas
+        except IndexError as e:
+            raise Exception(e), None, sys.exc_info()[2]
 
     def __len__(self):
         return len(self.time)

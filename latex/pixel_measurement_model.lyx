@@ -156,7 +156,7 @@ If we map into pixel coordinates, (where
 \begin_inset Formula $f_{y}$
 \end_inset
 
-, we get the following expression for pixel locations given a particular
+) we get the following expression for pixel locations given a particular
  feature bearing vector 
 \begin_inset Formula $\zeta$
 \end_inset
@@ -232,10 +232,71 @@ Jacobian
 \begin_inset Formula 
 \[
 \begin{aligned}\frac{\partial\lambda}{\partial q_{c}^{\zeta}} & =\frac{\partial}{\partial q_{c}^{\zeta}}\left(F\zeta\frac{1}{e_{z}^{\top}\zeta}+\lambda_{c}\right)\in\mathbb{R}^{2\times2}\\
- & =F\left(\frac{\frac{\partial}{\partial q_{c}^{\zeta}}\left(\zeta\right)}{e_{z}^{\top}\zeta}+\zeta\frac{\partial}{\partial q_{c}^{\zeta}}\left(\frac{1}{e_{z}^{\top}\zeta}\right)	+0\right)\\
+ & =F\left(\frac{\frac{\partial}{\partial q_{c}^{\zeta}}\left(\zeta\right)}{e_{z}^{\top}\zeta}+\zeta\frac{\partial}{\partial q_{c}^{\zeta}}\left(\frac{1}{e_{z}^{\top}\zeta}\right)+0\right)\\
  & =F\left(-\frac{\left\lfloor \zeta\right\rfloor T_{\zeta}}{e_{z}^{\top}\zeta}+\zeta\left(\frac{e_{z}^{\top}\frac{\partial}{\partial q_{c}^{\zeta}}\zeta}{\left(e_{z}^{\top}\zeta\right)^{2}}\right)\right)\\
  & =F\left(\frac{\zeta e_{z}^{\top}\left\lfloor \zeta\right\rfloor T_{\zeta}}{\left(e_{z}^{\top}\zeta\right)^{2}}-\frac{\left\lfloor \zeta\right\rfloor T_{\zeta}}{e_{z}^{\top}\zeta}\right)
 \end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Getting a Quaternion from a Pixel Measurement
+\end_layout
+
+\begin_layout Standard
+The inverse of this measurement function is used to initialize a feature
+ in the filter.
+ Given that
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}s\zeta & =\left[\begin{array}{c}
+\lambda_{x-cx}\\
+\lambda_{y-cy}\\
+f
+\end{array}\right]=\left[\begin{array}{c}
+\lambda_{x-cx}\\
+\frac{f_{x}\lambda_{y-cy}}{f_{y}}\\
+f_{x}
+\end{array}\right]=\left[\begin{array}{c}
+\frac{f_{y}\lambda_{x-cx}}{f_{x}}\\
+\lambda_{y-cy}\\
+f_{y}
+\end{array}\right]\\
+\zeta & =\frac{s\zeta}{\left\Vert s\zeta\right\Vert }
+\end{aligned}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Given a 
+\begin_inset Formula $\zeta$
+\end_inset
+
+ we can find 
+\begin_inset Formula $q_{c}^{\zeta}$
+\end_inset
+
+ using
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\begin{aligned}q_{c}^{\zeta_{i}} & =\left[\begin{array}{c}
+\frac{\sqrt{2\left(1+e_{z}^{\top}\zeta\right)}}{2}\\
+\frac{\left\lfloor e_{z}\right\rfloor \zeta}{\sqrt{2\left(1+e_{z}^{\top}\zeta\right)}}
+\end{array}\right]\end{aligned}
 \]
 
 \end_inset

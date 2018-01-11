@@ -87,9 +87,6 @@ class VI_EKF():
         self.q_b_c = Quaternion(np.array([[1, 0, 0, 0]]).T) # Rotation from body to camera
         self.p_b_c = np.array([[0, 0, 0]]).T # translation from body to camera (in body frame)
 
-        # Camera Parameters
-        self.focal_len = 258 # made up
-
         self.measurement_functions = dict()
         self.measurement_functions['acc'] = self.h_acc
         self.measurement_functions['alt'] = self.h_alt
@@ -112,7 +109,6 @@ class VI_EKF():
         self.default_depth = np.array([[1.5]])
 
         self.last_propagate = None
-        self.initialized = False
         self.cam_center = np.array([[320.0, 240.0]]).T
         self.cam_F = np.array([[250.0, 250.0]]).dot(I_2x3)
 

@@ -18,20 +18,20 @@ e_z = np.array([[0, 0, 1.0]]).T
 
 # Creates the skew-symmetric matrix from v
 def skew(v):
-    assert v.shape[0] == 3
+    # assert v.shape[0] == 3
     return cross_matrix.dot(v).squeeze()
 
 # Creates 3x2 projection matrix onto the plane perpendicular to zeta
 e_x_e_y = np.array([[1., 0, 0], [0, 1., 0]]).T
 def T_zeta(q_zeta):
-    assert isinstance(q_zeta, Quaternion)
+    # assert isinstance(q_zeta, Quaternion)
     # The coordinate basis normal to the feature vector, expressed in the camera frame (hence the active rotation)
     # (This is where the Lie Group is linearized about)
     return q_zeta.rot(e_x_e_y)
 
 # Finds the difference between two feature quaternions
 def q_feat_boxminus(qi, qj):
-    assert isinstance(qi, Quaternion) and isinstance(qj, Quaternion)
+    # assert isinstance(qi, Quaternion) and isinstance(qj, Quaternion)
 
     zetai = qi.rot(e_z)
     zetaj = qj.rot(e_z)
@@ -62,8 +62,8 @@ def q_feat_boxplus(q, dq):
 # q.rot(u) = v and q.invrot(v) = u
 # This is a vectorized version which returns multiple quaternions for multiple v's from one u
 def q_array_from_two_unit_vectors(u, v):
-    assert u.shape[0] == 3
-    assert v.shape[0] == 3
+    # assert u.shape[0] == 3
+    # assert v.shape[0] == 3
     u = u.copy()
     v = v.copy()
 

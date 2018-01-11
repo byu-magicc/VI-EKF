@@ -10,14 +10,14 @@ namespace vi_ekf
 VIEKF::VIEKF(Eigen::MatrixXd x0, bool multirotor)
 {
   x_ = x0;
-  Eigen::VectorXd diag((int)xZ);
+  Eigen::VectorXd diag((int)dxZ);
 
   diag << 0.0001, 0.0001, 0.0001,  // pos
           0.01, 0.01, 0.01,        // vel
           0.001, 0.001, 0.001,     // att
           1e-2, 1e-2, 1e-3,        // b_acc
           1e-3, 1e-3, 1e-3,        // b_omega
-          1e-7;                    // mu
+          1e-7;                         // mu
   P_ = diag.asDiagonal();
 
 
@@ -95,9 +95,8 @@ Eigen::MatrixXd VIEKF::get_qzetas(){}
 Eigen::VectorXd VIEKF::get_zeta(const int i){}
 double VIEKF::get_depth(const int i){}
 
-Eigen::VectorXd VIEKF::boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& dx)
+void VIEKF::boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& dx, Eigen::VectorXd& out)
 {
-  Eigen::VectorXd out;
   out.resizeLike(x);
 
   out.block<3,1>((int)xPOS, 0) = x.block<3,1>((int)xPOS, 0) + dx.block<3,1>((int)dxPOS, 0);
@@ -105,7 +104,7 @@ Eigen::VectorXd VIEKF::boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& 
   out.block<4,1>((int)xATT, 0) = (Quaternion(x.block<4,1>((int)xPOS, 0)) + dx.block<3,1>((int)dxPOS, 0)).elements();
   out.block<3,1>((int)xB_A, 0) = x.block<3,1>((int)xB_A, 0) + dx.block<3,1>((int)dxB_A, 0);
   out.block<3,1>((int)xB_G, 0) = x.block<3,1>((int)xB_G, 0) + dx.block<3,1>((int)dxB_G, 0);
-  out((int)xMU) = x((int)xMU) + dx((int)xMU);
+  out((int)xMU) = x((int)xMU) + dx((int)dxMU);
 
   for (int i = 0; i < len_features_; i++)
   {
@@ -117,7 +116,6 @@ Eigen::VectorXd VIEKF::boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& 
     out.block<4,1>(xFEAT,0) = q_feat_boxplus(Quaternion(x.block<4,1>(xFEAT,0)), dx.block<2,1>(dxFEAT,0)).elements();
     out(xRHO) = x(xRHO) + dx(dxRHO);
   }
-  return out;
 }
 void VIEKF::propagate(Eigen::VectorXd& x, Eigen::MatrixXd& P, const Eigen::Matrix<double, 6, 1> u,
                       const double t)
@@ -129,7 +127,7 @@ void VIEKF::propagate(Eigen::VectorXd& x, Eigen::MatrixXd& P, const Eigen::Matri
     dynamics(x, u, dx_, A_, G_);
     Eigen::MatrixXd Pdot = A_ * P_ + P_ * A_.transpose() + G_ * Qu_ * G_.transpose() + Qx_;
 
-    x_ = boxplus(x, dx_*dt);
+    boxplus(x, dx_*dt, x_);
     P_ += Pdot*dt;
   }
 }
@@ -145,9 +143,9 @@ void VIEKF::keep_only_features(Eigen::VectorXd features){}
 void VIEKF::dynamics(const Eigen::VectorXd& x, const Eigen::MatrixXd& u, Eigen::VectorXd& xdot,
               Eigen::MatrixXd& dfdx, Eigen::MatrixXd& dfdu)
 {
-  xdot.setZero();
-  dfdx.setZero();
-  dfdu.setZero();
+  dx_.setZero();
+  A_.setZero();
+  G_.setZero();
 
   Eigen::Vector3d vel = x.block<3, 1>((int)xVEL, 0);
   Quaternion q_I_b(x.block<4,1>((int)xATT,0));
@@ -163,36 +161,36 @@ void VIEKF::dynamics(const Eigen::VectorXd& x, const Eigen::MatrixXd& u, Eigen::
   Eigen::Vector3d vel_xy = I_2x3.transpose() * I_2x3 * vel;
 
   // Calculate State Dynamics
-  xdot.block<3,1>((int)dxPOS,0) = vel_I;
+  dx_.block<3,1>((int)dxPOS,0) = vel_I;
   if (use_drag_term)
-    xdot.block<3,1>((int)dxVEL,0) = acc_z + gravity_B - mu*vel_xy;
+    dx_.block<3,1>((int)dxVEL,0) = acc_z + gravity_B - mu*vel_xy;
   else
-    xdot.block<3,1>((int)dxVEL,0) = acc + gravity_B;
-  xdot.block<3,1>((int)dxATT, 0) = omega;
+    dx_.block<3,1>((int)dxVEL,0) = acc + gravity_B;
+  dx_.block<3,1>((int)dxATT, 0) = omega;
 
   // State Jacobian
-  dfdx.block<3,3>((int)dxPOS, (int)dxVEL) = q_I_b.R();
-  dfdx.block<3,3>((int)dxPOS, (int)dxATT) = skew(vel_I);
+  A_.block<3,3>((int)dxPOS, (int)dxVEL) = q_I_b.R();
+  A_.block<3,3>((int)dxPOS, (int)dxATT) = skew(vel_I);
   if (use_drag_term)
   {
-    dfdx.block<3,3>((int)dxVEL, (int)dxVEL) = -mu * I_2x3.transpose() * I_2x3;
-    dfdx.block<3,3>((int)dxVEL, (int)dxB_A) << 0, 0, 0, 0, 0, 0, 0, 0, 1;
-    dfdx.block<3,1>((int)dxPOS, (int)dxMU) = -vel_xy;
+    A_.block<3,3>((int)dxVEL, (int)dxVEL) = -mu * I_2x3.transpose() * I_2x3;
+    A_.block<3,3>((int)dxVEL, (int)dxB_A) << 0, 0, 0, 0, 0, 0, 0, 0, -1;
+    A_.block<3,1>((int)dxPOS, (int)dxMU) = -vel_xy;
   }
   else
   {
-    dfdx.block<3,3>((int)dxVEL, (int)dxB_A) = -I_3x3;
+    A_.block<3,3>((int)dxVEL, (int)dxB_A) = -I_3x3;
   }
 
   // Input Jacobian
   if (use_drag_term)
-    dfdx.block<3,3>((int)dxPOS, (int)uA) << 0, 0, 0, 0, 0, 0, 0, 0, 1;
+    A_.block<3,3>((int)dxVEL, (int)uA) << 0, 0, 0, 0, 0, 0, 0, 0, 1;
   else
-    dfdx.block<3,3>((int)dxPOS, (int)uA) = I_3x3;
-  dfdx.block<3,3>((int)dxATT, (int)uG) = I_3x3;
+    A_.block<3,3>((int)dxVEL, (int)uA) = I_3x3;
+  A_.block<3,3>((int)dxATT, (int)uG) = I_3x3;
 
   // Camera Dynamics
-  Eigen::Vector3d vel_c_i = q_b_c_.invrot(vel + skew(omega) * p_b_c_);
+  Eigen::Vector3d vel_c_i = q_b_c_.invrot(vel - skew(omega) * p_b_c_);
   Eigen::Vector3d omega_c_i = q_b_c_.invrot(omega);
 
   for (int i = 0; i < len_features_; i++)
@@ -213,23 +211,28 @@ void VIEKF::dynamics(const Eigen::VectorXd& x, const Eigen::MatrixXd& u, Eigen::
     double rho2 = rho*rho;
 
     // Feature Dynamics
-    xdot.block<2,1>(dxZETA_i,0) = T_z.transpose() * (omega_c_i - rho * skew_zeta * vel_c_i);
-    xdot(dxRHO_i) = rho2 * zeta.dot(vel_c_i);
+    dx_.block<2,1>(dxZETA_i,0) = -T_z.transpose() * (omega_c_i + rho * skew_zeta * vel_c_i);
+    dx_(dxRHO_i) = rho2 * zeta.dot(vel_c_i);
 
     // Feature Jacobian
-    dfdx.block<2, 3>(dxZETA_i, (int)dxVEL) = -rho * T_z.transpose() * skew_zeta * R_b_c;
-    dfdx.block<2, 3>(dxZETA_i, (int)dxB_G) = -T_z.transpose() * (rho * skew_zeta * R_b_c * skew_p_b_c + R_b_c);
-    dfdx.block<2, 2>(dxZETA_i, dxZETA_i) = T_z.transpose() * (skew(omega_c_i - rho*skew_zeta*vel_c_i) - (rho*skew_vel_c * skew_zeta)) * T_z;
-    dfdx.block<2, 1>(dxZETA_i, dxRHO_i) = -T_z.transpose() * skew_zeta * vel_c_i;
-    dfdx.block<1, 3>(dxRHO_i, (int)dxVEL) = rho2 * zeta.transpose() * R_b_c;
-    dfdx.block<1, 3>(dxRHO_i, (int)dxB_G) = rho2 * zeta.transpose() * R_b_c * skew_p_b_c;
-    dfdx.block<1, 2>(dxRHO_i, dxZETA_i) = -rho2 * vel_c_i.transpose() * skew_zeta * T_z;
-    dfdx(dxRHO_i, dxRHO_i) = 2 * rho * zeta.transpose() * vel_c_i;
+    A_.block<2, 3>(dxZETA_i, (int)dxVEL) = -rho * T_z.transpose() * skew_zeta * R_b_c;
+    A_.block<2, 3>(dxZETA_i, (int)dxB_G) = T_z.transpose() * (rho * skew_zeta * R_b_c * skew_p_b_c + R_b_c);
+    A_.block<2, 2>(dxZETA_i, dxZETA_i) = T_z.transpose() * (skew(omega_c_i - rho*skew_zeta*vel_c_i) - (rho*skew_vel_c * skew_zeta)) * T_z;
+    A_.block<2, 1>(dxZETA_i, dxRHO_i) = -T_z.transpose() * skew_zeta * vel_c_i;
+    A_.block<1, 3>(dxRHO_i, (int)dxVEL) = rho2 * zeta.transpose() * R_b_c;
+    A_.block<1, 3>(dxRHO_i, (int)dxB_G) = -rho2 * zeta.transpose() * R_b_c * skew_p_b_c;
+    A_.block<1, 2>(dxRHO_i, dxZETA_i) = -rho2 * vel_c_i.transpose() * skew_zeta * T_z;
+    A_(dxRHO_i, dxRHO_i) = 2 * rho * zeta.transpose() * vel_c_i;
 
     // Feature Input Jacobian
-    dfdx.block<2, 3>(dxZETA_i, (int)uG) = T_z.transpose() * (R_b_c + rho*skew_zeta * R_b_c*skew_p_b_c);
-    dfdx.block<1, 3>(dxRHO_i, (int)uG) = -rho2*zeta.transpose() * R_b_c * skew_p_b_c;
+    A_.block<2, 3>(dxZETA_i, (int)uG) = -T_z.transpose() * (R_b_c + rho*skew_zeta * R_b_c*skew_p_b_c);
+    A_.block<1, 3>(dxRHO_i, (int)uG) = rho2*zeta.transpose() * R_b_c * skew_p_b_c;
   }
+
+  // Copy to outputs
+  dfdx = A_;
+  dfdu = G_;
+  xdot = dx_;
 }
 
 void VIEKF::h_acc(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id){}

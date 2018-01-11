@@ -39,6 +39,7 @@ public:
   enum : int{
     uA = 0,
     uG = 3,
+    uTOTAL = 6
   };
 
   enum : int {
@@ -104,8 +105,9 @@ public:
   Eigen::MatrixXd get_qzetas();
   Eigen::VectorXd get_zeta(const int i);
   double get_depth(const int i);
+  inline int get_len_features() { return len_features_; }
 
-  Eigen::VectorXd boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& dx);
+  void boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& dx, Eigen::VectorXd &out);
   void propagate(Eigen::VectorXd& x, Eigen::MatrixXd& P, const Eigen::Matrix<double, 6, 1> u, const double t);
 
   Eigen::VectorXd update(Eigen::VectorXd& z, const measurement_type_t meas_type,

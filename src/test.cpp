@@ -1,5 +1,8 @@
 #include "gtest/gtest.h"
 #include <iostream>
+#include <map>
+#include <vector>
+#include <string>
 #include <eigen3/unsupported/Eigen/MatrixFunctions>
 #include "vi_ekf.h"
 
@@ -30,6 +33,7 @@
 
 
 using namespace quat;
+using namespace vi_ekf;
 
 TEST(Quaternion, rotation_direction)
 {
@@ -239,11 +243,154 @@ TEST(math_helper, manifold_operations)
   }
 }
 
+int print_error(std::string row_id, std::string col_id, Eigen::MatrixXd analytical, Eigen::MatrixXd fd);
+int check_all(Eigen::MatrixXd analytical, Eigen::MatrixXd fd);
+
 TEST(VI_EKF, jacobians_test)
-{
+{  
   Eigen::Matrix<double,(int)vi_ekf::VIEKF::xZ, 1>  x0;
+  Eigen::Matrix<double,(int)vi_ekf::VIEKF::uTOTAL, 1>  u0;
+  x0.setZero();
+  x0(VIEKF::xATT) = 1.0;
+  x0(VIEKF::xMU) = 0.2;
+  u0.setZero();
+
+  // Add noise to initial state
+
+  // Build the EKF
   vi_ekf::VIEKF ekf(x0);
+
+  // Add camera_to_body transform
+
+  // Set camera intrinsics
+
+  // Initialize Random Features
+
+  // Initialize Inputs
+
+  Eigen::VectorXd dx0;
+  Eigen::MatrixXd a_dfdu;
+  Eigen::MatrixXd a_dfdx;
+
+  ekf.dynamics(x0, u0, dx0, a_dfdx, a_dfdu);
+
+  Eigen::MatrixXd Idx;
+  Idx.resizeLike(a_dfdx);
+  Idx.setZero();
+  for (int i = 0; i < Idx.cols(); i++)
+  {
+    Idx(i,i) = 1.0;
+  }
+
+  double epsilon = 1e-6;
+
+  Eigen::MatrixXd d_dfdx;
+  Eigen::MatrixXd d_dfdu;
+  d_dfdx.resizeLike(a_dfdx);
+  d_dfdu.resizeLike(a_dfdu);
+  d_dfdx.setZero();
+  d_dfdu.setZero();
+
+  Eigen::MatrixXd dummy1, dummy2;
+  Eigen::VectorXd dxprime;
+  for (int i = 0; i < d_dfdx.cols(); i++)
+  {
+    Eigen::VectorXd xprime;
+    ekf.boxplus(x0, (Idx.col(i) * epsilon), xprime);
+    ekf.dynamics(xprime, u0, dxprime, dummy1, dummy2);
+    d_dfdx.col(i) = (dxprime - dx0) / epsilon;
+  }
+
+  int num_errors = 0;
+//  num_errors += print_error("dxPOS", "dxVEL", a_dfdx, d_dfdx);
+//  num_errors += print_error("dxPOS", "dxATT", a_dfdx, d_dfdx);
+//  num_errors += print_error("dxVEL", "dxVEL", a_dfdx, d_dfdx);
+  num_errors += print_error("dxVEL", "dxPOS", a_dfdx, d_dfdx);
+//  num_errors += print_error("dxVEL", "dxATT", a_dfdx, d_dfdx);
+//  num_errors += print_error("dxVEL", "dxB_A", a_dfdx, d_dfdx);
+//  num_errors += print_error("dxVEL", "dxB_G", a_dfdx, d_dfdx);
+//  num_errors += print_error("dxVEL", "dxMU", a_dfdx, d_dfdx);
+
+//  for (int i = 0; i < ekf.get_len_features(); i++)
+//  {
+//    std::string zeta_key = "dxZETA_" + std::to_string(i);
+//    std::string rho_key = "dxRHO_" + std::to_string(i);
+
+//    num_errors += print_error(zeta_key, "dxVEL", a_dfdx, d_dfdx);
+//    num_errors += print_error(zeta_key, "dxB_G", a_dfdx, d_dfdx);
+//    num_errors += print_error(zeta_key, zeta_key, a_dfdx, d_dfdx);
+//    num_errors += print_error(zeta_key, rho_key, a_dfdx, d_dfdx);
+//    num_errors += print_error(rho_key, "dxVEL", a_dfdx, d_dfdx);
+//    num_errors += print_error(rho_key, "dxB_G", a_dfdx, d_dfdx);
+//    num_errors += print_error(rho_key, zeta_key, a_dfdx, d_dfdx);
+//    num_errors += print_error(rho_key, rho_key, a_dfdx, d_dfdx);
+//  }
+
+  check_all(a_dfdx, d_dfdx);
+
+
+  Eigen::Matrix<double, 6, 6> Iu = Eigen::Matrix<double, 6, 6>::Identity();
+  for (int i = 0; i < d_dfdu.cols(); i++)
+  {
+    Eigen::VectorXd uprime = u0 + (Iu.col(i) * epsilon);
+    ekf.dynamics(x0, uprime, dxprime, dummy1, dummy2);
+    d_dfdu.col(i) = (dxprime - dx0) / epsilon;
+  }
 }
+
+#define HEADER "\033[95m"
+#define OKBLUE "\033[94m"
+#define OKGREEN "\033[92m"
+#define WARNING "\033[93m"
+#define FONT_FAIL "\033[91m"
+#define ENDC "\033[0m"
+#define BOLD "\033[1m"
+#define UNDERLINE "\033[4m"
+
+static std::map<std::string, std::vector<int>> indexes = [] {
+  std::map<std::string, std::vector<int>> tmp;
+  tmp["dxPOS"] = std::vector<int> {0,3};
+  tmp["dxVEL"] = std::vector<int> {3,3};
+  tmp["dxATT"] = std::vector<int> {6,3};
+  tmp["dxB_A"] = std::vector<int> {9,3};
+  tmp["dxB_G"] = std::vector<int> {12,3};
+  tmp["dxMU"] = std::vector<int> {15,1};
+  tmp["uA"] = std::vector<int> {0,3};
+  tmp["uG"] = std::vector<int> {3,3};
+  for (int i = 0; i < 50; i++)
+  {
+    tmp["dxZETA_" + std::to_string(i)] = {16 + 3*i, 2};
+    tmp["dxRHO_" + std::to_string(i)] = {16 + 3*i+2, 1};
+  }
+  return tmp;
+}();
+
+int print_error(std::string row_id, std::string col_id, Eigen::MatrixXd analytical, Eigen::MatrixXd fd)
+{
+  Eigen::MatrixXd error_mat = analytical - fd;
+  std::vector<int> row = indexes[row_id];
+  std::vector<int> col = indexes[col_id];
+  if ((error_mat.block(row[0], col[0], row[1], col[1]).array().abs() > 1e-3).any())
+  {
+    std::cout << FONT_FAIL << "Error in Jacobian " << row_id << ", " << col_id << "\n";
+    std::cout << "BLOCK ERROR:\n" << error_mat.block(row[0], col[0], row[1], col[1]) << "\n";
+    std::cout << "ANALYTICAL:\n" << analytical.block(row[0], col[0], row[1], col[1]) << "\n";
+    std::cout << "FD:\n" << fd.block(row[0], col[0], row[1], col[1]) << ENDC << "\n";
+  }
+}
+
+int check_all(Eigen::MatrixXd analytical, Eigen::MatrixXd fd)
+{
+  Eigen::MatrixXd error_mat = analytical - fd;
+  if ((error_mat.array().abs() > 1e-3).any())
+  {
+    std::cout << FONT_FAIL << "Error in total matrix\n";
+    std::cout << "BLOCK ERROR:\n" << error_mat << "\n";
+    std::cout << "ANALYTICAL:\n" << analytical << "\n";
+    std::cout << "FD:\n" << fd << ENDC << "\n";
+  }
+}
+
 
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);

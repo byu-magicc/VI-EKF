@@ -101,7 +101,7 @@ void VIEKF::boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& dx, Eigen::
 
   out.block<3,1>((int)xPOS, 0) = x.block<3,1>((int)xPOS, 0) + dx.block<3,1>((int)dxPOS, 0);
   out.block<3,1>((int)xVEL, 0) = x.block<3,1>((int)xVEL, 0) + dx.block<3,1>((int)dxVEL, 0);
-  out.block<4,1>((int)xATT, 0) = (Quaternion(x.block<4,1>((int)xPOS, 0)) + dx.block<3,1>((int)dxPOS, 0)).elements();
+  out.block<4,1>((int)xATT, 0) = (Quaternion(x.block<4,1>((int)xATT, 0)) + dx.block<3,1>((int)dxATT, 0)).elements();
   out.block<3,1>((int)xB_A, 0) = x.block<3,1>((int)xB_A, 0) + dx.block<3,1>((int)dxB_A, 0);
   out.block<3,1>((int)xB_G, 0) = x.block<3,1>((int)xB_G, 0) + dx.block<3,1>((int)dxB_G, 0);
   out((int)xMU) = x((int)xMU) + dx((int)dxMU);
@@ -158,14 +158,15 @@ void VIEKF::dynamics(const Eigen::VectorXd& x, const Eigen::MatrixXd& u, Eigen::
 
   Eigen::Vector3d gravity_B = q_I_b.invrot(gravity);
   Eigen::Vector3d vel_I = q_I_b.invrot(vel);
-  Eigen::Vector3d vel_xy = I_2x3.transpose() * I_2x3 * vel;
+  Eigen::Vector3d vel_xy;
+  vel_xy << vel(0), vel(1), 0.0;
 
   // Calculate State Dynamics
   dx_.block<3,1>((int)dxPOS,0) = vel_I;
   if (use_drag_term)
     dx_.block<3,1>((int)dxVEL,0) = acc_z + gravity_B - mu*vel_xy;
   else
-    dx_.block<3,1>((int)dxVEL,0) = acc + gravity_B;
+    dx_.block<3,1>((int)dxVEL,0) = acc + q_I_b.rot(gravity);
   dx_.block<3,1>((int)dxATT, 0) = omega;
 
   // State Jacobian
@@ -181,13 +182,15 @@ void VIEKF::dynamics(const Eigen::VectorXd& x, const Eigen::MatrixXd& u, Eigen::
   {
     A_.block<3,3>((int)dxVEL, (int)dxB_A) = -I_3x3;
   }
+  A_.block<3,3>((int)dxVEL, (int)dxATT) = skew(gravity_B);
+  A_.block<3,3>((int)dxATT, (int)dxB_G) = -I_3x3;
 
   // Input Jacobian
   if (use_drag_term)
-    A_.block<3,3>((int)dxVEL, (int)uA) << 0, 0, 0, 0, 0, 0, 0, 0, 1;
+    G_.block<3,3>((int)dxVEL, (int)uA) << 0, 0, 0, 0, 0, 0, 0, 0, 1;
   else
-    A_.block<3,3>((int)dxVEL, (int)uA) = I_3x3;
-  A_.block<3,3>((int)dxATT, (int)uG) = I_3x3;
+    G_.block<3,3>((int)dxVEL, (int)uA) = I_3x3;
+  G_.block<3,3>((int)dxATT, (int)uG) = I_3x3;
 
   // Camera Dynamics
   Eigen::Vector3d vel_c_i = q_b_c_.invrot(vel - skew(omega) * p_b_c_);
@@ -225,8 +228,8 @@ void VIEKF::dynamics(const Eigen::VectorXd& x, const Eigen::MatrixXd& u, Eigen::
     A_(dxRHO_i, dxRHO_i) = 2 * rho * zeta.transpose() * vel_c_i;
 
     // Feature Input Jacobian
-    A_.block<2, 3>(dxZETA_i, (int)uG) = -T_z.transpose() * (R_b_c + rho*skew_zeta * R_b_c*skew_p_b_c);
-    A_.block<1, 3>(dxRHO_i, (int)uG) = rho2*zeta.transpose() * R_b_c * skew_p_b_c;
+    G_.block<2, 3>(dxZETA_i, (int)uG) = -T_z.transpose() * (R_b_c + rho*skew_zeta * R_b_c*skew_p_b_c);
+    G_.block<1, 3>(dxRHO_i, (int)uG) = rho2*zeta.transpose() * R_b_c * skew_p_b_c;
   }
 
   // Copy to outputs

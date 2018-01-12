@@ -352,12 +352,9 @@ class VI_EKF():
         # CALCULATE STATE DYNAMICS
         self.dx[dxPOS:dxPOS+3] = vel_I
         if self.use_drag_term:
-            # self.dx[dxVEL:dxVEL+3 = skew(vel).dot(omega) - mu*I_2x3.T.dot(I_2x3).dot(vel) + acc_z + q_I_b.rot(self.gravity)
             self.dx[dxVEL:dxVEL+3] =  acc_z + gravity_B - mu * vel_xy
         else:
             self.dx[dxVEL:dxVEL+3] = acc + q_I_b.rot(self.gravity)
-        # self.dx[dxPOS:dxPOS+3] = np.zeros((3,1))
-        # self.dx[dxVEL:dxVEL+3 = np.zeros((3, 1))
         self.dx[dxATT:dxATT+3] = omega
 
         ###################################

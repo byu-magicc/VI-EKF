@@ -244,21 +244,17 @@ TEST(math_helper, manifold_operations)
 }
 
 int print_error(std::string row_id, std::string col_id, Eigen::MatrixXd analytical, Eigen::MatrixXd fd);
-int check_all(Eigen::MatrixXd analytical, Eigen::MatrixXd fd);
-
-TEST(VI_EKF, jacobians_test)
-{  
-  Eigen::Matrix<double,(int)vi_ekf::VIEKF::xZ, 1>  x0;
-  Eigen::Matrix<double,(int)vi_ekf::VIEKF::uTOTAL, 1>  u0;
+int check_all(Eigen::MatrixXd analytical, Eigen::MatrixXd fd, std::string name);
+void init_jacobians_test(Eigen::VectorXd& x0, Eigen::VectorXd& u0)
+{
+  x0.resize(VIEKF::xZ);
+  u0.resize(VIEKF::uTOTAL);
   x0.setZero();
   x0(VIEKF::xATT) = 1.0;
   x0(VIEKF::xMU) = 0.2;
   u0.setZero();
 
   // Add noise to initial state
-
-  // Build the EKF
-  vi_ekf::VIEKF ekf(x0);
 
   // Add camera_to_body transform
 
@@ -267,6 +263,14 @@ TEST(VI_EKF, jacobians_test)
   // Initialize Random Features
 
   // Initialize Inputs
+}
+
+TEST(VI_EKF, dfdx_test)
+{  
+  Eigen::VectorXd x0;
+  Eigen::VectorXd u0;
+  init_jacobians_test(x0, u0);
+  vi_ekf::VIEKF ekf(x0);
 
   Eigen::VectorXd dx0;
   Eigen::MatrixXd a_dfdu;
@@ -285,11 +289,9 @@ TEST(VI_EKF, jacobians_test)
   double epsilon = 1e-6;
 
   Eigen::MatrixXd d_dfdx;
-  Eigen::MatrixXd d_dfdu;
   d_dfdx.resizeLike(a_dfdx);
-  d_dfdu.resizeLike(a_dfdu);
   d_dfdx.setZero();
-  d_dfdu.setZero();
+
 
   Eigen::MatrixXd dummy1, dummy2;
   Eigen::VectorXd dxprime;
@@ -301,40 +303,70 @@ TEST(VI_EKF, jacobians_test)
     d_dfdx.col(i) = (dxprime - dx0) / epsilon;
   }
 
-  int num_errors = 0;
-//  num_errors += print_error("dxPOS", "dxVEL", a_dfdx, d_dfdx);
-//  num_errors += print_error("dxPOS", "dxATT", a_dfdx, d_dfdx);
-//  num_errors += print_error("dxVEL", "dxVEL", a_dfdx, d_dfdx);
-  num_errors += print_error("dxVEL", "dxPOS", a_dfdx, d_dfdx);
-//  num_errors += print_error("dxVEL", "dxATT", a_dfdx, d_dfdx);
-//  num_errors += print_error("dxVEL", "dxB_A", a_dfdx, d_dfdx);
-//  num_errors += print_error("dxVEL", "dxB_G", a_dfdx, d_dfdx);
-//  num_errors += print_error("dxVEL", "dxMU", a_dfdx, d_dfdx);
+  EXPECT_EQ(print_error("dxPOS", "dxVEL", a_dfdx, d_dfdx), 0);
+  EXPECT_EQ(print_error("dxPOS", "dxATT", a_dfdx, d_dfdx), 0);
+  EXPECT_EQ(print_error("dxVEL", "dxVEL", a_dfdx, d_dfdx), 0);
+  EXPECT_EQ(print_error("dxVEL", "dxPOS", a_dfdx, d_dfdx), 0);
+  EXPECT_EQ(print_error("dxVEL", "dxATT", a_dfdx, d_dfdx), 0);
+  EXPECT_EQ(print_error("dxVEL", "dxB_A", a_dfdx, d_dfdx), 0);
+  EXPECT_EQ(print_error("dxVEL", "dxB_G", a_dfdx, d_dfdx), 0);
+  EXPECT_EQ(print_error("dxVEL", "dxMU", a_dfdx, d_dfdx), 0);
 
-//  for (int i = 0; i < ekf.get_len_features(); i++)
-//  {
-//    std::string zeta_key = "dxZETA_" + std::to_string(i);
-//    std::string rho_key = "dxRHO_" + std::to_string(i);
+  for (int i = 0; i < ekf.get_len_features(); i++)
+  {
+    std::string zeta_key = "dxZETA_" + std::to_string(i);
+    std::string rho_key = "dxRHO_" + std::to_string(i);
 
-//    num_errors += print_error(zeta_key, "dxVEL", a_dfdx, d_dfdx);
-//    num_errors += print_error(zeta_key, "dxB_G", a_dfdx, d_dfdx);
-//    num_errors += print_error(zeta_key, zeta_key, a_dfdx, d_dfdx);
-//    num_errors += print_error(zeta_key, rho_key, a_dfdx, d_dfdx);
-//    num_errors += print_error(rho_key, "dxVEL", a_dfdx, d_dfdx);
-//    num_errors += print_error(rho_key, "dxB_G", a_dfdx, d_dfdx);
-//    num_errors += print_error(rho_key, zeta_key, a_dfdx, d_dfdx);
-//    num_errors += print_error(rho_key, rho_key, a_dfdx, d_dfdx);
-//  }
+    EXPECT_EQ(print_error(zeta_key, "dxVEL", a_dfdx, d_dfdx), 0);
+    EXPECT_EQ(print_error(zeta_key, "dxB_G", a_dfdx, d_dfdx), 0);
+    EXPECT_EQ(print_error(zeta_key, zeta_key, a_dfdx, d_dfdx), 0);
+    EXPECT_EQ(print_error(zeta_key, rho_key, a_dfdx, d_dfdx), 0);
+    EXPECT_EQ(print_error(rho_key, "dxVEL", a_dfdx, d_dfdx), 0);
+    EXPECT_EQ(print_error(rho_key, "dxB_G", a_dfdx, d_dfdx), 0);
+    EXPECT_EQ(print_error(rho_key, zeta_key, a_dfdx, d_dfdx), 0);
+    EXPECT_EQ(print_error(rho_key, rho_key, a_dfdx, d_dfdx), 0);
+  }
+  EXPECT_EQ(check_all(a_dfdx, d_dfdx, "dfdx"), 0);
+}
 
-  check_all(a_dfdx, d_dfdx);
+TEST(VI_EKF, dfdu_test)
+{
+  Eigen::VectorXd  x0;
+  Eigen::VectorXd u0;
+  init_jacobians_test(x0, u0);
+  vi_ekf::VIEKF ekf(x0);
 
+  // Perform Analytical Differentiation
+  Eigen::VectorXd dx0;
+  Eigen::MatrixXd a_dfdu;
+  Eigen::MatrixXd a_dfdx;
+  ekf.dynamics(x0, u0, dx0, a_dfdx, a_dfdu);
 
+  Eigen::MatrixXd d_dfdu;
+  d_dfdu.resizeLike(a_dfdu);
+  d_dfdu.setZero();
+  double epsilon = 1e-6;
+  Eigen::MatrixXd dummy1, dummy2;
   Eigen::Matrix<double, 6, 6> Iu = Eigen::Matrix<double, 6, 6>::Identity();
+
+  // Perform Numerical Differentiation
+  Eigen::VectorXd dxprime;
   for (int i = 0; i < d_dfdu.cols(); i++)
   {
     Eigen::VectorXd uprime = u0 + (Iu.col(i) * epsilon);
     ekf.dynamics(x0, uprime, dxprime, dummy1, dummy2);
     d_dfdu.col(i) = (dxprime - dx0) / epsilon;
+  }
+
+  EXPECT_EQ(print_error("dxVEL","uA", a_dfdu, d_dfdu), 0);
+  EXPECT_EQ(print_error("dxVEL","uG", a_dfdu, d_dfdu), 0);
+  EXPECT_EQ(print_error("dxATT", "uG", a_dfdu, d_dfdu), 0);
+  for (int i = 0; i < ekf.get_len_features(); i++)
+  {
+    std::string zeta_key = "dxZETA_" + std::to_string(i);
+    std::string rho_key = "dxRHO_" + std::to_string(i);
+    EXPECT_EQ(print_error(zeta_key, "uG", a_dfdu, d_dfdu), 0);
+    EXPECT_EQ(print_error(rho_key, "uG", a_dfdu, d_dfdu), 0);
   }
 }
 
@@ -376,19 +408,30 @@ int print_error(std::string row_id, std::string col_id, Eigen::MatrixXd analytic
     std::cout << "BLOCK ERROR:\n" << error_mat.block(row[0], col[0], row[1], col[1]) << "\n";
     std::cout << "ANALYTICAL:\n" << analytical.block(row[0], col[0], row[1], col[1]) << "\n";
     std::cout << "FD:\n" << fd.block(row[0], col[0], row[1], col[1]) << ENDC << "\n";
+    return 1;
   }
+  return 0;
 }
 
-int check_all(Eigen::MatrixXd analytical, Eigen::MatrixXd fd)
+int check_all(Eigen::MatrixXd analytical, Eigen::MatrixXd fd, std::string name)
 {
   Eigen::MatrixXd error_mat = analytical - fd;
   if ((error_mat.array().abs() > 1e-3).any())
   {
-    std::cout << FONT_FAIL << "Error in total matrix\n";
-    std::cout << "BLOCK ERROR:\n" << error_mat << "\n";
-    std::cout << "ANALYTICAL:\n" << analytical << "\n";
-    std::cout << "FD:\n" << fd << ENDC << "\n";
+    std::cout << FONT_FAIL << "Error in total " << BOLD << name << ENDC << FONT_FAIL << " matrix" << ENDC << "\n";
+    for (int row =0; row < error_mat.rows(); row ++)
+    {
+      for (int col = 0; col < error_mat.cols(); col++)
+      {
+        if(std::abs(error_mat(row, col)) > 1e-3)
+        {
+          std::cout << BOLD << "error in (" << row << ", " << col << "):\tERR: " << error_mat(row,col) << "\tA: " << analytical(row, col) << "\tFD: " << fd(row,col) << ENDC << "\n";
+        }
+      }
+    }
+    return 1;
   }
+  return 0;
 }
 
 

@@ -13,20 +13,20 @@ VIEKF::VIEKF(Eigen::MatrixXd x0, bool multirotor)
   Eigen::VectorXd diag((int)dxZ);
 
   diag << 0.0001, 0.0001, 0.0001,  // pos
-          0.01, 0.01, 0.01,        // vel
-          0.001, 0.001, 0.001,     // att
-          1e-2, 1e-2, 1e-3,        // b_acc
-          1e-3, 1e-3, 1e-3,        // b_omega
-          1e-7;                         // mu
+      0.01, 0.01, 0.01,        // vel
+      0.001, 0.001, 0.001,     // att
+      1e-2, 1e-2, 1e-3,        // b_acc
+      1e-3, 1e-3, 1e-3,        // b_omega
+      1e-7;                         // mu
   P_ = diag.asDiagonal();
 
 
   diag << 0.001, 0.001, 0.001,     // pos
-          0.1, 0.1, 0.1,           // vel
-          0.005, 0.005, 0.005,     // att
-          1e-7, 1e-7, 1e-7,        // b_acc
-          1e-8, 1e-8, 1e-8,        // b_omega
-          0.0;                     // mu
+      0.1, 0.1, 0.1,           // vel
+      0.005, 0.005, 0.005,     // att
+      1e-7, 1e-7, 1e-7,        // b_acc
+      1e-8, 1e-8, 1e-8,        // b_omega
+      0.0;                     // mu
   Qx_ = diag.asDiagonal();
 
   diag.resize(3,1);
@@ -45,23 +45,10 @@ VIEKF::VIEKF(Eigen::MatrixXd x0, bool multirotor)
   len_features_ = 0;
   next_feature_id_ = 0;
 
-  initialized_features_.clear();
   global_to_local_feature_id_.clear();
 
   q_b_c_ = quat::Quaternion::Identity();
   p_b_c_ = Eigen::Vector3d::Zero();
-
-  measurement_functions_.clear();
-  measurement_functions_[ACC] = &VIEKF::h_acc;
-  measurement_functions_[ALT] = &VIEKF::h_alt;
-  measurement_functions_[ATT] = &VIEKF::h_att;
-  measurement_functions_[POS] = &VIEKF::h_pos;
-  measurement_functions_[VEL] = &VIEKF::h_vel;
-  measurement_functions_[QZETA] = &VIEKF::h_qzeta;
-  measurement_functions_[FEAT] = &VIEKF::h_feat;
-  measurement_functions_[PIXEL_VEL] = &VIEKF::h_pixel_vel;
-  measurement_functions_[DEPTH] = &VIEKF::h_depth;
-  measurement_functions_[INV_DEPTH] = &VIEKF::h_inv_depth;
 
   A_.resize((int)dxZ, (int)dxZ);
   G_.resize((int)dxZ, 6);
@@ -80,7 +67,7 @@ void VIEKF::set_camera_intrinsics(const Eigen::Vector2d &center, const Eigen::Ve
 {
   cam_center_ = center;
   cam_F_ << focal_len(0), 0, 0,
-            0, focal_len(1), 0;
+      0, focal_len(1), 0;
 }
 
 void VIEKF::set_camera_to_IMU(const Eigen::Vector3d& translation, const quat::Quaternion& rotation)
@@ -89,14 +76,57 @@ void VIEKF::set_camera_to_IMU(const Eigen::Vector3d& translation, const quat::Qu
   q_b_c_ = rotation;
 }
 
-Eigen::VectorXd VIEKF::get_depths(){}
-Eigen::MatrixXd VIEKF::get_zetas(){}
-Eigen::MatrixXd VIEKF::get_qzetas(){}
-Eigen::VectorXd VIEKF::get_zeta(const int i){}
-double VIEKF::get_depth(const int i){}
-
-void VIEKF::boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& dx, Eigen::VectorXd& out)
+void VIEKF::set_imu_bias(const Eigen::Vector3d& b_g, const Eigen::Vector3d& b_a)
 {
+  x_.block<3,1>((int)xB_G,0) = b_g;
+  x_.block<3,1>((int)xB_A,0) = b_a;
+}
+
+Eigen::VectorXd VIEKF::get_depths()
+{
+  Eigen::VectorXd out(len_features_);
+  for (int i = 0; i < len_features_; i++)
+  {
+    out[i] = 1.0/x_((int)xZ + 4 + 5*i);
+  }
+  return out;
+}
+
+Eigen::MatrixXd VIEKF::get_zetas()
+{
+  Eigen::MatrixXd out(3, len_features_);
+  for (int i = 0; i < len_features_; i++)
+  {
+    Eigen::Vector4d qzeta = x_.block<4,1>(xZ + 5*i,0);
+    out.block<3,1>(0,i) = Quaternion(qzeta).rot(e_z);
+  }
+  return out;
+}
+
+Eigen::MatrixXd VIEKF::get_qzetas()
+{
+  Eigen::MatrixXd out(4, len_features_);
+  for (int i = 0; i < len_features_; i++)
+  {
+    out.block<4,1>(0,i) = x_.block<4,1>(xZ + 5*i,0);
+  }
+  return out;
+}
+
+Eigen::VectorXd VIEKF::get_zeta(const int i)
+{
+  Eigen::Vector4d qzeta_i = x_.block<4,1>(xZ + 5*i,0);
+  return Quaternion(qzeta_i).rot(e_z);
+}
+
+double VIEKF::get_depth(const int i)
+{
+  return 1.0/x_((int)xZ + 4 + 5*i);
+}
+
+Eigen::VectorXd VIEKF::boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& dx)
+{
+  Eigen::VectorXd out;
   out.resizeLike(x);
 
   out.block<3,1>((int)xPOS, 0) = x.block<3,1>((int)xPOS, 0) + dx.block<3,1>((int)dxPOS, 0);
@@ -117,6 +147,58 @@ void VIEKF::boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& dx, Eigen::
     out(xRHO) = x(xRHO) + dx(dxRHO);
   }
 }
+
+
+void VIEKF::init_feature(const Eigen::Vector2d& l, const int id, const double depth)
+{
+  len_features_ += 1;
+  global_to_local_feature_id_[id] = next_feature_id_;
+  next_feature_id_ += 1;
+
+  // Adjust lambdas to be with respect to image center
+  Eigen::Vector2d l_centered = l - cam_center_;
+
+  // Calculate Quaternion to Feature
+  Eigen::Vector3d zeta;
+  zeta << l_centered(0), l_centered(1)*(cam_F_(1,1)/cam_F_(0,0)), cam_F_(0,0);
+  zeta.normalize();
+  Eigen::Vector4d qzeta = Quaternion::from_two_unit_vectors(e_z, zeta).elements();
+
+  // If depth is NAN (default arguement)
+  double init_depth = depth;
+  if (depth != depth)
+  {
+    if (len_features_ > 0)
+      init_depth = get_depths().mean();
+    else
+      init_depth = default_depth_;
+  }
+
+  //  Add 5 states to state vector
+  x_.conservativeResize(x_.rows() + 5, 1);
+  x_.block<4,1>(xZ + 5*len_features_, 0) = qzeta;
+  x_(xZ + 5*len_features_ + 4) = 1.0/depth;
+
+  // Add 3 more states to covariance and process noise matrices
+  int dx_max = dxZ+3*len_features_;
+  Qx_.conservativeResize(Qx_.rows() + 3, Qx_.cols() + 3);
+  Qx_.block<3,3>(dx_max-3, dx_max-3) = Qx_feat_;
+  P_.conservativeResize(P_.rows() + 3, P_.cols() + 3);
+  P_.block<3,3>(dx_max-3, dx_max-3) = P0_feat_;
+
+  // Adjust matrix workspace to fit these new states
+  A_.resize(A_.rows() + 3, A_.cols() + 3);
+  G_.resize(G_.rows(), 6);
+  I_big_.resize(dx_max, dx_max);
+  for (int i = 0; i < dx_max; i++) I_big_(i,i) = 1.0;
+  dx_.resize(dx_max, 1);
+}
+
+
+void VIEKF::clear_feature(const int id){}
+void VIEKF::keep_only_features(const Eigen::VectorXd features){}
+
+
 void VIEKF::propagate(Eigen::VectorXd& x, Eigen::MatrixXd& P, const Eigen::Matrix<double, 6, 1> u,
                       const double t)
 {
@@ -127,21 +209,12 @@ void VIEKF::propagate(Eigen::VectorXd& x, Eigen::MatrixXd& P, const Eigen::Matri
     dynamics(x, u, dx_, A_, G_);
     Eigen::MatrixXd Pdot = A_ * P_ + P_ * A_.transpose() + G_ * Qu_ * G_.transpose() + Qx_;
 
-    boxplus(x, dx_*dt, x_);
+    x_ = boxplus(x, dx_*dt);
     P_ += Pdot*dt;
   }
 }
-
-Eigen::VectorXd VIEKF::update(Eigen::VectorXd& z, const measurement_type_t meas_type,
-                       const Eigen::MatrixXd& R, bool passive, const int id){}
-
-void VIEKF::set_imu_bias(const Eigen::Vector3d& b_g, const Eigen::Vector3d& b_a){}
-
-int VIEKF::init_feature(const Eigen::Vector4d& q_zeta, const int id, const double depth){}
-void VIEKF::clear_feature(const int id){}
-void VIEKF::keep_only_features(Eigen::VectorXd features){}
 void VIEKF::dynamics(const Eigen::VectorXd& x, const Eigen::MatrixXd& u, Eigen::VectorXd& xdot,
-              Eigen::MatrixXd& dfdx, Eigen::MatrixXd& dfdu)
+                     Eigen::MatrixXd& dfdx, Eigen::MatrixXd& dfdu)
 {
   dx_.setZero();
   A_.setZero();
@@ -238,7 +311,48 @@ void VIEKF::dynamics(const Eigen::VectorXd& x, const Eigen::MatrixXd& u, Eigen::
   xdot = dx_;
 }
 
-void VIEKF::h_acc(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id){}
+Eigen::VectorXd VIEKF::update(Eigen::VectorXd& z, const measurement_type_t meas_type,
+                              const Eigen::MatrixXd& R, bool passive, const int id, const double depth)
+{
+  // If this is a new feature, initialize it
+  if (meas_type == FEAT && id > 0)
+  {
+    if (global_to_local_feature_id_.find(id) == global_to_local_feature_id_.end())
+    {
+      init_feature(z, id, depth);
+    }
+  }
+
+  Eigen::VectorXd zhat;
+  Eigen::VectorXd H;
+  CALL_MEMBER_FN(this, measurement_functions_[meas_type])(x_, zhat, H, id);
+
+  Eigen::VectorXd residual;
+  if (meas_type == QZETA)
+  {
+    residual = q_feat_boxminus(Quaternion(z), Quaternion(zhat));
+  }
+  else if (meas_type == ATT)
+  {
+    residual = Quaternion(z) - Quaternion(zhat);
+  }
+  else
+  {
+    residual = z - zhat;
+  }
+
+  if (!passive)
+  {
+    Eigen::MatrixXd K = P_ * H.transpose() * (R + H*P_).inverse() * H.transpose();
+    P_ = (I_big_ - K*H)*P_;
+    x_ = boxplus(x_, K * residual);
+  }
+}
+
+void VIEKF::h_acc(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id)
+{
+
+}
 void VIEKF::h_alt(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id){}
 void VIEKF::h_att(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id){}
 void VIEKF::h_pos(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id){}

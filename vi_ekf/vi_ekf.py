@@ -257,10 +257,10 @@ class VI_EKF():
 
     # Used to initialize a new feature.  Returns the feature id associated with this feature
     def init_feature(self, l, id, depth=np.nan):
-        assert l.shape == (2, 1) and depth.shape == (1, 1)
+        # assert l.shape == (2, 1) and depth.shape == (1, 1)
 
         self.len_features += 1
-        self.feature_ids.append(self.next_feature_id)
+        # self.feature_ids.append(self.next_feature_id)
         self.global_to_local_feature_id[id] = self.next_feature_id
         self.next_feature_id += 1
 

@@ -10,11 +10,13 @@
 #include "quat.h"
 #include "math_helper.h"
 
+
 namespace vi_ekf
 {
 
 class VIEKF;
 typedef void (VIEKF::*measurement_function_ptr)(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);
+#define CALL_MEMBER_FN(objectptr,ptrToMember)  ((objectptr)->*(ptrToMember))
 
 static const Eigen::Vector3d gravity = [] {
   Eigen::Vector3d tmp;
@@ -66,17 +68,20 @@ public:
   } measurement_type_t;
 
 private:
+  // State and Covariance Matrices
   Eigen::VectorXd x_;
   Eigen::MatrixXd P_;
 
+  // Process Noise and Initialization Matrices
   Eigen::Matrix3d P0_feat_;
-  Eigen::Matrix<double, dxZ, dxZ> Qx_;
+  Eigen::MatrixXd Qx_;
   Eigen::Matrix3d Qx_feat_;
   Eigen::Matrix<double, 6, 6> Qu_;
 
+  // Internal bookkeeping variables
+  double prev_t_;
   int len_features_;
   int next_feature_id_;
-  std::set<int> initialized_features_;
   std::map<int, int> global_to_local_feature_id_;
   std::map<measurement_type_t, measurement_function_ptr> measurement_functions_;
 
@@ -86,10 +91,11 @@ private:
   Eigen::MatrixXd I_big_;
   Eigen::VectorXd dx_;
 
+  // EKF Configuration Parameters
   bool use_drag_term;
-  double prev_t_;
+  double default_depth_ = 1.5;
 
-  // Camera Configuration
+  // Camera Intrinsics and Extrinsics
   Eigen::Vector2d cam_center_;
   Eigen::Matrix<double, 2, 3> cam_F_;
   quat::Quaternion q_b_c_;
@@ -98,6 +104,7 @@ private:
 public:
 
   VIEKF(Eigen::MatrixXd x0, bool multirotor=true);
+
   void set_camera_to_IMU(const Eigen::Vector3d& translation, const quat::Quaternion& rotation);
   void set_camera_intrinsics(const Eigen::Vector2d& center, const Eigen::Vector2d& focal_len);
   Eigen::VectorXd get_depths();
@@ -106,21 +113,20 @@ public:
   Eigen::VectorXd get_zeta(const int i);
   double get_depth(const int i);
   inline int get_len_features() { return len_features_; }
-
-  void boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& dx, Eigen::VectorXd &out);
-  void propagate(Eigen::VectorXd& x, Eigen::MatrixXd& P, const Eigen::Matrix<double, 6, 1> u, const double t);
-
-  Eigen::VectorXd update(Eigen::VectorXd& z, const measurement_type_t meas_type,
-                         const Eigen::MatrixXd& R, bool passive=false, const int id = -1);
-
   void set_imu_bias(const Eigen::Vector3d& b_g, const Eigen::Vector3d& b_a);
-
-  int init_feature(const Eigen::Vector4d& q_zeta, const int id, const double depth=-1.0);
+  void init_feature(const Eigen::Vector2d& l, const int id, const double depth=-1.0);
   void clear_feature(const int id);
-  void keep_only_features(Eigen::VectorXd features);
+  void keep_only_features(const Eigen::VectorXd features);
+
+  // State Propagation
+  Eigen::VectorXd boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& dx);
+  void propagate(Eigen::VectorXd& x, Eigen::MatrixXd& P, const Eigen::Matrix<double, 6, 1> u, const double t);
   void dynamics(const Eigen::VectorXd& x, const Eigen::MatrixXd& u, Eigen::VectorXd& xdot,
                 Eigen::MatrixXd& dfdx, Eigen::MatrixXd& dfdu);
 
+  // Measurement Updates
+  Eigen::VectorXd update(Eigen::VectorXd& z, const measurement_type_t meas_type,
+                         const Eigen::MatrixXd& R, bool passive=false, const int id = -1, const double depth = NAN);
   void h_acc(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);
   void h_alt(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);
   void h_att(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);

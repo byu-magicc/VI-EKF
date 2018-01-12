@@ -298,7 +298,7 @@ TEST(VI_EKF, dfdx_test)
   for (int i = 0; i < d_dfdx.cols(); i++)
   {
     Eigen::VectorXd xprime;
-    ekf.boxplus(x0, (Idx.col(i) * epsilon), xprime);
+    xprime = ekf.boxplus(x0, (Idx.col(i) * epsilon));
     ekf.dynamics(xprime, u0, dxprime, dummy1, dummy2);
     d_dfdx.col(i) = (dxprime - dx0) / epsilon;
   }

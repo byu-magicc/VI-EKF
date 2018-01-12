@@ -67,7 +67,7 @@ void VIEKF::set_camera_intrinsics(const Eigen::Vector2d &center, const Eigen::Ve
 {
   cam_center_ = center;
   cam_F_ << focal_len(0), 0, 0,
-      0, focal_len(1), 0;
+            0, focal_len(1), 0;
 }
 
 void VIEKF::set_camera_to_IMU(const Eigen::Vector3d& translation, const quat::Quaternion& rotation)
@@ -81,6 +81,18 @@ void VIEKF::set_imu_bias(const Eigen::Vector3d& b_g, const Eigen::Vector3d& b_a)
   x_.block<3,1>((int)xB_G,0) = b_g;
   x_.block<3,1>((int)xB_A,0) = b_a;
 }
+
+
+Eigen::VectorXd VIEKF::get_state()
+{
+  return x_;
+}
+
+Eigen::VectorXd VIEKF::get_covariance()
+{
+  return P_;
+}
+
 
 Eigen::VectorXd VIEKF::get_depths()
 {
@@ -146,6 +158,7 @@ Eigen::VectorXd VIEKF::boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& 
     out.block<4,1>(xFEAT,0) = q_feat_boxplus(Quaternion(x.block<4,1>(xFEAT,0)), dx.block<2,1>(dxFEAT,0)).elements();
     out(xRHO) = x(xRHO) + dx(dxRHO);
   }
+  return out;
 }
 
 
@@ -175,20 +188,21 @@ void VIEKF::init_feature(const Eigen::Vector2d& l, const int id, const double de
   }
 
   //  Add 5 states to state vector
-  x_.conservativeResize(x_.rows() + 5, 1);
-  x_.block<4,1>(xZ + 5*len_features_, 0) = qzeta;
-  x_(xZ + 5*len_features_ + 4) = 1.0/depth;
+  int x_max = xZ + 5*len_features_;
+  x_.conservativeResize(x_max, 1);
+  x_.block<4,1>(x_max - 5, 0) = qzeta;
+  x_(x_max - 1 ) = 1.0/depth;
 
   // Add 3 more states to covariance and process noise matrices
   int dx_max = dxZ+3*len_features_;
-  Qx_.conservativeResize(Qx_.rows() + 3, Qx_.cols() + 3);
+  Qx_.conservativeResize(dx_max, dx_max);
   Qx_.block<3,3>(dx_max-3, dx_max-3) = Qx_feat_;
-  P_.conservativeResize(P_.rows() + 3, P_.cols() + 3);
+  P_.conservativeResize(dx_max, dx_max);
   P_.block<3,3>(dx_max-3, dx_max-3) = P0_feat_;
 
   // Adjust matrix workspace to fit these new states
-  A_.resize(A_.rows() + 3, A_.cols() + 3);
-  G_.resize(G_.rows(), 6);
+  A_.resize(dx_max, dx_max);
+  G_.resize(dx_max, 6);
   I_big_.resize(dx_max, dx_max);
   for (int i = 0; i < dx_max; i++) I_big_(i,i) = 1.0;
   dx_.resize(dx_max, 1);
@@ -249,7 +263,7 @@ void VIEKF::dynamics(const Eigen::VectorXd& x, const Eigen::MatrixXd& u, Eigen::
   {
     A_.block<3,3>((int)dxVEL, (int)dxVEL) = -mu * I_2x3.transpose() * I_2x3;
     A_.block<3,3>((int)dxVEL, (int)dxB_A) << 0, 0, 0, 0, 0, 0, 0, 0, -1;
-    A_.block<3,1>((int)dxPOS, (int)dxMU) = -vel_xy;
+    A_.block<3,1>((int)dxVEL, (int)dxMU) = -vel_xy;
   }
   else
   {
@@ -293,7 +307,7 @@ void VIEKF::dynamics(const Eigen::VectorXd& x, const Eigen::MatrixXd& u, Eigen::
     // Feature Jacobian
     A_.block<2, 3>(dxZETA_i, (int)dxVEL) = -rho * T_z.transpose() * skew_zeta * R_b_c;
     A_.block<2, 3>(dxZETA_i, (int)dxB_G) = T_z.transpose() * (rho * skew_zeta * R_b_c * skew_p_b_c + R_b_c);
-    A_.block<2, 2>(dxZETA_i, dxZETA_i) = T_z.transpose() * (skew(omega_c_i - rho*skew_zeta*vel_c_i) - (rho*skew_vel_c * skew_zeta)) * T_z;
+    A_.block<2, 2>(dxZETA_i, dxZETA_i) = -T_z.transpose() * (skew(rho * skew_zeta * vel_c_i + omega_c_i) + (rho * skew_vel_c * skew_zeta)) * T_z;
     A_.block<2, 1>(dxZETA_i, dxRHO_i) = -T_z.transpose() * skew_zeta * vel_c_i;
     A_.block<1, 3>(dxRHO_i, (int)dxVEL) = rho2 * zeta.transpose() * R_b_c;
     A_.block<1, 3>(dxRHO_i, (int)dxB_G) = -rho2 * zeta.transpose() * R_b_c * skew_p_b_c;

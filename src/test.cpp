@@ -245,32 +245,60 @@ TEST(math_helper, manifold_operations)
 
 int print_error(std::string row_id, std::string col_id, Eigen::MatrixXd analytical, Eigen::MatrixXd fd);
 int check_all(Eigen::MatrixXd analytical, Eigen::MatrixXd fd, std::string name);
-void init_jacobians_test(Eigen::VectorXd& x0, Eigen::VectorXd& u0)
+VIEKF init_jacobians_test(Eigen::VectorXd& x0, Eigen::VectorXd& u0)
 {
+  // Configure initial State
   x0.resize(VIEKF::xZ);
-  u0.resize(VIEKF::uTOTAL);
   x0.setZero();
   x0(VIEKF::xATT) = 1.0;
   x0(VIEKF::xMU) = 0.2;
-  u0.setZero();
+  x0.block<3,1>((int)VIEKF::xPOS, 0) += Eigen::Vector3d::Random() * 100.0;
+  x0.block<3,1>((int)VIEKF::xVEL, 0) += Eigen::Vector3d::Random() * 10.0;
+  x0.block<4,1>((int)VIEKF::xATT, 0) = (Quaternion(x0.block<4,1>((int)VIEKF::xATT, 0)) + Eigen::Vector3d::Random() * 0.5).elements();
+  x0.block<3,1>((int)VIEKF::xB_A, 0) += Eigen::Vector3d::Random() * 1.0;
+  x0.block<3,1>((int)VIEKF::xB_G, 0) += Eigen::Vector3d::Random() * 0.5;
+  x0((int)VIEKF::xMU, 0) += (static_cast <double> (rand()) / (static_cast <double> (RAND_MAX)))*0.05;
 
-  // Add noise to initial state
+  // Create VIEKF
+  VIEKF ekf(x0);
 
-  // Add camera_to_body transform
+  // camera_to_body transform
+  Eigen::Vector3d p_b_c = Eigen::Vector3d::Random() * 0.5;
+  Quaternion q_b_c = Quaternion::Random();
+  ekf.set_camera_to_IMU(p_b_c, q_b_c);
 
-  // Set camera intrinsics
+  // Camera Intrinsics
+  Eigen::Vector2d cam_center = Eigen::Vector2d::Random();
+  Eigen::Vector2d F;
+  F << static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/100.0)),
+       static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/100.0));
+  ekf.set_camera_intrinsics(cam_center, F);
 
   // Initialize Random Features
+  for (int i = 0; i < 10; i++)
+  {
+    Eigen::Vector2d l;
+    l << std::rand()%640, std::rand()%480;
+    double depth = static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/10.0));
+    ekf.init_feature(l, depth);
+  }
+  // Recover the new state to return
+  x0 = ekf.get_state();
 
   // Initialize Inputs
+  u0.resize(VIEKF::uTOTAL);
+  u0.setZero();
+  u0.block<3,1>((int)VIEKF::uA, 0) += Eigen::Vector3d::Random() * 1.0;
+  u0.block<3,1>((int)VIEKF::uG, 0) += Eigen::Vector3d::Random() * 1.0;
+
+  return ekf;
 }
 
 TEST(VI_EKF, dfdx_test)
 {  
   Eigen::VectorXd x0;
   Eigen::VectorXd u0;
-  init_jacobians_test(x0, u0);
-  vi_ekf::VIEKF ekf(x0);
+  vi_ekf::VIEKF ekf = init_jacobians_test(x0, u0);
 
   Eigen::VectorXd dx0;
   Eigen::MatrixXd a_dfdu;
@@ -295,9 +323,9 @@ TEST(VI_EKF, dfdx_test)
 
   Eigen::MatrixXd dummy1, dummy2;
   Eigen::VectorXd dxprime;
+  Eigen::VectorXd xprime;
   for (int i = 0; i < d_dfdx.cols(); i++)
   {
-    Eigen::VectorXd xprime;
     xprime = ekf.boxplus(x0, (Idx.col(i) * epsilon));
     ekf.dynamics(xprime, u0, dxprime, dummy1, dummy2);
     d_dfdx.col(i) = (dxprime - dx0) / epsilon;
@@ -331,10 +359,9 @@ TEST(VI_EKF, dfdx_test)
 
 TEST(VI_EKF, dfdu_test)
 {
-  Eigen::VectorXd  x0;
+  Eigen::VectorXd x0;
   Eigen::VectorXd u0;
-  init_jacobians_test(x0, u0);
-  vi_ekf::VIEKF ekf(x0);
+  vi_ekf::VIEKF ekf = init_jacobians_test(x0, u0);
 
   // Perform Analytical Differentiation
   Eigen::VectorXd dx0;

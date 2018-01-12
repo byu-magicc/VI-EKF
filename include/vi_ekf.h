@@ -111,10 +111,12 @@ public:
   Eigen::MatrixXd get_zetas();
   Eigen::MatrixXd get_qzetas();
   Eigen::VectorXd get_zeta(const int i);
+  Eigen::VectorXd get_state();
+  Eigen::VectorXd get_covariance();
   double get_depth(const int i);
   inline int get_len_features() { return len_features_; }
   void set_imu_bias(const Eigen::Vector3d& b_g, const Eigen::Vector3d& b_a);
-  void init_feature(const Eigen::Vector2d& l, const int id, const double depth=-1.0);
+  void init_feature(const Eigen::Vector2d &l, const int id, const double depth=-1.0);
   void clear_feature(const int id);
   void keep_only_features(const Eigen::VectorXd features);
 

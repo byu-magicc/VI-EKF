@@ -8,6 +8,15 @@ VIEKF_ROS::VIEKF_ROS() :
   odometry_pub_ = nh_.advertise<nav_msgs::Odometry>("odom", 1);
   image_sub_ = it_.subscribe("cv_camera/image_raw", 1, &VIEKF_ROS::image_callback, this);
   output_pub_ = it_.advertise("tracked", 1);
+
+  klt_tracker_ = new KLT_Tracker(25, true, 30);
+  ekf_ = new vi_ekf::VIEKF();
+}
+
+VIEKF_ROS::~VIEKF_ROS()
+{
+  delete klt_tracker_;
+  delete ekf_;
 }
 
 void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
@@ -19,7 +28,7 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
   u(3) = msg->angular_velocity.x;
   u(4) = msg->angular_velocity.y;
   u(5) = msg->angular_velocity.z;
-  ekf_.step(u, msg->header.stamp.toSec());
+//  ekf_.step(u, msg->header.stamp.toSec());
 }
 
 void VIEKF_ROS::image_callback(const sensor_msgs::ImageConstPtr &msg)
@@ -37,9 +46,9 @@ void VIEKF_ROS::image_callback(const sensor_msgs::ImageConstPtr &msg)
 
   std::vector<Point2f> features;
   std::vector<int> ids;
-  klt_tracker_.load_image(cv_ptr->image, msg->header.stamp.toSec(), features, ids);
+  klt_tracker_->load_image(cv_ptr->image, msg->header.stamp.toSec(), features, ids);
 
-  ekf_.keep_only_features(ids);
+//  ekf_.keep_only_features(ids);
 }
 
 
@@ -48,5 +57,8 @@ void VIEKF_ROS::image_callback(const sensor_msgs::ImageConstPtr &msg)
 
 int main(int argc, char* argv[])
 {
-
+  ros::init(argc, argv, "viekf_node");
+  VIEKF_ROS thing;
+  ros::spin();
+  return 0;
 }

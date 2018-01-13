@@ -7,6 +7,15 @@ using namespace std::placeholders;
 namespace vi_ekf
 {
 
+VIEKF::VIEKF()
+{
+  Eigen::VectorXd x0;
+  x0.setZero(VIEKF::xZ, 1);
+  x0(VIEKF::xATT) = 1.0;
+  x0(VIEKF::xMU) = 0.2;
+  VIEKF(x0, true);
+}
+
 VIEKF::VIEKF(Eigen::MatrixXd x0, bool multirotor)
 {
   x_ = x0;
@@ -209,9 +218,62 @@ void VIEKF::init_feature(const Eigen::Vector2d& l, const int id, const double de
 }
 
 
-void VIEKF::clear_feature(const int id){}
-void VIEKF::keep_only_features(const Eigen::VectorXd features){}
+void VIEKF::clear_feature(const int id)
+{
+  int local_feature_id = global_to_local_feature_id_[id];
+  int xZETA_i = xZ + 5 * local_feature_id;
+  int dxZETA_i = dxZ + 3 * local_feature_id;
+  auto it = global_to_local_feature_id_.find(id);
+  global_to_local_feature_id_.erase(it);
+  len_features_ -= 1;
 
+  // Remove the right portions of state and covariance
+  if (local_feature_id < len_features_)
+  {
+    x_.block(xZETA_i, 0, (x_.rows() - (xZETA_i+5)), 1) = x_.bottomRows(x_.rows() - (xZETA_i + 5));
+    x_.conservativeResize(x_.rows() - 5);
+  }
+  for (int i = dxZETA_i; i < 3; i++)
+  {
+    P_.block(dxZETA_i, 0, (P_.rows() - (dxZETA_i+3)), P_.cols()) = P_.bottomRows(P_.rows() - (dxZETA_i+3));
+    P_.block(0, dxZETA_i, P_.rows(), (P_.cols() - (dxZETA_i+3))) = P_.rightCols(P_.cols() - (dxZETA_i+3));
+    P_.conservativeResize(P_.rows() - 3, P_.cols() - 3);
+  }
+
+  // Adjust matrix workspace to fit these new states
+  int dx_max = dxZ+3*len_features_;
+  A_.resize(dx_max, dx_max);
+  G_.resize(dx_max, 6);
+  I_big_.resize(dx_max, dx_max);
+  for (int i = 0; i < dx_max; i++) I_big_(i,i) = 1.0;
+  dx_.resize(dx_max, 1);
+}
+
+
+void VIEKF::keep_only_features(const vector<int> features)
+{
+  for (std::map<int, int>::iterator it=global_to_local_feature_id_.begin(); it!=global_to_local_feature_id_.end(); ++it)
+  {
+    bool keep_feature = false;
+    for (int i = 0; i < features.size(); i++)
+    {
+      if (it->first == features[i])
+      {
+        keep_feature = true;
+      }
+    }
+    if (!keep_feature)
+    {
+      clear_feature(it->first);
+    }
+  }
+}
+
+
+void VIEKF::step(const Eigen::Matrix<double, 6, 1>& u, const double t)
+{
+  propagate(x_, P_, u, t);
+}
 
 void VIEKF::propagate(Eigen::VectorXd& x, Eigen::MatrixXd& P, const Eigen::Matrix<double, 6, 1> u,
                       const double t)
@@ -226,6 +288,7 @@ void VIEKF::propagate(Eigen::VectorXd& x, Eigen::MatrixXd& P, const Eigen::Matri
     x_ = boxplus(x, dx_*dt);
     P_ += Pdot*dt;
   }
+  prev_t_ = t;
 }
 void VIEKF::dynamics(const Eigen::VectorXd& x, const Eigen::MatrixXd& u, Eigen::VectorXd& xdot,
                      Eigen::MatrixXd& dfdx, Eigen::MatrixXd& dfdu)

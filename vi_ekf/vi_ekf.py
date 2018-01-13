@@ -297,7 +297,6 @@ class VI_EKF():
     # Clears the associated rows and columns from the covariance.  The covariance matrix will
     # now be 3x3 smaller than before and the feature array will be 5 smaller
     def clear_feature(self, id):
-        self.initialized_features.remove(id)
         local_feature_id = self.global_to_local_feature_id[id]
         xZETA_i = xZ + 5 * local_feature_id
         dxZETA_i = dxZ + 3 * local_feature_id

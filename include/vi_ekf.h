@@ -104,6 +104,7 @@ private:
 
 public:
 
+  VIEKF();
   VIEKF(Eigen::MatrixXd x0, bool multirotor=true);
 
   void set_camera_to_IMU(const Eigen::Vector3d& translation, const quat::Quaternion& rotation);
@@ -119,10 +120,11 @@ public:
   void set_imu_bias(const Eigen::Vector3d& b_g, const Eigen::Vector3d& b_a);
   void init_feature(const Eigen::Vector2d &l, const int id, const double depth=-1.0);
   void clear_feature(const int id);
-  void keep_only_features(const Eigen::VectorXd features);
+  void keep_only_features(const std::vector<int> features);
 
   // State Propagation
   Eigen::VectorXd boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& dx) const;
+  void step(const Eigen::Matrix<double, 6, 1>& u, const double t);
   void propagate(Eigen::VectorXd& x, Eigen::MatrixXd& P, const Eigen::Matrix<double, 6, 1> u, const double t);
   void dynamics(const Eigen::VectorXd& x, const Eigen::MatrixXd& u, Eigen::VectorXd& xdot,
                 Eigen::MatrixXd& dfdx, Eigen::MatrixXd& dfdu);

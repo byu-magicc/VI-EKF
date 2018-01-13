@@ -57,4 +57,5 @@ target_link_libraries(vi_ekf_node
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS}
   vi_ekf
+  klt_tracker
 )

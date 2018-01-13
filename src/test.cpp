@@ -6,6 +6,9 @@
 #include <eigen3/unsupported/Eigen/MatrixFunctions>
 #include "vi_ekf.h"
 
+using namespace quat;
+using namespace vi_ekf;
+
 #define EXPECT_QUATERNION_EQUALS(q1, q2) \
   EXPECT_NEAR((q1).w(), (q1).w(), 1e-8); \
   EXPECT_NEAR((q1).x(), (q1).x(), 1e-8); \
@@ -31,9 +34,51 @@
   } \
   }
 
+#define CALL_MEMBER_FN(objectptr,ptrToMember) ((objectptr).*(ptrToMember))
+#define HEADER "\033[95m"
+#define OKBLUE "\033[94m"
+#define OKGREEN "\033[92m"
+#define WARNING "\033[93m"
+#define FONT_FAIL "\033[91m"
+#define ENDC "\033[0m"
+#define BOLD "\033[1m"
+#define UNDERLINE "\033[4m"
 
-using namespace quat;
-using namespace vi_ekf;
+static std::map<std::string, std::vector<int>> indexes = [] {
+  std::map<std::string, std::vector<int>> tmp;
+  tmp["dxPOS"] = std::vector<int> {0,3};
+  tmp["dxVEL"] = std::vector<int> {3,3};
+  tmp["dxATT"] = std::vector<int> {6,3};
+  tmp["dxB_A"] = std::vector<int> {9,3};
+  tmp["dxB_G"] = std::vector<int> {12,3};
+  tmp["dxMU"] = std::vector<int> {15,1};
+  tmp["uA"] = std::vector<int> {0,3};
+  tmp["uG"] = std::vector<int> {3,3};
+  for (int i = 0; i < 50; i++)
+  {
+    tmp["dxZETA_" + std::to_string(i)] = {16 + 3*i, 2};
+    tmp["dxRHO_" + std::to_string(i)] = {16 + 3*i+2, 1};
+  }
+  return tmp;
+}();
+static std::map<VIEKF::measurement_type_t, std::string> measurement_names = [] {
+  std::map<VIEKF::measurement_type_t, std::string> tmp;
+  tmp[VIEKF::ACC] = "ACC";
+  tmp[VIEKF::ALT] = "ALT";
+  tmp[VIEKF::ATT] = "ATT";
+  tmp[VIEKF::POS] = "POS";
+  tmp[VIEKF::VEL] = "VEL";
+  tmp[VIEKF::QZETA] = "QZETA";
+  tmp[VIEKF::FEAT] = "FEAT";
+  tmp[VIEKF::PIXEL_VEL] = "PIXEL_VEL";
+  tmp[VIEKF::DEPTH] = "DEPTH";
+  tmp[VIEKF::INV_DEPTH] = "INV_DEPTH";
+  return tmp;
+}();
+int print_error(std::string row_id, std::string col_id, Eigen::MatrixXd analytical, Eigen::MatrixXd fd);
+int check_all(Eigen::MatrixXd analytical, Eigen::MatrixXd fd, std::string name);
+
+
 
 TEST(Quaternion, rotation_direction)
 {
@@ -243,8 +288,6 @@ TEST(math_helper, manifold_operations)
   }
 }
 
-int print_error(std::string row_id, std::string col_id, Eigen::MatrixXd analytical, Eigen::MatrixXd fd);
-int check_all(Eigen::MatrixXd analytical, Eigen::MatrixXd fd, std::string name);
 VIEKF init_jacobians_test(Eigen::VectorXd& x0, Eigen::VectorXd& u0)
 {
   // Configure initial State
@@ -275,12 +318,12 @@ VIEKF init_jacobians_test(Eigen::VectorXd& x0, Eigen::VectorXd& u0)
   ekf.set_camera_intrinsics(cam_center, F);
 
   // Initialize Random Features
-  for (int i = 0; i < 10; i++)
+  for (int i = 0; i < 50; i++)
   {
     Eigen::Vector2d l;
     l << std::rand()%640, std::rand()%480;
     double depth = static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/10.0));
-    ekf.init_feature(l, depth);
+    ekf.init_feature(l, i, depth);
   }
   // Recover the new state to return
   x0 = ekf.get_state();
@@ -397,32 +440,78 @@ TEST(VI_EKF, dfdu_test)
   }
 }
 
-#define HEADER "\033[95m"
-#define OKBLUE "\033[94m"
-#define OKGREEN "\033[92m"
-#define WARNING "\033[93m"
-#define FONT_FAIL "\033[91m"
-#define ENDC "\033[0m"
-#define BOLD "\033[1m"
-#define UNDERLINE "\033[4m"
+int htest(measurement_function_ptr fn, VIEKF& ekf, const VIEKF::measurement_type_t type, const int id)
+{
+  int num_errors = 0;
+  Eigen::VectorXd x0 = ekf.get_state();
+  Eigen::VectorXd z0;
+  Eigen::MatrixXd a_dhdx;
 
-static std::map<std::string, std::vector<int>> indexes = [] {
-  std::map<std::string, std::vector<int>> tmp;
-  tmp["dxPOS"] = std::vector<int> {0,3};
-  tmp["dxVEL"] = std::vector<int> {3,3};
-  tmp["dxATT"] = std::vector<int> {6,3};
-  tmp["dxB_A"] = std::vector<int> {9,3};
-  tmp["dxB_G"] = std::vector<int> {12,3};
-  tmp["dxMU"] = std::vector<int> {15,1};
-  tmp["uA"] = std::vector<int> {0,3};
-  tmp["uG"] = std::vector<int> {3,3};
-  for (int i = 0; i < 50; i++)
+  // Call the Measurement function
+  CALL_MEMBER_FN(ekf, fn)(x0, z0, a_dhdx, id);
+
+  Eigen::MatrixXd d_dhdx;
+  d_dhdx.setZero(a_dhdx.rows(), a_dhdx.cols());
+
+  Eigen::MatrixXd I(a_dhdx.cols(), a_dhdx.cols());
+  I.setIdentity();
+  double epsilon = 1e-6;
+
+  Eigen::VectorXd z_prime;
+  Eigen::MatrixXd dummy_H;
+  Eigen::VectorXd x_prime;
+  for (int i = 0; i < a_dhdx.cols(); i++)
   {
-    tmp["dxZETA_" + std::to_string(i)] = {16 + 3*i, 2};
-    tmp["dxRHO_" + std::to_string(i)] = {16 + 3*i+2, 1};
+    x_prime = ekf.boxplus(ekf.get_state(), (I.col(i) * epsilon));
+    CALL_MEMBER_FN(ekf, fn)(x_prime, z_prime, dummy_H, id);
+
+    if (type == VIEKF::QZETA)
+      d_dhdx.col(i) = q_feat_boxminus(Quaternion(z_prime), Quaternion(z0))/epsilon;
+    else if (type == VIEKF::ATT)
+      d_dhdx.col(i) = (Quaternion(z_prime) - Quaternion(z0))/epsilon;
+    else
+      d_dhdx.col(i) = (z_prime - z0)/epsilon;
   }
-  return tmp;
-}();
+
+  Eigen::MatrixXd error = a_dhdx - d_dhdx;
+  double err_threshold = std::max(1e-3 * a_dhdx.norm(), 1e-5);
+
+  for (std::map<std::string, std::vector<int>>::iterator it=indexes.begin(); it!=indexes.end(); ++it)
+  {
+    if(it->second[0] + it->second[1] > error.cols())
+      continue;
+    Eigen::MatrixXd block_error = error.block(0, it->second[0], error.rows(), it->second[1]);
+    if ((block_error.array().abs() > err_threshold).any())
+    {
+      num_errors += 1;
+      std::cout << FONT_FAIL << "Error in Measurement " << measurement_names[type] << "_" << id << ", " << it->first << ":\n";
+      std::cout << "ERR:\n" << block_error << "\nA:\n" << a_dhdx.block(0, it->second[0], error.rows(), it->second[1]) << "\n";
+      std::cout << "FD:\n" << d_dhdx.block(0, it->second[0], error.rows(), it->second[1]) << "\n";
+    }
+  }
+  return num_errors;
+}
+
+TEST(VI_EKF, h_test)
+{
+  Eigen::VectorXd x0;
+  Eigen::VectorXd u0;
+  vi_ekf::VIEKF ekf = init_jacobians_test(x0, u0);
+
+  EXPECT_EQ(htest(&VIEKF::h_acc, ekf, VIEKF::ACC, 0), 0);
+  EXPECT_EQ(htest(&VIEKF::h_pos, ekf, VIEKF::POS, 0), 0);
+  EXPECT_EQ(htest(&VIEKF::h_vel, ekf, VIEKF::VEL, 0), 0);
+  EXPECT_EQ(htest(&VIEKF::h_alt, ekf, VIEKF::ALT, 0), 0);
+  EXPECT_EQ(htest(&VIEKF::h_att, ekf, VIEKF::ATT, 0), 0);
+  for (int i = 0; i < ekf.get_len_features(); i++)
+  {
+    EXPECT_EQ(htest(&VIEKF::h_feat, ekf, VIEKF::FEAT, i), 0);
+    EXPECT_EQ(htest(&VIEKF::h_qzeta, ekf, VIEKF::QZETA, i), 0);
+    EXPECT_EQ(htest(&VIEKF::h_depth, ekf, VIEKF::DEPTH, i), 0);
+    EXPECT_EQ(htest(&VIEKF::h_inv_depth, ekf, VIEKF::INV_DEPTH, i), 0);
+//        EXPECT_EQ(htest(VIEKF::h_pixel_vel, ekf, VIEKF::PIXEL_VEL, i), 0); // Still needs to be implemented
+  }
+}
 
 int print_error(std::string row_id, std::string col_id, Eigen::MatrixXd analytical, Eigen::MatrixXd fd)
 {

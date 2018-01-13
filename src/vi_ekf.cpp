@@ -83,18 +83,18 @@ void VIEKF::set_imu_bias(const Eigen::Vector3d& b_g, const Eigen::Vector3d& b_a)
 }
 
 
-Eigen::VectorXd VIEKF::get_state()
+Eigen::VectorXd VIEKF::get_state() const
 {
   return x_;
 }
 
-Eigen::VectorXd VIEKF::get_covariance()
+Eigen::VectorXd VIEKF::get_covariance() const
 {
   return P_;
 }
 
 
-Eigen::VectorXd VIEKF::get_depths()
+Eigen::VectorXd VIEKF::get_depths() const
 {
   Eigen::VectorXd out(len_features_);
   for (int i = 0; i < len_features_; i++)
@@ -104,7 +104,7 @@ Eigen::VectorXd VIEKF::get_depths()
   return out;
 }
 
-Eigen::MatrixXd VIEKF::get_zetas()
+Eigen::MatrixXd VIEKF::get_zetas() const
 {
   Eigen::MatrixXd out(3, len_features_);
   for (int i = 0; i < len_features_; i++)
@@ -115,7 +115,7 @@ Eigen::MatrixXd VIEKF::get_zetas()
   return out;
 }
 
-Eigen::MatrixXd VIEKF::get_qzetas()
+Eigen::MatrixXd VIEKF::get_qzetas() const
 {
   Eigen::MatrixXd out(4, len_features_);
   for (int i = 0; i < len_features_; i++)
@@ -125,18 +125,18 @@ Eigen::MatrixXd VIEKF::get_qzetas()
   return out;
 }
 
-Eigen::VectorXd VIEKF::get_zeta(const int i)
+Eigen::VectorXd VIEKF::get_zeta(const int i) const
 {
   Eigen::Vector4d qzeta_i = x_.block<4,1>(xZ + 5*i,0);
   return Quaternion(qzeta_i).rot(e_z);
 }
 
-double VIEKF::get_depth(const int i)
+double VIEKF::get_depth(const int i) const
 {
   return 1.0/x_((int)xZ + 4 + 5*i);
 }
 
-Eigen::VectorXd VIEKF::boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& dx)
+Eigen::VectorXd VIEKF::boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& dx) const
 {
   Eigen::VectorXd out;
   out.resizeLike(x);
@@ -338,8 +338,8 @@ Eigen::VectorXd VIEKF::update(Eigen::VectorXd& z, const measurement_type_t meas_
   }
 
   Eigen::VectorXd zhat;
-  Eigen::VectorXd H;
-  CALL_MEMBER_FN(this, measurement_functions_[meas_type])(x_, zhat, H, id);
+  Eigen::MatrixXd H;
+  CALL_PTRMEMBER_FN(this, measurement_functions_[meas_type])(x_, zhat, H, id);
 
   Eigen::VectorXd residual;
   if (meas_type == QZETA)
@@ -363,19 +363,107 @@ Eigen::VectorXd VIEKF::update(Eigen::VectorXd& z, const measurement_type_t meas_
   }
 }
 
-void VIEKF::h_acc(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id)
+void VIEKF::h_acc(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id)
 {
+  (void)id;
+  Eigen::Vector3d vel = x.block<3,1>((int)xVEL,0);
+  Eigen::Vector3d b_a = x.block<3,1>((int)xB_A,0);
+  double mu = x(xMU,0);
 
+  h = I_2x3 * (-mu * vel + b_a);
+  H.setZero(2, dxZ + 3*len_features_);
+  H.block<2, 3>(0, (int)dxVEL) = -mu * I_2x3;
+  H.block<2, 3>(0, (int)dxB_A) = I_2x3;
+  H.block<2, 1>(0, (int)dxMU) = -I_2x3*vel;
 }
-void VIEKF::h_alt(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id){}
-void VIEKF::h_att(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id){}
-void VIEKF::h_pos(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id){}
-void VIEKF::h_vel(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id){}
-void VIEKF::h_qzeta(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id){}
-void VIEKF::h_feat(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id){}
-void VIEKF::h_depth(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id){}
-void VIEKF::h_inv_depth(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id){}
-void VIEKF::h_pixel_vel(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id){}
+
+void VIEKF::h_alt(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id)
+{
+  (void)id;
+  h = -x.block<1,1>(xPOS+2, 0);
+
+  H.setZero(1, dxZ + 3*len_features_);
+  H(0, dxPOS+2) = -1.0;
+}
+
+void VIEKF::h_att(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id)
+{
+  (void)id;
+  h = x.block<4,1>((int)xATT, 0);
+
+  H.setZero(3, dxZ + 3*len_features_);
+  H.block<3,3>(0, dxATT) = I_3x3;
+}
+
+void VIEKF::h_pos(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id)
+{
+  (void)id;
+  h = x.block<3,1>((int)xPOS,0);
+
+  H.setZero(3, dxZ+3*len_features_);
+  H.block<3,3>(0, (int)xPOS) = I_3x3;
+}
+
+void VIEKF::h_vel(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id)
+{
+  (void)id;
+  h = x.block<3,1>((int)xVEL, 0);
+
+  H.setZero(3, dxZ+3*len_features_);
+  H.block<3,3>(0, (int)dxVEL) = I_3x3;
+}
+
+void VIEKF::h_qzeta(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd &H, const int id)
+{
+  int i = global_to_local_feature_id_[id];
+
+  h = x.block<4,1>(xZ+i*5, 0);
+
+  H.setZero(2, dxZ+3*len_features_);
+  H.block<2,2>(0, dxZ + i*3) = I_2x2;
+}
+
+void VIEKF::h_feat(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id)
+{
+  int i = global_to_local_feature_id_[id];
+  Quaternion q_zeta(x.block<4,1>(xZ+i*5, 0));
+  Eigen::Vector3d zeta = q_zeta.rot(e_z);
+  Eigen::Matrix3d sk_zeta = skew(zeta);
+  double ezT_zeta = e_z.transpose() * zeta;
+  Eigen::MatrixXd T_z = T_zeta(q_zeta);
+
+  h = cam_F_ * zeta / ezT_zeta + cam_center_;
+
+  H.setZero(2, dxZ + 3*len_features_);
+  H.block<2,2>(0, dxZ + i*3) = -cam_F_ * ((sk_zeta * T_z)/ezT_zeta - (zeta * e_z.transpose() * sk_zeta * T_z)/(ezT_zeta*ezT_zeta));
+}
+
+void VIEKF::h_depth(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id)
+{
+  int i = global_to_local_feature_id_[id];
+  double rho = x(xZ+i*5+4,0 );
+  h.resize(1,1);
+  h(0,0) = 1.0/rho;
+  H.setZero(1, dxZ+3 * len_features_);
+  H(0, dxZ+3*id+2) = -1.0/(rho*rho);
+}
+
+void VIEKF::h_inv_depth(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id)
+{
+  int i = global_to_local_feature_id_[id];
+  h = x.block<1,1>(xZ+i*5+4,0);
+  H.setZero(1, dxZ+3 * len_features_);
+  H(0, dxZ+3*id+2) = 1.0;
+}
+
+void VIEKF::h_pixel_vel(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id)
+{
+  (void)x;
+  (void)h;
+  (void)H;
+  (void)id;
+  ///TODO:
+}
 
 
 

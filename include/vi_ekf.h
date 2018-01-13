@@ -15,8 +15,9 @@ namespace vi_ekf
 {
 
 class VIEKF;
-typedef void (VIEKF::*measurement_function_ptr)(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);
-#define CALL_MEMBER_FN(objectptr,ptrToMember)  ((objectptr)->*(ptrToMember))
+
+typedef void (VIEKF::*measurement_function_ptr)(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
+#define CALL_PTRMEMBER_FN(objectptr,ptrToMember)  ((objectptr)->*(ptrToMember))
 
 static const Eigen::Vector3d gravity = [] {
   Eigen::Vector3d tmp;
@@ -107,21 +108,21 @@ public:
 
   void set_camera_to_IMU(const Eigen::Vector3d& translation, const quat::Quaternion& rotation);
   void set_camera_intrinsics(const Eigen::Vector2d& center, const Eigen::Vector2d& focal_len);
-  Eigen::VectorXd get_depths();
-  Eigen::MatrixXd get_zetas();
-  Eigen::MatrixXd get_qzetas();
-  Eigen::VectorXd get_zeta(const int i);
-  Eigen::VectorXd get_state();
-  Eigen::VectorXd get_covariance();
-  double get_depth(const int i);
-  inline int get_len_features() { return len_features_; }
+  Eigen::VectorXd get_depths() const;
+  Eigen::MatrixXd get_zetas() const;
+  Eigen::MatrixXd get_qzetas() const;
+  Eigen::VectorXd get_zeta(const int i) const;
+  Eigen::VectorXd get_state() const;
+  Eigen::VectorXd get_covariance() const;
+  double get_depth(const int i) const;
+  inline int get_len_features() const { return len_features_; }
   void set_imu_bias(const Eigen::Vector3d& b_g, const Eigen::Vector3d& b_a);
   void init_feature(const Eigen::Vector2d &l, const int id, const double depth=-1.0);
   void clear_feature(const int id);
   void keep_only_features(const Eigen::VectorXd features);
 
   // State Propagation
-  Eigen::VectorXd boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& dx);
+  Eigen::VectorXd boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& dx) const;
   void propagate(Eigen::VectorXd& x, Eigen::MatrixXd& P, const Eigen::Matrix<double, 6, 1> u, const double t);
   void dynamics(const Eigen::VectorXd& x, const Eigen::MatrixXd& u, Eigen::VectorXd& xdot,
                 Eigen::MatrixXd& dfdx, Eigen::MatrixXd& dfdu);
@@ -129,16 +130,16 @@ public:
   // Measurement Updates
   Eigen::VectorXd update(Eigen::VectorXd& z, const measurement_type_t meas_type,
                          const Eigen::MatrixXd& R, bool passive=false, const int id = -1, const double depth = NAN);
-  void h_acc(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);
-  void h_alt(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);
-  void h_att(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);
-  void h_pos(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);
-  void h_vel(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);
-  void h_qzeta(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);
-  void h_feat(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);
-  void h_depth(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);
-  void h_inv_depth(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);
-  void h_pixel_vel(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::VectorXd& H, const int id);
+  void h_acc(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
+  void h_alt(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
+  void h_att(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
+  void h_pos(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
+  void h_vel(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
+  void h_qzeta(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
+  void h_feat(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
+  void h_depth(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
+  void h_inv_depth(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
+  void h_pixel_vel(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
 
 
 

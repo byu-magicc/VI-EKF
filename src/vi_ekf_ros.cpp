@@ -28,7 +28,7 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
   u(3) = msg->angular_velocity.x;
   u(4) = msg->angular_velocity.y;
   u(5) = msg->angular_velocity.z;
-//  ekf_.step(u, msg->header.stamp.toSec());
+//  ekf_->step(u, msg->header.stamp.toSec());
 }
 
 void VIEKF_ROS::image_callback(const sensor_msgs::ImageConstPtr &msg)
@@ -44,11 +44,12 @@ void VIEKF_ROS::image_callback(const sensor_msgs::ImageConstPtr &msg)
     return;
   }
 
+  // Track Features in Image
   std::vector<Point2f> features;
   std::vector<int> ids;
   klt_tracker_->load_image(cv_ptr->image, msg->header.stamp.toSec(), features, ids);
 
-//  ekf_.keep_only_features(ids);
+//  ekf_->keep_only_features(ids);
 }
 
 

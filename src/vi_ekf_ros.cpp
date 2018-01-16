@@ -6,7 +6,8 @@ VIEKF_ROS::VIEKF_ROS() :
 {
   imu_sub_ = nh_.subscribe("imu/data", 500, &VIEKF_ROS::imu_callback, this);
   odometry_pub_ = nh_.advertise<nav_msgs::Odometry>("odom", 1);
-  image_sub_ = it_.subscribe("cv_camera/image_raw", 1, &VIEKF_ROS::image_callback, this);
+  image_sub_ = it_.subscribe("camera/rgb/image_rect_mono", 1, &VIEKF_ROS::color_image_callback, this);
+  depth_sub_ = it_.subscribe("camera/depth/image_rect", 1, &VIEKF_ROS::depth_image_callback, this);
   output_pub_ = it_.advertise("tracked", 1);
 
   klt_tracker_ = new KLT_Tracker(25, true, 30);
@@ -31,7 +32,7 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
 //  ekf_->step(u, msg->header.stamp.toSec());
 }
 
-void VIEKF_ROS::image_callback(const sensor_msgs::ImageConstPtr &msg)
+void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
 {
   cv_bridge::CvImagePtr cv_ptr;
   try
@@ -52,6 +53,11 @@ void VIEKF_ROS::image_callback(const sensor_msgs::ImageConstPtr &msg)
 //  ekf_->keep_only_features(ids);
 }
 
+void VIEKF_ROS::depth_image_callback(const sensor_msgs::ImageConstPtr &msg)
+{
+
+}
+
 
 
 
@@ -63,3 +69,4 @@ int main(int argc, char* argv[])
   ros::spin();
   return 0;
 }
+

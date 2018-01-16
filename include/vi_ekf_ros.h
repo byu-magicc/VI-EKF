@@ -16,7 +16,8 @@ public:
 
   VIEKF_ROS();
   ~VIEKF_ROS();
-  void image_callback(const sensor_msgs::ImageConstPtr& msg);
+  void color_image_callback(const sensor_msgs::ImageConstPtr &msg);
+  void depth_image_callback(const sensor_msgs::ImageConstPtr& msg);
   void imu_callback(const sensor_msgs::ImuConstPtr& msg);
 
 private:
@@ -26,6 +27,7 @@ private:
   image_transport::ImageTransport it_;
   image_transport::Publisher output_pub_;
   image_transport::Subscriber image_sub_;
+  image_transport::Subscriber depth_sub_;
   ros::Subscriber imu_sub_;
   ros::Publisher odometry_pub_;
 
@@ -35,3 +37,5 @@ private:
 
 
 };
+
+

@@ -31,8 +31,8 @@ private:
   ros::Subscriber imu_sub_;
   ros::Publisher odometry_pub_;
 
-  vi_ekf::VIEKF* ekf_;
-  KLT_Tracker* klt_tracker_;
+  vi_ekf::VIEKF ekf_;
+  KLT_Tracker klt_tracker_;
 
 
 

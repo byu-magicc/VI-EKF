@@ -10,15 +10,16 @@ VIEKF_ROS::VIEKF_ROS() :
   depth_sub_ = it_.subscribe("camera/depth/image_rect", 1, &VIEKF_ROS::depth_image_callback, this);
   output_pub_ = it_.advertise("tracked", 1);
 
-  klt_tracker_ = new KLT_Tracker(25, true, 30);
-  ekf_ = new vi_ekf::VIEKF();
+  std::string log_directory;
+  std::string default_log_folder = ros::package::getPath("vi_ekf") + "/logs/" + to_string(ros::Time::now().sec) + "/";
+  nh_private_.param<std::string>("log_directory", log_directory, default_log_folder );
+
+  ekf_.init(ekf_.get_state(), ros::Time::now().toSec(), log_directory, true);
+  klt_tracker_.init(25, true, 30);
 }
 
 VIEKF_ROS::~VIEKF_ROS()
-{
-  delete klt_tracker_;
-  delete ekf_;
-}
+{}
 
 void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
 {
@@ -29,7 +30,7 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
   u(3) = msg->angular_velocity.x;
   u(4) = msg->angular_velocity.y;
   u(5) = msg->angular_velocity.z;
-//  ekf_->step(u, msg->header.stamp.toSec());
+  ekf_.step(u, msg->header.stamp.toSec());
 }
 
 void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
@@ -48,7 +49,7 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
   // Track Features in Image
   std::vector<Point2f> features;
   std::vector<int> ids;
-  klt_tracker_->load_image(cv_ptr->image, msg->header.stamp.toSec(), features, ids);
+  klt_tracker_.load_image(cv_ptr->image, msg->header.stamp.toSec(), features, ids);
 
 //  ekf_->keep_only_features(ids);
 }

@@ -2,10 +2,10 @@
 
 KLT_Tracker::KLT_Tracker()
 {
-  KLT_Tracker(25, true, 30);
+  init(25, true, 30);
 }
 
-KLT_Tracker::KLT_Tracker(int _num_features, bool _show_image, int _radius)
+void KLT_Tracker::init(int _num_features, bool _show_image, int _radius)
 {
   initialized_ = false;
   num_features_ = _num_features;

@@ -13,10 +13,10 @@ VIEKF::VIEKF()
   x0.setZero(VIEKF::xZ, 1);
   x0(VIEKF::xATT) = 1.0;
   x0(VIEKF::xMU) = 0.2;
-  VIEKF(x0, true);
+  init(x0, 0.0, "~", true);
 }
 
-VIEKF::VIEKF(Eigen::MatrixXd x0, bool multirotor)
+void VIEKF::init(Eigen::MatrixXd x0, double t0, std::string log_directory, bool multirotor)
 {
   x_ = x0;
   Eigen::VectorXd diag((int)dxZ);
@@ -44,7 +44,7 @@ VIEKF::VIEKF(Eigen::MatrixXd x0, bool multirotor)
 
   diag.resize(6,1);
   diag << 0.05, 0.05, 0.05,        // y_acc
-          0.001, 0.001, 0.001;     // y_omega
+      0.001, 0.001, 0.001;     // y_omega
   Qu_ = diag.asDiagonal();
 
   diag.resize(3,1);
@@ -68,15 +68,32 @@ VIEKF::VIEKF(Eigen::MatrixXd x0, bool multirotor)
   prev_t_ = 0.0;
   cam_center_ << 320.0, 240.0;
   cam_F_ << 250.0, 0, 0,
-            0, 250.0, 0;
+      0, 250.0, 0;
 
+  if (log_directory.compare("~") != 0)
+  {
+    init_logger(log_directory);
+  }
+  start_t_ = t0;
+}
+
+
+VIEKF::~VIEKF()
+{
+  if (logger_)
+  {
+    for (std::map<log_type_t, std::ofstream>::iterator it=logger_->begin(); it!=logger_->end(); ++it)
+    {
+      it->second.close();
+    }
+  }
 }
 
 void VIEKF::set_camera_intrinsics(const Eigen::Vector2d &center, const Eigen::Vector2d &focal_len)
 {
   cam_center_ = center;
   cam_F_ << focal_len(0), 0, 0,
-            0, focal_len(1), 0;
+      0, focal_len(1), 0;
 }
 
 void VIEKF::set_camera_to_IMU(const Eigen::Vector3d& translation, const quat::Quaternion& rotation)
@@ -289,6 +306,11 @@ void VIEKF::propagate(Eigen::VectorXd& x, Eigen::MatrixXd& P, const Eigen::Matri
     P_ += Pdot*dt;
   }
   prev_t_ = t;
+
+  if (logger_)
+  {
+    (*logger_)[LOG_PROP] << t << "\t" << x_.transpose() <<  P_.diagonal().transpose() << " \n";
+  }
 }
 void VIEKF::dynamics(const Eigen::VectorXd& x, const Eigen::MatrixXd& u, Eigen::VectorXd& xdot,
                      Eigen::MatrixXd& dfdx, Eigen::MatrixXd& dfdu)
@@ -424,6 +446,12 @@ Eigen::VectorXd VIEKF::update(Eigen::VectorXd& z, const measurement_type_t meas_
     P_ = (I_big_ - K*H)*P_;
     x_ = boxplus(x_, K * residual);
   }
+
+  if (logger_)
+  {
+    (*logger_)[LOG_MEAS] << measurement_names[meas_type] << "\t" << prev_t_ << "\t"
+                         << z.transpose() << zhat.transpose();
+  }
 }
 
 void VIEKF::h_acc(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id)
@@ -526,6 +554,18 @@ void VIEKF::h_pixel_vel(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::Mat
   (void)H;
   (void)id;
   ///TODO:
+}
+
+void VIEKF::init_logger(string root_filename)
+{
+  logger_ = new std::map<log_type_t, std::ofstream>;
+
+  // Make the directory
+  system(("mkdir -p " + root_filename).c_str());
+
+  // A logger for the results of propagation
+  (*logger_)[LOG_PROP].open(root_filename + "prop.txt", std::ofstream::out | std::ofstream::trunc);
+  (*logger_)[LOG_MEAS].open(root_filename + "meas.txt", std::ofstream::out | std::ofstream::trunc);
 }
 
 

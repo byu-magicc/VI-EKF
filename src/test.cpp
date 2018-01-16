@@ -61,20 +61,7 @@ static std::map<std::string, std::vector<int>> indexes = [] {
   }
   return tmp;
 }();
-static std::map<VIEKF::measurement_type_t, std::string> measurement_names = [] {
-  std::map<VIEKF::measurement_type_t, std::string> tmp;
-  tmp[VIEKF::ACC] = "ACC";
-  tmp[VIEKF::ALT] = "ALT";
-  tmp[VIEKF::ATT] = "ATT";
-  tmp[VIEKF::POS] = "POS";
-  tmp[VIEKF::VEL] = "VEL";
-  tmp[VIEKF::QZETA] = "QZETA";
-  tmp[VIEKF::FEAT] = "FEAT";
-  tmp[VIEKF::PIXEL_VEL] = "PIXEL_VEL";
-  tmp[VIEKF::DEPTH] = "DEPTH";
-  tmp[VIEKF::INV_DEPTH] = "INV_DEPTH";
-  return tmp;
-}();
+
 int print_error(std::string row_id, std::string col_id, Eigen::MatrixXd analytical, Eigen::MatrixXd fd);
 int check_all(Eigen::MatrixXd analytical, Eigen::MatrixXd fd, std::string name);
 
@@ -303,7 +290,8 @@ VIEKF init_jacobians_test(Eigen::VectorXd& x0, Eigen::VectorXd& u0)
   x0((int)VIEKF::xMU, 0) += (static_cast <double> (rand()) / (static_cast <double> (RAND_MAX)))*0.05;
 
   // Create VIEKF
-  VIEKF ekf(x0);
+  VIEKF ekf;
+  ekf.init(x0, 0.0, "~", true);
 
   // camera_to_body transform
   Eigen::Vector3d p_b_c = Eigen::Vector3d::Random() * 0.5;

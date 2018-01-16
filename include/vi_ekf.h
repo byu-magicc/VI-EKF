@@ -6,9 +6,11 @@
 #include <set>
 #include <map>
 #include <functional>
+#include <fstream>
 
 #include "quat.h"
 #include "math_helper.h"
+
 
 
 namespace vi_ekf
@@ -69,6 +71,11 @@ public:
   } measurement_type_t;
 
 private:
+  typedef enum {
+    LOG_PROP,
+    LOG_MEAS,
+  } log_type_t;
+
   // State and Covariance Matrices
   Eigen::VectorXd x_;
   Eigen::MatrixXd P_;
@@ -81,6 +88,7 @@ private:
 
   // Internal bookkeeping variables
   double prev_t_;
+  double start_t_;
   int len_features_;
   int next_feature_id_;
   std::map<int, int> global_to_local_feature_id_;
@@ -102,10 +110,16 @@ private:
   quat::Quaternion q_b_c_;
   Eigen::Vector3d p_b_c_;
 
+  // Log Stuff
+  std::map<log_type_t, std::ofstream>* logger_ = nullptr;
+
 public:
 
   VIEKF();
-  VIEKF(Eigen::MatrixXd x0, bool multirotor=true);
+  ~VIEKF();
+  void init(Eigen::MatrixXd x0, double t0, std::string log_directory, bool multirotor=true);
+
+  void init_logger(std::string root_filename);
 
   void set_camera_to_IMU(const Eigen::Vector3d& translation, const quat::Quaternion& rotation);
   void set_camera_intrinsics(const Eigen::Vector2d& center, const Eigen::Vector2d& focal_len);
@@ -142,9 +156,23 @@ public:
   void h_depth(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
   void h_inv_depth(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
   void h_pixel_vel(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
-
-
-
 };
 
+static std::map<VIEKF::measurement_type_t, std::string> measurement_names = [] {
+  std::map<VIEKF::measurement_type_t, std::string> tmp;
+  tmp[VIEKF::ACC] = "ACC";
+  tmp[VIEKF::ALT] = "ALT";
+  tmp[VIEKF::ATT] = "ATT";
+  tmp[VIEKF::POS] = "POS";
+  tmp[VIEKF::VEL] = "VEL";
+  tmp[VIEKF::QZETA] = "QZETA";
+  tmp[VIEKF::FEAT] = "FEAT";
+  tmp[VIEKF::PIXEL_VEL] = "PIXEL_VEL";
+  tmp[VIEKF::DEPTH] = "DEPTH";
+  tmp[VIEKF::INV_DEPTH] = "INV_DEPTH";
+  return tmp;
+}();
+
 }
+
+

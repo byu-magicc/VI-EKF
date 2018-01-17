@@ -9,16 +9,20 @@ import cv2
 
 plot_start = None
 plot_end = None
+figure_directory = None
 
-def init_plots(start, end):
+def init_plots(start, end, fig_directory="plots/"):
     # Set the colormap to 'jet'
     plt.jet()
     plt.set_cmap('jet')
     plt.rcParams['image.cmap'] = 'jet'
     plt.rcParams['figure.max_open_warning'] = 100
-    os.system("rm plots/*.png")
-    os.system("rm plots/lambda/*.png")
-    os.system("rm plots/rho/*.png")
+    if fig_directory:
+        global figure_directory
+        figure_directory = fig_directory
+    os.system("rm " + fig_directory + "*.png")
+    os.system("rm " + fig_directory + "lambda/*.png")
+    os.system("rm " + fig_directory + "rho/*.png")
 
     global plot_start, plot_end
     plot_start = start
@@ -93,7 +97,8 @@ def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None
             plt.title(title)
 
     if save:
-        plt.savefig('plots/'+title+'.png')
+        global figure_directory
+        plt.savefig(figure_directory+title+'.png')
         plt.close()
 
 def plot_cube(q_I_b, zetas, zeta_truth):

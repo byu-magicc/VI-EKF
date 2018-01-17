@@ -125,7 +125,7 @@ public:
 
   VIEKF();
   ~VIEKF();
-  void init(Eigen::MatrixXd x0, double t0, std::string log_directory, bool multirotor=true);
+  void init(Eigen::MatrixXd x0, std::string log_directory, bool multirotor=true);
 
   void init_logger(std::string root_filename);
 
@@ -133,6 +133,14 @@ public:
   {
     std::chrono::microseconds now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
     return (double)now.count()*1e-6;
+  }
+
+  inline bool NaNsInTheHouse()
+  {
+    if( ( (x_ - x_).array() != (x_ - x_).array()).all() || ( (P_ - P_).array() != (P_ - P_).array()).all() )
+      return true;
+    else
+      return false;
   }
 
   void set_camera_to_IMU(const Eigen::Vector3d& translation, const quat::Quaternion& rotation);

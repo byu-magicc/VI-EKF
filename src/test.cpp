@@ -291,7 +291,7 @@ VIEKF init_jacobians_test(Eigen::VectorXd& x0, Eigen::VectorXd& u0)
 
   // Create VIEKF
   VIEKF ekf;
-  ekf.init(x0, 0.0, "~", true);
+  ekf.init(x0, "~", true);
 
   // camera_to_body transform
   Eigen::Vector3d p_b_c = Eigen::Vector3d::Random() * 0.5;

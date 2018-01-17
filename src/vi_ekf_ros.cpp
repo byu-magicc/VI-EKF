@@ -5,7 +5,9 @@ VIEKF_ROS::VIEKF_ROS() :
   it_(nh_)
 {
   imu_sub_ = nh_.subscribe("imu/data", 500, &VIEKF_ROS::imu_callback, this);
+  truth_sub_ = nh_.subscribe("vrpn/Leo/pose", 10, &VIEKF_ROS::truth_callback, this);
   odometry_pub_ = nh_.advertise<nav_msgs::Odometry>("odom", 1);
+
   image_sub_ = it_.subscribe("camera/rgb/image_rect_mono", 10, &VIEKF_ROS::color_image_callback, this);
   depth_sub_ = it_.subscribe("camera/depth/image_rect", 10, &VIEKF_ROS::depth_image_callback, this);
   output_pub_ = it_.advertise("tracked", 1);
@@ -15,9 +17,9 @@ VIEKF_ROS::VIEKF_ROS() :
   nh_private_.param<std::string>("log_directory", log_directory, default_log_folder );
 
   ekf_mtx_.lock();
-  ekf_.init(ekf_.get_state(), ros::Time::now().toSec(), log_directory, true);
+  ekf_.init(ekf_.get_state(), log_directory, true);
   ekf_mtx_.unlock();
-  klt_tracker_.init(25, true, 30);
+  klt_tracker_.init(3, true, 30);
 
   // Initialize the depth image to all NaNs
   depth_image_ = cv::Mat(640, 480, CV_32FC1, cv::Scalar(NAN));
@@ -26,7 +28,9 @@ VIEKF_ROS::VIEKF_ROS() :
   depth_R_ << 0.1;
   feat_R_ << 1.0, 0.0, 0.0, 1.0;
   acc_R_ << 0.5, 0.0, 0.0, 0.5;
-  att_R_ << 0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.1;
+  att_R_ << 0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01;
+  pos_R_ << 0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01;
+  vel_R_ << 0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.1;
 }
 
 VIEKF_ROS::~VIEKF_ROS()
@@ -53,7 +57,7 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
   Vector4d z_att;
   z_att << msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z;
   ekf_mtx_.lock();
-  ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_);
+  ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, true);
   ekf_mtx_.unlock();
 }
 
@@ -81,6 +85,10 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
   for (int i = 0; i < features.size(); i++)
   {
     double depth = depth_image_.at<double>(features[i].x,features[i].y);
+    if (depth > 1e3)
+    {
+      depth = NAN;
+    }
     Vector2d z_feat;
     z_feat << features[i].x, features[i].y;
     Matrix1d z_depth;
@@ -107,6 +115,24 @@ void VIEKF_ROS::depth_image_callback(const sensor_msgs::ImageConstPtr &msg)
   depth_image_ = cv_ptr->image;
 }
 
+void VIEKF_ROS::truth_callback(const geometry_msgs::PoseStampedConstPtr &msg)
+{
+  Vector3d z_pos;
+  z_pos << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z;
+
+  Vector4d z_att;
+  z_att << msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
+
+  ekf_mtx_.lock();
+  ekf_.update(z_pos, vi_ekf::VIEKF::POS, pos_R_, false);
+  ekf_mtx_.unlock();
+
+  ekf_mtx_.lock();
+  ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, false);
+  ekf_mtx_.unlock();
+}
+
+
 int main(int argc, char* argv[])
 {
   ros::init(argc, argv, "viekf_node");
@@ -119,5 +145,7 @@ int main(int argc, char* argv[])
 
   return 0;
 }
+
+
 
 

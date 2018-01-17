@@ -99,6 +99,10 @@ void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, 
     waitKey(1);
   }
 
+  // Save off measurements for output
+  features = new_features_;
+  ids = ids_;
+
   // get ready for next iteration
   prev_image_ = grey_img;
   std::swap(new_features_, prev_features_);

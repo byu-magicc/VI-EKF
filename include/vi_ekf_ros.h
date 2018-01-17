@@ -6,7 +6,9 @@
 #include <ros/package.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/Imu.h>
+#include <sensor_msgs/Range.h>
 #include <nav_msgs/Odometry.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.h>
 #include <opencv/cv.hpp>
@@ -26,6 +28,7 @@ public:
   ~VIEKF_ROS();
   void color_image_callback(const sensor_msgs::ImageConstPtr &msg);
   void depth_image_callback(const sensor_msgs::ImageConstPtr& msg);
+  void truth_callback(const geometry_msgs::PoseStampedConstPtr &msg);
   void imu_callback(const sensor_msgs::ImuConstPtr& msg);
 
 private:
@@ -37,6 +40,7 @@ private:
   image_transport::Subscriber image_sub_;
   image_transport::Subscriber depth_sub_;
   ros::Subscriber imu_sub_;
+  ros::Subscriber truth_sub_;
   ros::Publisher odometry_pub_;
 
   std::mutex ekf_mtx_;
@@ -48,8 +52,12 @@ private:
   Matrix2d feat_R_;
   Matrix2d acc_R_;
   Matrix3d att_R_;
+  Matrix3d pos_R_;
+  Matrix3d vel_R_;
   Matrix1d depth_R_;
 };
+
+
 
 
 

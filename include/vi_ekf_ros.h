@@ -1,6 +1,7 @@
 #include "vi_ekf.h"
 #include "klt_tracker.h"
 
+#include <mutex>
 #include <ros/ros.h>
 #include <ros/package.h>
 #include <sensor_msgs/Image.h>
@@ -8,6 +9,13 @@
 #include <nav_msgs/Odometry.h>
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.h>
+#include <opencv/cv.hpp>
+
+
+using namespace Eigen;
+
+typedef Matrix<double, 1, 1> Matrix1d;
+typedef Matrix<double, 6, 1> Vector6d;
 
 
 class VIEKF_ROS
@@ -31,11 +39,17 @@ private:
   ros::Subscriber imu_sub_;
   ros::Publisher odometry_pub_;
 
+  std::mutex ekf_mtx_;
   vi_ekf::VIEKF ekf_;
   KLT_Tracker klt_tracker_;
 
+  cv::Mat depth_image_;
 
-
+  Matrix2d feat_R_;
+  Matrix2d acc_R_;
+  Matrix3d att_R_;
+  Matrix1d depth_R_;
 };
+
 
 

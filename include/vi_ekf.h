@@ -7,6 +7,7 @@
 #include <map>
 #include <functional>
 #include <fstream>
+#include <chrono>
 
 #include "quat.h"
 #include "math_helper.h"
@@ -19,7 +20,6 @@ namespace vi_ekf
 class VIEKF;
 
 typedef void (VIEKF::*measurement_function_ptr)(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
-#define CALL_PTRMEMBER_FN(objectptr,ptrToMember)  ((objectptr)->*(ptrToMember))
 
 static const Eigen::Vector3d gravity = [] {
   Eigen::Vector3d tmp;
@@ -74,6 +74,7 @@ private:
   typedef enum {
     LOG_PROP,
     LOG_MEAS,
+    LOG_PERF,
   } log_type_t;
 
   // State and Covariance Matrices
@@ -92,7 +93,6 @@ private:
   int len_features_;
   int next_feature_id_;
   std::map<int, int> global_to_local_feature_id_;
-  std::map<measurement_type_t, measurement_function_ptr> measurement_functions_;
 
   // Matrix Workspace
   Eigen::MatrixXd A_;
@@ -113,6 +113,14 @@ private:
   // Log Stuff
   std::map<log_type_t, std::ofstream>* logger_ = nullptr;
 
+  typedef struct
+  {
+    double update_times[10] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    double prop_time = 0.0;
+    int count = 0;
+  } perf_log_t;
+  perf_log_t perf_log_;
+
 public:
 
   VIEKF();
@@ -120,6 +128,12 @@ public:
   void init(Eigen::MatrixXd x0, double t0, std::string log_directory, bool multirotor=true);
 
   void init_logger(std::string root_filename);
+
+  inline double now()
+  {
+    std::chrono::microseconds now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
+    return (double)now.count()*1e-6;
+  }
 
   void set_camera_to_IMU(const Eigen::Vector3d& translation, const quat::Quaternion& rotation);
   void set_camera_intrinsics(const Eigen::Vector2d& center, const Eigen::Vector2d& focal_len);
@@ -144,8 +158,7 @@ public:
                 Eigen::MatrixXd& dfdx, Eigen::MatrixXd& dfdu);
 
   // Measurement Updates
-  Eigen::VectorXd update(Eigen::VectorXd& z, const measurement_type_t meas_type,
-                         const Eigen::MatrixXd& R, bool passive=false, const int id = -1, const double depth = NAN);
+  void update(const Eigen::MatrixXd& z, const measurement_type_t& meas_type, const Eigen::MatrixXd& R, const bool passive=false, const int id=-1, const double depth=NAN);
   void h_acc(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
   void h_alt(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
   void h_att(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
@@ -173,6 +186,20 @@ static std::map<VIEKF::measurement_type_t, std::string> measurement_names = [] {
   return tmp;
 }();
 
-}
+static std::map<VIEKF::measurement_type_t, measurement_function_ptr> measurement_functions = [] {
+  std::map<VIEKF::measurement_type_t, measurement_function_ptr> tmp;
+  tmp[VIEKF::ACC] = &VIEKF::h_acc;
+  tmp[VIEKF::ALT] = &VIEKF::h_alt;
+  tmp[VIEKF::ATT] = &VIEKF::h_att;
+  tmp[VIEKF::POS] = &VIEKF::h_pos;
+  tmp[VIEKF::VEL] = &VIEKF::h_vel;
+  tmp[VIEKF::QZETA] = &VIEKF::h_qzeta;
+  tmp[VIEKF::FEAT] = &VIEKF::h_feat;
+  tmp[VIEKF::PIXEL_VEL] = &VIEKF::h_depth;
+  tmp[VIEKF::DEPTH] = &VIEKF::h_inv_depth;
+  tmp[VIEKF::INV_DEPTH] = &VIEKF::h_pixel_vel;
+  return tmp;
+}();
 
+}
 

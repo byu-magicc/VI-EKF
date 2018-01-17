@@ -295,6 +295,7 @@ void VIEKF::step(const Eigen::Matrix<double, 6, 1>& u, const double t)
 void VIEKF::propagate(Eigen::VectorXd& x, Eigen::MatrixXd& P, const Eigen::Matrix<double, 6, 1> u,
                       const double t)
 {
+  double start = now();
   if (prev_t_ > 0.0001)
   {
     double dt = t - prev_t_;
@@ -306,6 +307,19 @@ void VIEKF::propagate(Eigen::VectorXd& x, Eigen::MatrixXd& P, const Eigen::Matri
     P_ += Pdot*dt;
   }
   prev_t_ = t;
+
+  perf_log_.prop_time += 0.1 * (now() - start - perf_log_.prop_time);
+  perf_log_.count++;
+  if (perf_log_.count > 1000 && logger_)
+  {
+    (*logger_)[LOG_PERF] << t << "\t" << perf_log_.prop_time;
+    for (int i = 0; i < 10; i++)
+    {
+      (*logger_)[LOG_PERF] << "\t" << perf_log_.update_times[i];
+    }
+    (*logger_)[LOG_PERF] << "\n";
+    perf_log_.count = 0;
+  }
 
   if (logger_)
   {
@@ -410,9 +424,10 @@ void VIEKF::dynamics(const Eigen::VectorXd& x, const Eigen::MatrixXd& u, Eigen::
   xdot = dx_;
 }
 
-Eigen::VectorXd VIEKF::update(Eigen::VectorXd& z, const measurement_type_t meas_type,
-                              const Eigen::MatrixXd& R, bool passive, const int id, const double depth)
+void VIEKF::update(const Eigen::MatrixXd& z, const measurement_type_t& meas_type,
+                   const Eigen::MatrixXd& R, const bool passive, const int id, const double depth)
 {
+  double start = now();
   // If this is a new feature, initialize it
   if (meas_type == FEAT && id > 0)
   {
@@ -424,7 +439,7 @@ Eigen::VectorXd VIEKF::update(Eigen::VectorXd& z, const measurement_type_t meas_
 
   Eigen::VectorXd zhat;
   Eigen::MatrixXd H;
-  CALL_PTRMEMBER_FN(this, measurement_functions_[meas_type])(x_, zhat, H, id);
+  (this->*(measurement_functions[meas_type]))(x_, zhat, H, id);
 
   Eigen::VectorXd residual;
   if (meas_type == QZETA)
@@ -442,7 +457,7 @@ Eigen::VectorXd VIEKF::update(Eigen::VectorXd& z, const measurement_type_t meas_
 
   if (!passive)
   {
-    Eigen::MatrixXd K = P_ * H.transpose() * (R + H*P_).inverse() * H.transpose();
+    Eigen::MatrixXd K = P_ * H.transpose() * (R + H*P_ * H.transpose());
     P_ = (I_big_ - K*H)*P_;
     x_ = boxplus(x_, K * residual);
   }
@@ -450,8 +465,10 @@ Eigen::VectorXd VIEKF::update(Eigen::VectorXd& z, const measurement_type_t meas_
   if (logger_)
   {
     (*logger_)[LOG_MEAS] << measurement_names[meas_type] << "\t" << prev_t_ << "\t"
-                         << z.transpose() << zhat.transpose();
+                         << z.transpose() << zhat.transpose() << id << "\n";
   }
+  perf_log_.update_times[(int)meas_type] += 0.1 * (now() - start - perf_log_.update_times[(int)meas_type]);
+  perf_log_.count++;
 }
 
 void VIEKF::h_acc(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id)
@@ -566,6 +583,7 @@ void VIEKF::init_logger(string root_filename)
   // A logger for the results of propagation
   (*logger_)[LOG_PROP].open(root_filename + "prop.txt", std::ofstream::out | std::ofstream::trunc);
   (*logger_)[LOG_MEAS].open(root_filename + "meas.txt", std::ofstream::out | std::ofstream::trunc);
+  (*logger_)[LOG_PERF].open(root_filename + "perf.txt", std::ofstream::out | std::ofstream::trunc);
 }
 
 

@@ -49,6 +49,8 @@ private:
 
   cv::Mat depth_image_;
 
+  bool initialized_ = false;
+
   Matrix2d feat_R_;
   Matrix2d acc_R_;
   Matrix3d att_R_;

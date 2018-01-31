@@ -18,7 +18,7 @@ public:
   void set_radius(int _radius) {feature_nearby_radius_ = _radius;}
   void set_show_image(bool _show_image) {plot_matches_= _show_image;}
 
-  void load_image(Mat img, double t, std::vector<Point2f>& features, std::vector<int>& ids);
+  void load_image(Mat img, double t, std::vector<Point2f>& features, std::vector<int>& ids, OutputArray &output = noArray());
 
 private:
   Mat prev_image_;

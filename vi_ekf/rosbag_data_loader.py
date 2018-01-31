@@ -219,7 +219,7 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
 
 
     else:
-        tracker = klt_tracker.KLT_tracker(15, show_image=show_image)
+        tracker = klt_tracker.KLT_tracker(3, show_image=show_image)
         lambdas, depths, ids, feat_time, q_zetas = [], [], [], [], []
 
         _, image_height, image_width = image_data.shape
@@ -237,7 +237,7 @@ def load_data(filename, start=0, end=np.inf, sim_features=False, show_image=Fals
             frame_qzetas = []
             nearest_depth = np.abs(depth_time - image_time[i]).argmin()
             for x, y in frame_lambdas:
-                d = depth_data[nearest_depth][y, x]
+                d = depth_data[nearest_depth][int(y), int(x)]
                 frame_depths.append(d)
                 zeta = np.array([[x - cam_center[0,0], (y-cam_center[1,0])*(cam_F[1,1]/cam_F[0,0]), cam_F[0,0]]]).T
                 zeta /= norm(zeta)

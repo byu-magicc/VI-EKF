@@ -92,7 +92,7 @@ private:
   double start_t_;
   int len_features_;
   int next_feature_id_;
-  std::map<int, int> global_to_local_feature_id_;
+  std::vector<int> current_feature_ids_;
 
   // Matrix Workspace
   Eigen::MatrixXd A_;
@@ -137,12 +137,18 @@ public:
 
   inline bool NaNsInTheHouse()
   {
-    if( ( (x_ - x_).array() != (x_ - x_).array()).all() || ( (P_ - P_).array() != (P_ - P_).array()).all() )
+    if( ( (x_).array() != (x_).array()).any() || ((P_).array() != (P_).array()).any() )
       return true;
     else
       return false;
   }
 
+  inline int global_to_local_feature_id(int global_id)
+  {
+    return std::distance(current_feature_ids_.begin(), std::find(current_feature_ids_.begin(), current_feature_ids_.end(), global_id));
+  }
+
+  void set_x0(const Eigen::VectorXd &_x0);
   void set_camera_to_IMU(const Eigen::Vector3d& translation, const quat::Quaternion& rotation);
   void set_camera_intrinsics(const Eigen::Vector2d& center, const Eigen::Vector2d& focal_len);
   Eigen::VectorXd get_depths() const;

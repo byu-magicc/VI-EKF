@@ -1,5 +1,11 @@
 #include "vi_ekf.h"
 
+#ifndef DEBUG
+#define NAN_CHECK(x) if (NaNsInTheHouse()) cout << "NaNs In The House at line " << x << "!!!\n"
+#else
+#define NAN_CHECK(x) {}
+#endif
+
 using namespace quat;
 using namespace std;
 using namespace std::placeholders;
@@ -54,7 +60,7 @@ void VIEKF::init(Eigen::MatrixXd x0, std::string log_directory, bool multirotor)
   len_features_ = 0;
   next_feature_id_ = 0;
 
-  global_to_local_feature_id_.clear();
+  current_feature_ids_.clear();
 
   q_b_c_ = quat::Quaternion::Identity();
   p_b_c_ = Eigen::Vector3d::Zero();
@@ -74,6 +80,11 @@ void VIEKF::init(Eigen::MatrixXd x0, std::string log_directory, bool multirotor)
   {
     init_logger(log_directory);
   }
+}
+
+void VIEKF::set_x0(const Eigen::VectorXd& _x0)
+{
+  x_ = _x0;
 }
 
 
@@ -198,7 +209,7 @@ void VIEKF::init_feature(const Eigen::Vector2d& l, const int id, const double de
   zeta.normalize();
   Eigen::Vector4d qzeta = Quaternion::from_two_unit_vectors(e_z, zeta).elements();
 
-  // If depth is NAN (default arguement)
+  // If depth is NAN (default argument)
   double init_depth = depth;
   if (depth != depth)
   {
@@ -209,7 +220,7 @@ void VIEKF::init_feature(const Eigen::Vector2d& l, const int id, const double de
   }
 
   // Increment feature counters
-  global_to_local_feature_id_[id] = next_feature_id_;
+  current_feature_ids_.push_back(next_feature_id_);
   next_feature_id_ += 1;
   len_features_ += 1;
 
@@ -217,7 +228,7 @@ void VIEKF::init_feature(const Eigen::Vector2d& l, const int id, const double de
   int x_max = xZ + 5*len_features_;
   x_.conservativeResize(x_max, 1);
   x_.block<4,1>(x_max - 5, 0) = qzeta;
-  x_(x_max - 1 ) = 1.0/depth;
+  x_(x_max - 1 ) = 1.0/init_depth;
 
   // Add 3 more states to covariance and process noise matrices and pad zeros to the new rows and columns
   int dx_max = dxZ+3*len_features_;
@@ -237,20 +248,16 @@ void VIEKF::init_feature(const Eigen::Vector2d& l, const int id, const double de
   for (int i = 0; i < dx_max; i++) I_big_(i,i) = 1.0;
   dx_.resize(dx_max, 1);
 
-#ifndef NDEBUG
-  if (NaNsInTheHouse())
-      cout << "NaNs In The House!!!\n";
-#endif
+  NAN_CHECK(__LINE__);
 }
 
 
 void VIEKF::clear_feature(const int id)
 {
-  int local_feature_id = global_to_local_feature_id_[id];
+  int local_feature_id = global_to_local_feature_id(id);
   int xZETA_i = xZ + 5 * local_feature_id;
   int dxZETA_i = dxZ + 3 * local_feature_id;
-  auto it = global_to_local_feature_id_.find(id);
-  global_to_local_feature_id_.erase(it);
+  current_feature_ids_.erase(current_feature_ids_.begin() + local_feature_id);
   len_features_ -= 1;
   int dx_max = dxZ+3*len_features_;
 
@@ -258,12 +265,11 @@ void VIEKF::clear_feature(const int id)
   if (local_feature_id < len_features_)
   {
     x_.block(xZETA_i, 0, (x_.rows() - (xZETA_i+5)), 1) = x_.bottomRows(x_.rows() - (xZETA_i + 5));
-    x_.conservativeResize(x_.rows() - 5);
-
     P_.block(dxZETA_i, 0, (P_.rows() - (dxZETA_i+3)), P_.cols()) = P_.bottomRows(P_.rows() - (dxZETA_i+3));
     P_.block(0, dxZETA_i, P_.rows(), (P_.cols() - (dxZETA_i+3))) = P_.rightCols(P_.cols() - (dxZETA_i+3));
-    P_.conservativeResize(dx_max, dx_max);
   }
+  x_.conservativeResize(x_.rows() - 5);
+  P_.conservativeResize(dx_max, dx_max);
 
   // Adjust matrix workspace to fit these new states
   A_.resize(dx_max, dx_max);
@@ -271,21 +277,19 @@ void VIEKF::clear_feature(const int id)
   I_big_.conservativeResize(dx_max, dx_max);
   dx_.resize(dx_max, 1);
 
-#ifndef NDEBUG
-  if (NaNsInTheHouse())
-      cout << "NaNs In The House!!!\n";
-#endif
+  NAN_CHECK(__LINE__);
 }
 
 
 void VIEKF::keep_only_features(const vector<int> features)
 {
-  for (std::map<int, int>::iterator it=global_to_local_feature_id_.begin(); it!=global_to_local_feature_id_.end(); ++it)
+  std::vector<int> features_to_remove;
+  for (int local_id = 0; local_id < current_feature_ids_.size(); local_id++)
   {
-     bool keep_feature = false;
+    bool keep_feature = false;
     for (int i = 0; i < features.size(); i++)
     {
-      if (it->first == features[i])
+      if (current_feature_ids_[local_id] == features[i])
       {
         keep_feature = true;
         break;
@@ -293,10 +297,15 @@ void VIEKF::keep_only_features(const vector<int> features)
     }
     if (!keep_feature)
     {
-      clear_feature(it->first);
+      features_to_remove.push_back(current_feature_ids_[local_id]);
     }
   }
- }
+  for (int i = 0; i < features_to_remove.size(); i++)
+  {
+    clear_feature(features_to_remove[i]);
+  }
+  NAN_CHECK(__LINE__);
+}
 
 
 void VIEKF::step(const Eigen::Matrix<double, 6, 1>& u, const double t)
@@ -320,15 +329,12 @@ void VIEKF::propagate(Eigen::VectorXd& x, Eigen::MatrixXd& P, const Eigen::Matri
     Eigen::MatrixXd Pdot = A_ * P_ + P_ * A_.transpose() + G_ * Qu_ * G_.transpose() + Qx_;
 
     x_ = boxplus(x, dx_*dt);
-    P_ += Pdot*dt;
+//    P_ += Pdot*dt;
   }
   prev_t_ = t;
 
-  // Check for NaNs (debugging only)
-#ifndef NDEBUG
-  if (NaNsInTheHouse())
-    cout << "NaNs In The House!!!\n";
-#endif
+  NAN_CHECK(__LINE__);
+
 
   perf_log_.prop_time += 0.1 * (now() - start - perf_log_.prop_time);
   perf_log_.count++;
@@ -346,7 +352,7 @@ void VIEKF::propagate(Eigen::VectorXd& x, Eigen::MatrixXd& P, const Eigen::Matri
 
   if (logger_)
   {
-     (*logger_)[LOG_PROP] << t-start_t_ << " " << x_.transpose() << " " <<  P_.diagonal().transpose() << " \n";
+    (*logger_)[LOG_PROP] << t-start_t_ << " " << x_.transpose() << " " <<  P_.diagonal().transpose() << " \n";
   }
 }
 void VIEKF::dynamics(const Eigen::VectorXd& x, const Eigen::MatrixXd& u, Eigen::VectorXd& xdot,
@@ -451,19 +457,24 @@ void VIEKF::update(const Eigen::MatrixXd& z, const measurement_type_t& meas_type
                    const Eigen::MatrixXd& R, const bool passive, const int id, const double depth)
 {
   double start = now();
+
   // If this is a new feature, initialize it
   if (meas_type == FEAT && id >= 0)
   {
-    if (global_to_local_feature_id_.find(id) == global_to_local_feature_id_.end())
+    if (std::find(current_feature_ids_.begin(), current_feature_ids_.end(), id) == current_feature_ids_.end())
     {
       init_feature(z, id, depth);
-      return; // Don't do a measurement update on this time
+      return; // Don't do a measurement update this time
     }
   }
+
+  NAN_CHECK(__LINE__);
 
   Eigen::VectorXd zhat;
   Eigen::MatrixXd H;
   (this->*(measurement_functions[meas_type]))(x_, zhat, H, id);
+
+  NAN_CHECK(__LINE__);
 
   Eigen::VectorXd residual;
   if (meas_type == QZETA)
@@ -479,29 +490,18 @@ void VIEKF::update(const Eigen::MatrixXd& z, const measurement_type_t& meas_type
     residual = z - zhat;
   }
 
-#ifndef NDEBUG
-  if (NaNsInTheHouse())
-      cout << "NaNs In The House!!!\n";
-#endif
+  NAN_CHECK(__LINE__);
 
   Eigen::MatrixXd K;
   if (!passive)
   {
     K = P_ * H.transpose() * (R + H*P_ * H.transpose()).inverse();
-#ifndef NDEBUG
-    if ( ((K - K).array() != (K - K).array()).all() )
-        cout << "Problem with Kalman Gain\n";
-#endif
+    NAN_CHECK(__LINE__);
     P_ = (I_big_ - K*H)*P_;
     x_ = boxplus(x_, K * residual);
   }
 
-#ifndef NDEBUG
-  if (NaNsInTheHouse())
-      cout << "NaNs In The House!!!\n";
-#endif
-
-
+  NAN_CHECK(__LINE__);
 
   if (logger_)
   {
@@ -564,7 +564,7 @@ void VIEKF::h_vel(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd&
 
 void VIEKF::h_qzeta(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd &H, const int id)
 {
-  int i = global_to_local_feature_id_[id];
+  int i = global_to_local_feature_id(id);
 
   h = x.block<4,1>(xZ+i*5, 0);
 
@@ -574,7 +574,7 @@ void VIEKF::h_qzeta(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixX
 
 void VIEKF::h_feat(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id)
 {
-  int i = global_to_local_feature_id_[id];
+  int i = global_to_local_feature_id(id);
   Quaternion q_zeta(x.block<4,1>(xZ+i*5, 0));
   Eigen::Vector3d zeta = q_zeta.rot(e_z);
   Eigen::Matrix3d sk_zeta = skew(zeta);
@@ -589,20 +589,20 @@ void VIEKF::h_feat(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd
 
 void VIEKF::h_depth(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id)
 {
-  int i = global_to_local_feature_id_[id];
+  int i = global_to_local_feature_id(id);
   double rho = x(xZ+i*5+4,0 );
   h.resize(1,1);
   h(0,0) = 1.0/rho;
   H.setZero(1, dxZ+3 * len_features_);
-  H(0, dxZ+3*id+2) = -1.0/(rho*rho);
+  H(0, dxZ+3*i+2) = -1.0/(rho*rho);
 }
 
 void VIEKF::h_inv_depth(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id)
 {
-  int i = global_to_local_feature_id_[id];
+  int i = global_to_local_feature_id(id);
   h = x.block<1,1>(xZ+i*5+4,0);
   H.setZero(1, dxZ+3 * len_features_);
-  H(0, dxZ+3*id+2) = 1.0;
+  H(0, dxZ+3*i+2) = 1.0;
 }
 
 void VIEKF::h_pixel_vel(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id)

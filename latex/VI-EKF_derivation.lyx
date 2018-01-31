@@ -1443,7 +1443,7 @@ We will derive the feature dynamics relative to the camera.
 \begin_inset Formula 
 \[
 \begin{aligned}p_{iI}^{I} & =\end{aligned}
-p_{c\left(t\right)I}^{I}+R\left(q_{c\left(t\right)}^{I}\right)\boldsymbol{\zeta}_{i}^{c\left(t\right)}d\left(\rho_{i}\right)
+p_{c\left(t\right)I}^{I}+R\left(q_{c\left(t\right)}^{I}\right)\boldsymbol{\zeta}_{ic\left(t\right)}^{c\left(t\right)}d\left(\rho_{i}\right)
 \]
 
 \end_inset
@@ -2243,7 +2243,7 @@ status open
 \begin_layout Plain Layout
 \align center
 \begin_inset Graphics
-	filename /home/superjax/Code/VI-EKF/latex/figures/pixel_geometry.eps
+	filename figures/pixel_geometry.eps
 	width 80text%
 
 \end_inset

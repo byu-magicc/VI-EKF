@@ -26,10 +26,17 @@ void KLT_Tracker::init(int _num_features, bool _show_image, int _radius)
 }
 
 
-void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, std::vector<int> &ids)
+void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, std::vector<int> &ids, OutputArray& output)
 {
   Mat grey_img;
-  cvtColor(img, grey_img, COLOR_BGR2GRAY);
+  if (img.channels() > 1)
+  {
+    cvtColor(img, grey_img, COLOR_BGR2GRAY);
+  }
+  else
+  {
+    grey_img = img;
+  }
   if (!initialized_)
   {
     double quality_level = 0.3;
@@ -51,9 +58,10 @@ void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, 
     calcOpticalFlowPyrLK(prev_image_, grey_img, prev_features_, new_features_, status, err);
 
     // Keep only good points
-    for (int i = prev_features_.size()-1; i > 0; i--)
+    for (int i = prev_features_.size()-1; i >= 0; i--)
     {
-      if (status[i] == 0)
+      if (status[i] == 0 || new_features_[i].x <= 1.0 || new_features_[i].y <= 1.0 ||
+          new_features_[i].x >= img.cols-1.0 || new_features_[i].y >= img.rows-1.0 )
       {
         new_features_.erase(new_features_.begin() + i);
         ids_.erase(ids_.begin() + i);
@@ -93,15 +101,23 @@ void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, 
     {
       Scalar color = colors_[ids_[i] % num_features_];
       circle(color_img, new_features_[i], 5, color, -1);
-      putText(color_img, to_string(ids_[i]), new_features_[i], FONT_HERSHEY_COMPLEX, 0.5, Scalar(0, 0, 0));
+      putText(color_img, to_string(ids_[i]), new_features_[i], FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 0));
     }
-    imshow("Tracker Output", color_img);
-    waitKey(1);
+//    imshow("Tracker Output", color_img);
+    color_img.copyTo(output);
+//    waitKey(1);
   }
 
   // Save off measurements for output
   features = new_features_;
   ids = ids_;
+
+  // Make sure to saturate the measurement (sometimes the klt tracker returns measurements that are out-of-bounds)
+  for (int i = 0; i < features.size(); i++)
+  {
+    features[i].x = features[i].x > img.cols ? img.cols : features[i].x < 0 ? 0 : features[i].x;
+    features[i].y = features[i].y > img.rows ? img.rows : features[i].y < 0 ? 0 : features[i].y;
+  }
 
   // get ready for next iteration
   prev_image_ = grey_img;

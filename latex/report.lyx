@@ -3,6 +3,7 @@
 \begin_document
 \begin_header
 \textclass tufte-handout
+\options draft
 \use_default_options true
 \maintain_unincluded_children false
 \language english
@@ -22,10 +23,10 @@
 \graphics default
 \default_output_format default
 \output_sync 0
-\bibtex_command default
+\bibtex_command bibtex
 \index_command default
 \paperfontsize default
-\spacing single
+\spacing double
 \use_hyperref false
 \papersize default
 \use_geometry true
@@ -40,7 +41,7 @@
 \use_package stmaryrd 1
 \use_package undertilde 1
 \cite_engine natbib
-\cite_engine_type authoryear
+\cite_engine_type numerical
 \biblio_style plain
 \use_bibtopic false
 \use_indices false
@@ -78,7 +79,7 @@ Using Manifold Representations
 \end_layout
 
 \begin_layout Author
-James Jackson and Robert Pottorff
+James Jackson
 \end_layout
 
 \begin_layout Standard
@@ -143,13 +144,21 @@ Monocular Visual-Inertial Navigation is an important topic for autonomous
 \end_layout
 
 \begin_layout Standard
-In many real-life robotics problems, the attitude of the robot cannot be
- represented simply.
- Many modern approaches use a quaternion to represent the attitude of the
+In many real-life robotics problems, attitude cannot be represented simply.
+ Many approaches use a unit quaternion to represent the attitude of the
  robot.
  Quaternions provide computational efficiency and do not suffer from singulariti
 es, but they are over-parameterized and do not form a vector space.
+ Becuase quaternions do not form a vector space, they cannot be used natively
+ in a kalman filtering context.
  Many approaches, such as the Multiplicative Extended Kalman Fiter (MEKF)
+ 
+\begin_inset CommandInset citation
+LatexCommand citet
+key "Filtering2017,Koch2017,Lefferts2015,Markley2003,Martin2010"
+
+\end_inset
+
  utilize an 
 \begin_inset Quotes eld
 \end_inset
@@ -159,9 +168,18 @@ error state
 \end_inset
 
  parameterization, and some manipulation is performed to guarantee that
- covariance estimates and measurement updates are applied to an error state,
- which can be considered as a true vector, about some reference trajectory,
- which is represented with a full quaternion.
+ covariance estimates and measurement updates are applied to an error state.
+ This error state is typically represented as a Gibbs vector 
+\begin_inset CommandInset citation
+LatexCommand citet
+key "Gibbs1881"
+
+\end_inset
+
+ and is defined as a pertubation about some reference quaternion attitude.
+ This formulation allows for the proper construction of covariance estimates
+ about the error vector, rather than the quaternion itself, where covariance
+ is poorly defined.
 \end_layout
 
 \begin_layout Standard
@@ -172,7 +190,7 @@ key "Hertzberg2013"
 \end_inset
 
  illustrates a new method to deal with the non-vector elements of a estimator
- state by introducing the 
+ state by introducing 
 \begin_inset Formula $\boxplus$
 \end_inset
 
@@ -180,20 +198,117 @@ key "Hertzberg2013"
 \begin_inset Formula $\boxminus$
 \end_inset
 
- operators, which abstract the mathematics of operating on group elements
+ operators.
+ These operators abstract the mathematics of operating on group elements
  to make it possible to homongenize the use of vector and non-vector elements
- in an estimator state.
- We will use this method to simplify the derivation and implementation of
- our filter.
- We also will use quaternions to represent estimated bearings to observed
- features in the camera frame as shown by 
+ in an estimator state without the use of an explicitly defined error state.
+ The underlying mathematics between these two approaches is essentially
+ the same, but the new operators significantly simplify the syntax required
+ to talk about group elements of estimator states.
+\end_layout
+
+\begin_layout Standard
+Similarly to attitude state representation, the representation of landmark
+ locations is unfriendly to a vanilla Extended Kalman Filtering approach.
+ In modern methods, the representation of these states can be grouped into
+ two main groups.
+ The first group estimates landmark locations in an inertial reference frame
+ 
+\begin_inset CommandInset citation
+LatexCommand citet
+key "Montemerlo2002,Forster2014,Forster2015,Zhang2014a,Lin2018,Klein2007"
+
+\end_inset
+
+.
+ In this representation, the position of each landmark can be parameterized
+ as a vector, and is also often assumed to be static.
+ This means that these states require no calculation of dynamics between
+ measurements and the standard EKF-framework is well posed to handle the
+ parameterization itself.
+ However, as shown in 
+\begin_inset CommandInset citation
+LatexCommand citet
+key "Bailey2006c"
+
+\end_inset
+
+ and 
+\begin_inset CommandInset citation
+LatexCommand citet
+key "Wheeler2017b"
+
+\end_inset
+
+, estimating global landmark positions introduces observability and consistency
+ problems.
+ The global position and heading states are unobservable given relative
+ sensors such as cameras, and as a result, global estimation methods become
+ overconfident and suboptimal.
+ Some approaches have been proposed to rectify this issue, such as stochastic
+ cloning 
+\begin_inset CommandInset citation
+LatexCommand citet
+key "Roumeliotis2002a"
+
+\end_inset
+
+ and relative navigation 
+\begin_inset CommandInset citation
+LatexCommand citet
+key "Koch2017,Wheeler2017b"
+
+\end_inset
+
+.
+ While these methods have been shown to improve the consistency of filter-based
+ estimation approaches, Stochastic cloning has been shown to introduce large
+ jumps in state estimates in the presence of uncertainty 
+\begin_inset CommandInset citation
+LatexCommand citet
+key "Wheeler2017b"
+
+\end_inset
+
+ and relative navigation has not been shown in a tightly-coupled filter-based
+ framwork where landmarks are considered independently, and not as a complete
+ image frame.
+\end_layout
+
+\begin_layout Standard
+Alternatively to estimating landmark position with respect to an inertial
+ frame, some methods estimates landmark locations in a 
+\begin_inset Quotes eld
+\end_inset
+
+robocentric
+\begin_inset Quotes erd
+\end_inset
+
+ body or camera-fixed frame 
+\begin_inset CommandInset citation
+LatexCommand citet
+key "Bloesch2015a,Ferrin2016"
+
+\end_inset
+
+.
+ These methods, by construction, maintain observability of the landmark
+ locations because the bearing to each landmark is directly observed, however
+ this parameterization requires the propagation of these feature locations
+ between camera frames, where the global representation does not.
+ In addition, the parameterization of this representation is ill-posed
+\end_layout
+
+\begin_layout Standard
 \begin_inset CommandInset citation
 LatexCommand cite
 key "Bloesch2015a"
 
 \end_inset
 
-, accompanied by our own explanation for how this parameterization works.
+.
+ accompanied by our own explanation for how this parameterization works.
  We have also included the relevant jacobian definitions and measurement
  models for feature measurements, depth measurements to features (i.e.
  from an RGBD camera), altimeter, accelerometer, position, velocity, attitude,
@@ -279,7 +394,7 @@ v\times w=\left\lfloor v\right\rfloor w
 \end_layout
 
 \begin_layout Standard
-All quaternions used in this report use a Hamiltonian (right-handed) convention
+All quaternions used in this report use a Hamiltonian (right-handed) convention,
  are assumed to be unit norm, and will be expressed as column vectors as
  shown below.
  
@@ -292,8 +407,8 @@ q=q_{w}+q_{x}i+q_{y}j+q_{z}k=\begin{bmatrix}q_{w}\\
 
 \end_inset
 
-The use of Hamiltonian quaternions result in multiplication being defined
- as
+The use of Hamiltonian quaternions result in quaternion multiplication being
+ defined as
 \end_layout
 
 \begin_layout Standard
@@ -320,7 +435,7 @@ The
 \begin_inset Formula $R\left(q\right)$
 \end_inset
 
- based on this quaternion is defined as follows
+ based on this quaternion is defined as follows:
 \end_layout
 
 \begin_layout Standard

@@ -25,7 +25,7 @@ class KLT_tracker:
 
         self.color = np.random.randint(0, 255, (self.num_features, 3))
         self.next_feature_id = 0
-        self.video = cv2.VideoWriter('plots/tracker_output.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 30, (640, 480))
+        self.video = cv2.VideoWriter('plots/tracker_output.avi', cv2.cv.CV_FOURCC('M', 'J', 'P', 'G'), 30, (640, 480))
 
     def load_image(self, img, t=None):
         # Load Image

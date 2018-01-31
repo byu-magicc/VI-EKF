@@ -7,11 +7,12 @@ from math_helper import e_z
 import numpy as np
 
 start = 13.0
-end = 26.0
+end = 30.0
 # start = 15.0
 # end = 16.0
 # data = ROSbagData(filename='data/truth_imu_flight.bag', start=30.0, end=68.0, sim_features=True, load_new=True)
-data = ROSbagData(filename='data/xtion_collect.bag', start=start, end=end, sim_features=False, load_new=True, show_video=True)
+# data = ROSbagData(filename='data/xtion_collect.bag', start=start, end=end, sim_features=False, load_new=True, show_video=True)
+data = ROSbagData(filename='~/truth_laser_xtion_imu.bag', start=start, end=end, sim_features=False, load_new=True, show_video=True)
 # data = ROSbagData(filename='data/hand_carried/roll.bag', start=start, end=end, sim_features=True, load_new=True)
 data.__test__()
 

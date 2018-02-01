@@ -17,7 +17,6 @@ private:
   Eigen::Vector4d arr_;
 
 public:
-
   Quaternion() {}
   Quaternion(Eigen::Vector4d arr) : arr_(arr) {}
 
@@ -90,11 +89,11 @@ public:
 
   static Eigen::Matrix3d skew(const Eigen::Vector3d v)
   {
-    Eigen::Matrix3d cum_sum;
-    cum_sum << 0.0, -v(2), v(1),
-        v(2), 0.0, -v(0),
-        -v(1), v(0), 0.0;
-    return cum_sum;
+    static Eigen::Matrix3d skew_mat;
+    skew_mat << 0.0, -v(2), v(1),
+                v(2), 0.0, -v(0),
+                -v(1), v(0), 0.0;
+    return skew_mat;
   }
 
   static Quaternion exp(const Eigen::Vector3d v)
@@ -272,23 +271,46 @@ public:
     arr_ /= arr_.norm();
   }
 
-  Eigen::MatrixXd rot(Eigen::MatrixXd v)
+  Eigen::Matrix<double, 3, Eigen::Dynamic> multirot(Eigen::Matrix<double, 3, Eigen::Dynamic> v)
   {
-    Eigen::Matrix3d skew_xyz = skew(arr_.block<3,1>(1,0));
-    Eigen::MatrixXd t = 2.0*skew_xyz * v;
-    return v + w() * t + skew_xyz * t;
+    Eigen::Matrix<double, 3, Eigen::Dynamic> out(3, v.cols());
+    Eigen::Vector3d t;
+    for (int i = 0; i < v.cols(); i++)
+    {
+       t = 2.0 * arr_.block<3,1>(1,0).cross(v.block<3,1>(0,i));
+       out.block<3,1>(0,i) = v.block<3,1>(0,i) + w() * t + arr_.block<3,1>(1,0).cross(t);
+    }
+    return out;
+  }
+
+  Eigen::Matrix<double, 3, Eigen::Dynamic> multiinvrot(Eigen::Matrix<double, 3, Eigen::Dynamic> v)
+  {
+    Eigen::Matrix<double, 3, Eigen::Dynamic> out(3, v.cols());
+    Eigen::Vector3d t;
+    for (int i = 0; i < v.cols(); i++)
+    {
+       t = 2.0 * arr_.block<3,1>(1,0).cross(v.block<3,1>(0,i));
+       out.block<3,1>(0,i) = v.block<3,1>(0,i) - w() * t + arr_.block<3,1>(1,0).cross(t);
+    }
+    return out;
+  }
+
+
+  Eigen::Vector3d rot(Eigen::Vector3d v)
+  {
+    Eigen::Vector3d t = 2.0 * arr_.block<3,1>(1,0).cross(v);
+    return v + w() * t + arr_.block<3,1>(1,0).cross(t);
   }
 
   Eigen::Vector3d invrot(Eigen::Vector3d v)
   {
-    Eigen::Matrix3d skew_xyz = skew(arr_.block<3,1>(1,0));
-    Eigen::Vector3d t = 2.0*skew_xyz * v;
-    return v - w() * t + skew_xyz * t;
+    Eigen::Vector3d t = 2.0 * arr_.block<3,1>(1,0).cross(v);
+    return v - w() * t + arr_.block<3,1>(1,0).cross(t);
   }
 
   Quaternion& inv()
   {
-    arr_.block<3,1>(1,0) *= -1.0;
+    arr_(0,0) *= -1.0;
   }
 
   Quaternion inverse() const

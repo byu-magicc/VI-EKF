@@ -66,7 +66,7 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
 
   Vector2d z_acc = u.block<2,1>(0, 0);
   ekf_mtx_.lock();
-  //  ekf_.update(z_acc, vi_ekf::VIEKF::ACC, acc_R_, true);
+  ekf_.update(z_acc, vi_ekf::VIEKF::ACC, acc_R_, true);
   ekf_mtx_.unlock();
 
   Vector4d z_att;
@@ -146,9 +146,9 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
     Matrix1d z_depth;
     z_depth << depth;
     ekf_mtx_.lock();
-    //    ekf_.update(z_feat, vi_ekf::VIEKF::FEAT, feat_R_, true, ids[i], depth);
-    //    ekf_.update(z_depth, vi_ekf::VIEKF::DEPTH, depth_R_, depth != depth, ids[i]);
-    //    ekf_.update(z_depth, vi_ekf::VIEKF::DEPTH, depth_R_, true, ids[i]);
+        ekf_.update(z_feat, vi_ekf::VIEKF::FEAT, feat_R_, true, ids[i], depth);
+//        ekf_.update(z_depth, vi_ekf::VIEKF::DEPTH, depth_R_, depth != depth, ids[i]);
+        ekf_.update(z_depth, vi_ekf::VIEKF::DEPTH, depth_R_, true, ids[i]);
     ekf_mtx_.unlock();
 
     // Draw depth square on tracked features
@@ -201,11 +201,11 @@ void VIEKF_ROS::truth_callback(const geometry_msgs::PoseStampedConstPtr &msg)
   z_att << msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
 
   ekf_mtx_.lock();
-  //  ekf_.update(z_pos, vi_ekf::VIEKF::POS, pos_R_, true);
+    ekf_.update(z_pos, vi_ekf::VIEKF::POS, pos_R_, true);
   ekf_mtx_.unlock();
 
   ekf_mtx_.lock();
-  //  ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, true);
+    ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, true);
   ekf_mtx_.unlock();
 }
 

@@ -137,6 +137,24 @@ To derive an UKF which uses principles from both relative navigation and
 
 \end_layout
 
+\begin_layout Standard
+\begin_inset FormulaMacro
+\newcommand{\norm}[1]{\left\Vert #1\right\Vert }
+{\left\Vert #1\right\Vert }
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset FormulaMacro
+\newcommand{\skew}[1]{\left\lfloor #1\right\rfloor }
+{\left\lfloor #1\right\rfloor }
+\end_inset
+
+
+\end_layout
+
 \begin_layout Section
 Notation
 \end_layout
@@ -2751,6 +2769,200 @@ h_{p}\left(x,u,\eta_{v}\right)=p_{bI}^{I}+\eta_{v}
 \[
 \frac{\partial h_{p}}{\partial p_{bI}^{I}}=I\in\mathbb{R}^{3\times3}
 \]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Relative State Update
+\end_layout
+
+\begin_layout Standard
+We can apply a relative keyframe state update per Koch et al.
+ (2017)
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+p_{bI}^{I+}=\hat{k}\hat{k}^{\top}p_{bI}^{I-}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{eqnarray*}
+\theta & = & \hat{k}^{\top}\left(R\left(q_{I}^{b-}\right)^{\top}\hat{k}\right)\\
+v & = & \left\lfloor \hat{k}\right\rfloor \left(R\left(q^{-}\right)^{\top}\hat{k}\right)
+\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+q_{I}^{b+}=\exp\left(\theta v\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Jacobians for the state update come from the following section
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial}{\partial p_{bI}^{I-}}p_{bI}^{I+}=\hat{k}\hat{k}^{\top}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{eqnarray*}
+\theta & = & \hat{k}^{\top}\left(R\left(q_{I}^{b-}\right)^{\top}\hat{k}\right)\\
+v & = & \left\lfloor \hat{k}\right\rfloor \left(R\left(q_{I}^{b-}\right)^{\top}\hat{k}\right)
+\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{eqnarray*}
+\frac{\partial q_{I}^{b+}}{\partial q_{I}^{b-}} & = & \left(vv^{\top}+\theta\left(\left\lfloor u\right\rfloor R\left(q^{-}\right)\left\lfloor u\right\rfloor ^{\top}\right)\right)\left(I+\frac{\left(1-\cos\left(\left\Vert \theta v\right\Vert \right)\left\lfloor \theta v\right\rfloor \right)}{\left\Vert \theta v\right\Vert ^{2}}+\frac{\left(\left\Vert \theta v\right\Vert -\sin\left(\left\Vert \theta v\right\Vert \right)\left\lfloor \theta v\right\rfloor \left\lfloor \theta v\right\rfloor \right)}{\left\Vert \theta v\right\Vert ^{3}}\right)
+\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section*
+Removing Rotation about an axis from a Quaternion
+\end_layout
+
+\begin_layout Standard
+This happens when we want to know what the current attitude 
+\begin_inset Formula $q_{I}^{b}$
+\end_inset
+
+ is without a component in yaw.
+ I believe that we can just take the axis, say 
+\begin_inset Formula $u$
+\end_inset
+
+ whose component we want to remove and rotate it by the full quaternion,
+ resulting in 
+\begin_inset Formula $v$
+\end_inset
+
+ Then we can find the shortest rotation between 
+\begin_inset Formula $u$
+\end_inset
+
+ and 
+\begin_inset Formula $v$
+\end_inset
+
+, which should have no component of rotation about 
+\begin_inset Formula $u$
+\end_inset
+
+ (because that would be by definition no longer the shortest rotation).
+\end_layout
+
+\begin_layout Standard
+Let's define how to find the shortest axis-angle rotation between two unit
+ vectors.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{eqnarray*}
+\theta & = & u^{\top}\left(R\left(q^{-}\right)^{\top}u\right)\\
+v & = & \left\lfloor u\right\rfloor \left(R\left(q^{-}\right)^{\top}u\right)
+\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+q^{+}=\exp\left(\theta v\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Next, we will need the Jacobian of this mapping, however we first need the
+ following expression (which comes from Bloesch)
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{eqnarray*}
+\frac{\partial}{\partial\delta}\exp\left(\delta\right) & = & I+\frac{\left(1-\cos\left(\left\Vert \delta\right\Vert \right)\left\lfloor \delta\right\rfloor \right)}{\left\Vert \delta\right\Vert ^{2}}+\frac{\left(\left\Vert \delta\right\Vert -\sin\left(\left\Vert \delta\right\Vert \right)\left\lfloor \delta\right\rfloor \left\lfloor \delta\right\rfloor \right)}{\left\Vert \delta\right\Vert ^{3}}\\
+ & \approx & I+\frac{1}{2}\left\lfloor \delta\right\rfloor ,\qquad\left(\left\Vert \delta\right\Vert \approx0\right)
+\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+and this expression
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{eqnarray*}
+\frac{\partial}{\partial q^{-}}\theta v & = & \frac{\partial}{\partial q}\left(\left(u^{\top}\left(R\left(q^{-}\right)^{\top}u\right)\right)\left(\left\lfloor u\right\rfloor \left(R\left(q^{-}\right)^{\top}u\right)\right)\right)\\
+ & = & \frac{\partial}{\partial q}\left(u^{\top}\left(R\left(q^{-}\right)^{\top}u\right)\right)\left(\left\lfloor u\right\rfloor \left(R\left(q^{-}\right)^{\top}u\right)\right)^{\top}+\left(u^{\top}\left(R\left(q^{-}\right)^{\top}u\right)\right)\frac{\partial}{\partial q}\left(\left\lfloor u\right\rfloor \left(R\left(q^{-}\right)^{\top}u\right)\right)\\
+ & = & \left(\left\lfloor u\right\rfloor R\left(q^{-}\right)u\right)\left(\left\lfloor u\right\rfloor \left(R\left(q^{-}\right)^{\top}u\right)\right)^{\top}+\left(u^{\top}\left(R\left(q^{-}\right)^{\top}u\right)\right)\left(\left\lfloor u\right\rfloor R\left(q^{-}\right)\left\lfloor u\right\rfloor ^{\top}\right)\\
+ & = & \left(\left\lfloor u\right\rfloor R\left(q^{-}\right)u\right)\left(\left\lfloor u\right\rfloor \left(R\left(q^{-}\right)^{\top}u\right)\right)^{\top}+\left(u^{\top}\left(R\left(q^{-}\right)^{\top}u\right)\right)\left(\left\lfloor u\right\rfloor R\left(q^{-}\right)\left\lfloor u\right\rfloor ^{\top}\right)\\
+ & = & \left(\left\lfloor u\right\rfloor R\left(q^{-}\right)u\right)v^{\top}+\theta\left(\left\lfloor u\right\rfloor R\left(q^{-}\right)\left\lfloor u\right\rfloor ^{\top}\right)\\
+ & = & vv^{\top}+\theta\left(\left\lfloor u\right\rfloor R\left(q^{-}\right)\left\lfloor u\right\rfloor ^{\top}\right)
+\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{eqnarray*}
+\frac{\partial q^{+}}{\partial q^{-}} & = & \frac{\partial}{\partial q^{-}}\exp\left(\theta v\right)\\
+ & = & \frac{\partial}{\partial q^{-}}\theta v\frac{\partial}{\partial\theta v}\exp\left(\theta v\right)\\
+ & = & \frac{\partial}{\partial q^{-}}\theta v\left(I+\frac{\left(1-\cos\left(\left\Vert \theta v\right\Vert \right)\left\lfloor \theta v\right\rfloor \right)}{\left\Vert \theta v\right\Vert ^{2}}+\frac{\left(\left\Vert \theta v\right\Vert -\sin\left(\left\Vert \theta v\right\Vert \right)\left\lfloor \theta v\right\rfloor \left\lfloor \theta v\right\rfloor \right)}{\left\Vert \theta v\right\Vert ^{3}}\right)\\
+ & = & \left(vv^{\top}+\theta\left(\left\lfloor u\right\rfloor R\left(q^{-}\right)\left\lfloor u\right\rfloor ^{\top}\right)\right)\left(I+\frac{\left(1-\cos\left(\left\Vert \theta v\right\Vert \right)\left\lfloor \theta v\right\rfloor \right)}{\left\Vert \theta v\right\Vert ^{2}}+\frac{\left(\left\Vert \theta v\right\Vert -\sin\left(\left\Vert \theta v\right\Vert \right)\left\lfloor \theta v\right\rfloor \left\lfloor \theta v\right\rfloor \right)}{\left\Vert \theta v\right\Vert ^{3}}\right)
+\end{eqnarray*}
 
 \end_inset
 

@@ -353,7 +353,7 @@ For this report, we will use the following notation for describing coordinate
 \[
 \begin{aligned}q_{i}^{b} & \quad\textrm{Quaternion describing rotation from the inertial frame to the body frame}\\
 v_{b/i}^{b} & \quad\textrm{velocity of the body frame, with respect to the inertial frame, expressed in the body frame}\\
-p_{bi}^{i} & \quad\textrm{position of the body, with respect to the inertial frame, expressed in the inertial frame}
+p_{b/I}^{I} & \quad\textrm{position of the body, with respect to the inertial frame, expressed in the inertial frame}
 \end{aligned}
 \]
 

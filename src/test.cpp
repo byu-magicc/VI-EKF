@@ -275,10 +275,9 @@ TEST(math_helper, manifold_operations)
   }
 }
 
-VIEKF init_jacobians_test(Eigen::VectorXd& x0, Eigen::VectorXd& u0)
+VIEKF init_jacobians_test(xVector& x0, uVector& u0)
 {
   // Configure initial State
-  x0.resize(VIEKF::xZ);
   x0.setZero();
   x0(VIEKF::xATT) = 1.0;
   x0(VIEKF::xMU) = 0.2;
@@ -306,7 +305,7 @@ VIEKF init_jacobians_test(Eigen::VectorXd& x0, Eigen::VectorXd& u0)
   ekf.set_camera_intrinsics(cam_center, F);
 
   // Initialize Random Features
-  for (int i = 0; i < 50; i++)
+  for (int i = 0; i < NUM_FEATURES; i++)
   {
     Eigen::Vector2d l;
     l << std::rand()%640, std::rand()%480;
@@ -317,7 +316,6 @@ VIEKF init_jacobians_test(Eigen::VectorXd& x0, Eigen::VectorXd& u0)
   x0 = ekf.get_state();
 
   // Initialize Inputs
-  u0.resize(VIEKF::uTOTAL);
   u0.setZero();
   u0.block<3,1>((int)VIEKF::uA, 0) += Eigen::Vector3d::Random() * 1.0;
   u0.block<3,1>((int)VIEKF::uG, 0) += Eigen::Vector3d::Random() * 1.0;
@@ -327,39 +325,32 @@ VIEKF init_jacobians_test(Eigen::VectorXd& x0, Eigen::VectorXd& u0)
 
 TEST(VI_EKF, dfdx_test)
 {  
-  Eigen::VectorXd x0;
-  Eigen::VectorXd u0;
+  xVector x0;
+  uVector u0;
   vi_ekf::VIEKF ekf = init_jacobians_test(x0, u0);
 
-  Eigen::VectorXd dx0;
-  Eigen::MatrixXd a_dfdu;
-  Eigen::MatrixXd a_dfdx;
+  dxVector dx0;
+  dxuMatrix a_dfdu;
+  dxMatrix a_dfdx;
 
   ekf.dynamics(x0, u0, dx0, a_dfdx, a_dfdu);
 
-  Eigen::MatrixXd Idx;
-  Idx.resizeLike(a_dfdx);
-  Idx.setZero();
-  for (int i = 0; i < Idx.cols(); i++)
-  {
-    Idx(i,i) = 1.0;
-  }
-
+  dxMatrix Idx = dxMatrix::Identity();
   double epsilon = 1e-6;
 
-  Eigen::MatrixXd d_dfdx;
-  d_dfdx.resizeLike(a_dfdx);
+  dxMatrix d_dfdx;
   d_dfdx.setZero();
 
 
-  Eigen::MatrixXd dummy1, dummy2;
-  Eigen::VectorXd dxprime;
-  Eigen::VectorXd xprime;
+  dxMatrix dummydfdx;
+  dxuMatrix dummydfdu;
+  dxVector dxprime;
+  xVector xprime;
   xprime.resizeLike(x0);
   for (int i = 0; i < d_dfdx.cols(); i++)
   {
     ekf.boxplus(x0, (Idx.col(i) * epsilon), xprime);
-    ekf.dynamics(xprime, u0, dxprime, dummy1, dummy2);
+    ekf.dynamics(xprime, u0, dxprime, dummydfdx, dummydfdu);
     d_dfdx.col(i) = (dxprime - dx0) / epsilon;
   }
 
@@ -391,29 +382,30 @@ TEST(VI_EKF, dfdx_test)
 
 TEST(VI_EKF, dfdu_test)
 {
-  Eigen::VectorXd x0;
-  Eigen::VectorXd u0;
+  xVector x0;
+  uVector u0;
   vi_ekf::VIEKF ekf = init_jacobians_test(x0, u0);
 
   // Perform Analytical Differentiation
-  Eigen::VectorXd dx0;
-  Eigen::MatrixXd a_dfdu;
-  Eigen::MatrixXd a_dfdx;
+  dxVector dx0;
+  dxMatrix a_dfdx;
+  dxuMatrix a_dfdu;
   ekf.dynamics(x0, u0, dx0, a_dfdx, a_dfdu);
 
-  Eigen::MatrixXd d_dfdu;
-  d_dfdu.resizeLike(a_dfdu);
+  dxuMatrix d_dfdu;
   d_dfdu.setZero();
   double epsilon = 1e-6;
-  Eigen::MatrixXd dummy1, dummy2;
+  dxMatrix dfdx_dummy;
+  dxuMatrix dfdu_dummy;
   Eigen::Matrix<double, 6, 6> Iu = Eigen::Matrix<double, 6, 6>::Identity();
 
   // Perform Numerical Differentiation
-  Eigen::VectorXd dxprime;
+  dxVector dxprime;
+  uVector uprime;
   for (int i = 0; i < d_dfdu.cols(); i++)
   {
-    Eigen::VectorXd uprime = u0 + (Iu.col(i) * epsilon);
-    ekf.dynamics(x0, uprime, dxprime, dummy1, dummy2);
+    uprime = u0 + (Iu.col(i) * epsilon);
+    ekf.dynamics(x0, uprime, dxprime, dfdx_dummy, dfdu_dummy);
     d_dfdu.col(i) = (dxprime - dx0) / epsilon;
   }
 
@@ -429,27 +421,26 @@ TEST(VI_EKF, dfdu_test)
   }
 }
 
-int htest(measurement_function_ptr fn, VIEKF& ekf, const VIEKF::measurement_type_t type, const int id)
+int htest(measurement_function_ptr fn, VIEKF& ekf, const VIEKF::measurement_type_t type, const int id, const int dim)
 {
   int num_errors = 0;
-  Eigen::VectorXd x0 = ekf.get_state();
-  Eigen::VectorXd z0;
-  Eigen::MatrixXd a_dhdx;
+  xVector x0 = ekf.get_state();
+  zVector z0;
+  hMatrix a_dhdx;
+  a_dhdx.setZero();
 
   // Call the Measurement function
   CALL_MEMBER_FN(ekf, fn)(x0, z0, a_dhdx, id);
 
-  Eigen::MatrixXd d_dhdx;
-  d_dhdx.setZero(a_dhdx.rows(), a_dhdx.cols());
+  hMatrix d_dhdx;
+  d_dhdx.setZero();
 
-  Eigen::MatrixXd I(a_dhdx.cols(), a_dhdx.cols());
-  I.setIdentity();
+  Eigen::Matrix<double, MAX_DX, MAX_DX> I = Eigen::Matrix<double, MAX_DX, MAX_DX>::Identity();
   double epsilon = 1e-6;
 
-  Eigen::VectorXd z_prime;
-  Eigen::MatrixXd dummy_H;
-  Eigen::VectorXd x_prime;
-  x_prime.resizeLike(x0);
+  zVector z_prime;
+  hMatrix dummy_H;
+  xVector x_prime;
   for (int i = 0; i < a_dhdx.cols(); i++)
   {
     ekf.boxplus(ekf.get_state(), (I.col(i) * epsilon), x_prime);
@@ -457,14 +448,14 @@ int htest(measurement_function_ptr fn, VIEKF& ekf, const VIEKF::measurement_type
     CALL_MEMBER_FN(ekf, fn)(x_prime, z_prime, dummy_H, id);
 
     if (type == VIEKF::QZETA)
-      d_dhdx.col(i) = q_feat_boxminus(Quaternion(z_prime), Quaternion(z0))/epsilon;
+      d_dhdx.block(0, i, dim, 1) = q_feat_boxminus(Quaternion(z_prime), Quaternion(z0))/epsilon;
     else if (type == VIEKF::ATT)
       d_dhdx.col(i) = (Quaternion(z_prime) - Quaternion(z0))/epsilon;
     else
-      d_dhdx.col(i) = (z_prime - z0)/epsilon;
+      d_dhdx.block(0, i, dim, 1) = (z_prime.topRows(dim) - z0.topRows(dim))/epsilon;
   }
 
-  Eigen::MatrixXd error = a_dhdx - d_dhdx;
+  Eigen::MatrixXd error = (a_dhdx - d_dhdx).topRows(dim);
   double err_threshold = std::max(1e-3 * a_dhdx.norm(), 1e-5);
 
   for (std::map<std::string, std::vector<int>>::iterator it=indexes.begin(); it!=indexes.end(); ++it)
@@ -485,21 +476,21 @@ int htest(measurement_function_ptr fn, VIEKF& ekf, const VIEKF::measurement_type
 
 TEST(VI_EKF, h_test)
 {
-  Eigen::VectorXd x0;
-  Eigen::VectorXd u0;
+  xVector x0;
+  uVector u0;
   vi_ekf::VIEKF ekf = init_jacobians_test(x0, u0);
 
-  EXPECT_EQ(htest(&VIEKF::h_acc, ekf, VIEKF::ACC, 0), 0);
-  EXPECT_EQ(htest(&VIEKF::h_pos, ekf, VIEKF::POS, 0), 0);
-  EXPECT_EQ(htest(&VIEKF::h_vel, ekf, VIEKF::VEL, 0), 0);
-  EXPECT_EQ(htest(&VIEKF::h_alt, ekf, VIEKF::ALT, 0), 0);
-  EXPECT_EQ(htest(&VIEKF::h_att, ekf, VIEKF::ATT, 0), 0);
+  EXPECT_EQ(htest(&VIEKF::h_acc, ekf, VIEKF::ACC, 0, 2), 0);
+  EXPECT_EQ(htest(&VIEKF::h_pos, ekf, VIEKF::POS, 0, 3), 0);
+  EXPECT_EQ(htest(&VIEKF::h_vel, ekf, VIEKF::VEL, 0, 3), 0);
+  EXPECT_EQ(htest(&VIEKF::h_alt, ekf, VIEKF::ALT, 0, 1), 0);
+  EXPECT_EQ(htest(&VIEKF::h_att, ekf, VIEKF::ATT, 0, 3), 0);
   for (int i = 0; i < ekf.get_len_features(); i++)
   {
-    EXPECT_EQ(htest(&VIEKF::h_feat, ekf, VIEKF::FEAT, i), 0);
-    EXPECT_EQ(htest(&VIEKF::h_qzeta, ekf, VIEKF::QZETA, i), 0);
-    EXPECT_EQ(htest(&VIEKF::h_depth, ekf, VIEKF::DEPTH, i), 0);
-    EXPECT_EQ(htest(&VIEKF::h_inv_depth, ekf, VIEKF::INV_DEPTH, i), 0);
+    EXPECT_EQ(htest(&VIEKF::h_feat, ekf, VIEKF::FEAT, i, 2), 0);
+    EXPECT_EQ(htest(&VIEKF::h_qzeta, ekf, VIEKF::QZETA, i, 2), 0);
+    EXPECT_EQ(htest(&VIEKF::h_depth, ekf, VIEKF::DEPTH, i, 1), 0);
+    EXPECT_EQ(htest(&VIEKF::h_inv_depth, ekf, VIEKF::INV_DEPTH, i, 1), 0);
 //        EXPECT_EQ(htest(VIEKF::h_pixel_vel, ekf, VIEKF::PIXEL_VEL, i), 0); // Still needs to be implemented
   }
 }

@@ -92,11 +92,11 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
     ekf_mtx_.unlock();
   }
 
-//  Vector4d z_att;
-//  z_att << msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z;
-//  ekf_mtx_.lock();
-//  //  ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, true);
-//  ekf_mtx_.unlock();
+  //  Vector4d z_att;
+  //  z_att << msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z;
+  //  ekf_mtx_.lock();
+  //  //  ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, true);
+  //  ekf_mtx_.unlock();
 }
 
 void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
@@ -136,7 +136,7 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
   }
 
   ekf_mtx_.lock();
-  //  ekf_.keep_only_features(ids);
+  ekf_.keep_only_features(ids);
   ekf_mtx_.unlock();
   for (int i = 0; i < features.size(); i++)
   {
@@ -169,20 +169,20 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
     Matrix1d z_depth;
     z_depth << depth;
     ekf_mtx_.lock();
-        ekf_.update(z_feat, vi_ekf::VIEKF::FEAT, feat_R_, true, ids[i], depth);
-//        ekf_.update(z_depth, vi_ekf::VIEKF::DEPTH, depth_R_, depth != depth, ids[i]);
-        ekf_.update(z_depth, vi_ekf::VIEKF::DEPTH, depth_R_, true, ids[i]);
+    ekf_.update(z_feat, vi_ekf::VIEKF::FEAT, feat_R_, true, ids[i], depth);
+    //        ekf_.update(z_depth, vi_ekf::VIEKF::DEPTH, depth_R_, depth != depth, ids[i]);
+    ekf_.update(z_depth, vi_ekf::VIEKF::DEPTH, depth_R_, false, ids[i]);
     ekf_mtx_.unlock();
 
     // Draw depth square on tracked features
     double h = 50.0 /depth;
     rectangle(tracked, Point(x-h, y-h), Point(x+h, y+h), Scalar(0, 255, 0));
   }
-//  Mat merged(tracked.rows, tracked.cols + depth_image_.cols, CV_8UC3);
-//  Mat left(merged, Rect(0, 0, tracked.cols, tracked.rows));
-//  tracked.copyTo(left);
-//  Mat right(merged, Rect(tracked.cols, 0, tracked.cols, tracked.rows));
-//  cvtColor(plot_depth, right, COLOR_GRAY2BGR);
+  //  Mat merged(tracked.rows, tracked.cols + depth_image_.cols, CV_8UC3);
+  //  Mat left(merged, Rect(0, 0, tracked.cols, tracked.rows));
+  //  tracked.copyTo(left);
+  //  Mat right(merged, Rect(tracked.cols, 0, tracked.cols, tracked.rows));
+  //  cvtColor(plot_depth, right, COLOR_GRAY2BGR);
   cv::imshow("tracked", tracked);
   waitKey(1);
 }
@@ -206,8 +206,8 @@ void VIEKF_ROS::truth_callback(const geometry_msgs::PoseStampedConstPtr &msg)
 {
   if (!initialized_)
   {
-    MatrixXd x0;
-    x0.setZero(vi_ekf::VIEKF::xZ, 1);
+    xVector x0;
+    x0.setZero();
     x0.block<3,1>(vi_ekf::VIEKF::xPOS, 0) << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z;
     x0.block<4,1>(vi_ekf::VIEKF::xATT, 0) << msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
     x0(vi_ekf::VIEKF::xMU, 0) = 0.2;
@@ -218,17 +218,17 @@ void VIEKF_ROS::truth_callback(const geometry_msgs::PoseStampedConstPtr &msg)
     return;
   }
   Vector3d z_pos;
-  z_pos << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z;
+  z_pos << msg->pose.position.z, -msg->pose.position.x, -msg->pose.position.y;
 
   Vector4d z_att;
-  z_att << msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
+  z_att << msg->pose.orientation.w, msg->pose.orientation.z, -msg->pose.orientation.x, -msg->pose.orientation.y;
 
   ekf_mtx_.lock();
-    ekf_.update(z_pos, vi_ekf::VIEKF::POS, pos_R_, true);
+  ekf_.update(z_pos, vi_ekf::VIEKF::POS, pos_R_, true);
   ekf_mtx_.unlock();
 
   ekf_mtx_.lock();
-    ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, true);
+  ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, true);
   ekf_mtx_.unlock();
 }
 

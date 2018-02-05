@@ -12,14 +12,28 @@
 #include "quat.h"
 #include "math_helper.h"
 
+#ifndef NUM_FEATURES
+#define NUM_FEATURES 12
+#endif
 
+#define MAX_X 17+NUM_FEATURES*5
+#define MAX_DX 16+NUM_FEATURES*3
+
+typedef Eigen::Matrix<double, MAX_X, 1> xVector;
+typedef Eigen::Matrix<double, MAX_DX, 1> dxVector;
+typedef Eigen::Matrix<double, MAX_X, MAX_X> xMatrix;
+typedef Eigen::Matrix<double, MAX_DX, MAX_DX> dxMatrix;
+typedef Eigen::Matrix<double, MAX_DX, 6> dxuMatrix;
+typedef Eigen::Matrix<double, 6, 1> uVector;
+typedef Eigen::Matrix<double, 4, 1> zVector;
+typedef Eigen::Matrix<double, 3, MAX_DX> hMatrix;
 
 namespace vi_ekf
 {
 
 class VIEKF;
 
-typedef void (VIEKF::*measurement_function_ptr)(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
+typedef void (VIEKF::*measurement_function_ptr)(const xVector& x, zVector& h, hMatrix& H, const int id);
 
 static const Eigen::Vector3d gravity = [] {
   Eigen::Vector3d tmp;
@@ -77,15 +91,14 @@ private:
     LOG_PERF,
   } log_type_t;
 
-  // State and Covariance Matrices
-  Eigen::VectorXd x_;
-  Eigen::MatrixXd P_;
-
-  // Process Noise and Initialization Matrices
-  Eigen::Matrix3d P0_feat_;
-  Eigen::MatrixXd Qx_;
-  Eigen::Matrix3d Qx_feat_;
+  // State and Covariance and Process Noise Matrices
+  xVector x_;
+  dxMatrix P_;
+  dxMatrix Qx_;
   Eigen::Matrix<double, 6, 6> Qu_;
+
+  // Initial uncertainty on features
+  Eigen::Matrix<double, 3, 3> P0_feat_;
 
   // Internal bookkeeping variables
   double prev_t_;
@@ -95,12 +108,14 @@ private:
   std::vector<int> current_feature_ids_;
 
   // Matrix Workspace
-  Eigen::MatrixXd A_;
-  Eigen::MatrixXd G_;
-  Eigen::MatrixXd I_big_;
-  Eigen::VectorXd dx_;
-  Eigen::MatrixXd xp_;
+  dxMatrix A_;
+  dxuMatrix G_;
+  dxVector dx_;
+  const dxMatrix I_big_ = dxMatrix::Identity();
+  xVector xp_;
   Eigen::MatrixXd K_;
+  zVector zhat_;
+  hMatrix H_;
 
   // EKF Configuration Parameters
   bool use_drag_term;
@@ -127,7 +142,7 @@ public:
 
   VIEKF();
   ~VIEKF();
-  void init(Eigen::MatrixXd x0, std::string log_directory, bool multirotor=true);
+  void init(xVector x0, std::string log_directory, bool multirotor=true);
 
   void init_logger(std::string root_filename);
 
@@ -147,7 +162,15 @@ public:
 
   inline int global_to_local_feature_id(int global_id)
   {
-    return std::distance(current_feature_ids_.begin(), std::find(current_feature_ids_.begin(), current_feature_ids_.end(), global_id));
+    int dist = std::distance(current_feature_ids_.begin(), std::find(current_feature_ids_.begin(), current_feature_ids_.end(), global_id));
+    if (dist < current_feature_ids_.size())
+    {
+      return dist;
+    }
+    else
+    {
+         return -1;
+    }
   }
 
   void set_x0(const Eigen::VectorXd &_x0);
@@ -157,34 +180,34 @@ public:
   Eigen::MatrixXd get_zetas() const;
   Eigen::MatrixXd get_qzetas() const;
   Eigen::VectorXd get_zeta(const int i) const;
-  Eigen::VectorXd get_state() const;
-  Eigen::VectorXd get_covariance() const;
+  const xVector& get_state() const;
+  const dxMatrix& get_covariance() const;
   double get_depth(const int i) const;
   inline int get_len_features() const { return len_features_; }
   void set_imu_bias(const Eigen::Vector3d& b_g, const Eigen::Vector3d& b_a);
-  void init_feature(const Eigen::Vector2d &l, const int id, const double depth=-1.0);
+  bool init_feature(const Eigen::Vector2d &l, const int id, const double depth=-1.0);
   void clear_feature(const int id);
   void keep_only_features(const std::vector<int> features);
 
   // State Propagation
-  void boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& dx, Eigen::VectorXd& out) const;
-  void step(const Eigen::Matrix<double, 6, 1>& u, const double t);
-  void propagate(Eigen::VectorXd& x, Eigen::MatrixXd& P, const Eigen::Matrix<double, 6, 1> u, const double t);
-  void dynamics(const Eigen::VectorXd& x, const Eigen::MatrixXd& u, Eigen::VectorXd& xdot,
-                Eigen::MatrixXd& dfdx, Eigen::MatrixXd& dfdu);
+  void boxplus(const xVector &x, const dxVector &dx, xVector &out) const;
+  void step(const uVector& u, const double t);
+  void propagate(const xVector &x, dxMatrix &P, const uVector& u, const double t);
+  void dynamics(const xVector &x, const uVector& u, dxVector& xdot, dxMatrix& dfdx, dxuMatrix& dfdu);
+  void dynamics(const xVector &x, const uVector& u);
 
   // Measurement Updates
-  void update(const Eigen::MatrixXd& z, const measurement_type_t& meas_type, const Eigen::MatrixXd& R, const bool passive=false, const int id=-1, const double depth=NAN);
-  void h_acc(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
-  void h_alt(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
-  void h_att(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
-  void h_pos(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
-  void h_vel(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
-  void h_qzeta(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
-  void h_feat(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
-  void h_depth(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
-  void h_inv_depth(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
-  void h_pixel_vel(const Eigen::VectorXd& x, Eigen::VectorXd& h, Eigen::MatrixXd& H, const int id);
+  void update(const Eigen::VectorXd& z, const measurement_type_t& meas_type, const Eigen::MatrixXd& R, const bool active=false, const int id=-1, const double depth=NAN);
+  void h_acc(const xVector& x, zVector& h, hMatrix& H, const int id);
+  void h_alt(const xVector& x, zVector& h, hMatrix& H, const int id);
+  void h_att(const xVector& x, zVector& h, hMatrix& H, const int id);
+  void h_pos(const xVector& x, zVector& h, hMatrix& H, const int id);
+  void h_vel(const xVector& x, zVector& h, hMatrix& H, const int id);
+  void h_qzeta(const xVector& x, zVector& h, hMatrix& H, const int id);
+  void h_feat(const xVector& x, zVector& h, hMatrix& H, const int id);
+  void h_depth(const xVector& x, zVector& h, hMatrix& H, const int id);
+  void h_inv_depth(const xVector& x, zVector& h, hMatrix& H, const int id);
+  void h_pixel_vel(const xVector& x, zVector& h, hMatrix& H, const int id);
 };
 
 static std::map<VIEKF::measurement_type_t, std::string> measurement_names = [] {

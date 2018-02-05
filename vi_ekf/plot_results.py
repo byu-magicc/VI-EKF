@@ -37,8 +37,7 @@ for line in meas_file:
     if meas_type == 'ACC':
         h.store(t, acc=line_arr[0:2], acc_hat=line_arr[2:4])
     elif meas_type == 'ATT':
-        if line_arr.shape == (9,):
-            h.store(t, att=line_arr[0:4], att_hat=line_arr[4:8])
+        h.store(t, att=line_arr[0:4], att_hat=line_arr[4:8])
     elif meas_type == 'POS':
         h.store(t, pos=line_arr[0:3], pos_hat=line_arr[3:6])
     elif meas_type == 'FEAT':

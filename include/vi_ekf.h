@@ -99,6 +99,8 @@ private:
   Eigen::MatrixXd G_;
   Eigen::MatrixXd I_big_;
   Eigen::VectorXd dx_;
+  Eigen::MatrixXd xp_;
+  Eigen::MatrixXd K_;
 
   // EKF Configuration Parameters
   bool use_drag_term;
@@ -165,7 +167,7 @@ public:
   void keep_only_features(const std::vector<int> features);
 
   // State Propagation
-  Eigen::VectorXd boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& dx) const;
+  void boxplus(const Eigen::VectorXd& x, const Eigen::VectorXd& dx, Eigen::VectorXd& out) const;
   void step(const Eigen::Matrix<double, 6, 1>& u, const double t);
   void propagate(Eigen::VectorXd& x, Eigen::MatrixXd& P, const Eigen::Matrix<double, 6, 1> u, const double t);
   void dynamics(const Eigen::VectorXd& x, const Eigen::MatrixXd& u, Eigen::VectorXd& xdot,

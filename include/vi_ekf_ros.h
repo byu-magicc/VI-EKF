@@ -33,6 +33,12 @@ public:
 
 private:
 
+  int imu_count_;
+  int num_features_;
+  Vector6d u_sum_;
+  ros::Time last_imu_update_;
+
+
   ros::NodeHandle nh_;
   ros::NodeHandle nh_private_;
   image_transport::ImageTransport it_;

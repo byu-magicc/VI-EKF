@@ -355,9 +355,10 @@ TEST(VI_EKF, dfdx_test)
   Eigen::MatrixXd dummy1, dummy2;
   Eigen::VectorXd dxprime;
   Eigen::VectorXd xprime;
+  xprime.resizeLike(x0);
   for (int i = 0; i < d_dfdx.cols(); i++)
   {
-    xprime = ekf.boxplus(x0, (Idx.col(i) * epsilon));
+    ekf.boxplus(x0, (Idx.col(i) * epsilon), xprime);
     ekf.dynamics(xprime, u0, dxprime, dummy1, dummy2);
     d_dfdx.col(i) = (dxprime - dx0) / epsilon;
   }
@@ -448,9 +449,11 @@ int htest(measurement_function_ptr fn, VIEKF& ekf, const VIEKF::measurement_type
   Eigen::VectorXd z_prime;
   Eigen::MatrixXd dummy_H;
   Eigen::VectorXd x_prime;
+  x_prime.resizeLike(x0);
   for (int i = 0; i < a_dhdx.cols(); i++)
   {
-    x_prime = ekf.boxplus(ekf.get_state(), (I.col(i) * epsilon));
+    ekf.boxplus(ekf.get_state(), (I.col(i) * epsilon), x_prime);
+
     CALL_MEMBER_FN(ekf, fn)(x_prime, z_prime, dummy_H, id);
 
     if (type == VIEKF::QZETA)

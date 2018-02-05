@@ -39,13 +39,8 @@ public:
              w() * q.z() + x() *q.y() - y() * q.x() + z() * q.w();
   }
 
-  Quaternion& operator= (const Quaternion q)
-  {
-    arr_[0] = q.w();
-    arr_[1] = q.x();
-    arr_[2] = q.y();
-    arr_[3] = q.z();
-  }
+  Quaternion& operator= (const Quaternion q) { arr_ = q.elements(); }
+  Quaternion& operator= (const Eigen::Vector4d in) {arr_ = in; }
 
   Quaternion operator+ (const Eigen::Vector3d v) { return boxplus(v); }
   Quaternion& operator+= (const Eigen::Vector3d v)
@@ -271,21 +266,19 @@ public:
     arr_ /= arr_.norm();
   }
 
-  Eigen::Matrix<double, 3, Eigen::Dynamic> multirot(Eigen::Matrix<double, 3, Eigen::Dynamic> v)
+  Eigen::Matrix<double, 3, 2> doublerot(Eigen::Matrix<double, 3, 2> v)
   {
-    Eigen::Matrix<double, 3, Eigen::Dynamic> out(3, v.cols());
-    Eigen::Vector3d t;
+    Eigen::Matrix<double, 3, 2> out(3, v.cols());
     for (int i = 0; i < v.cols(); i++)
     {
-       t = 2.0 * arr_.block<3,1>(1,0).cross(v.block<3,1>(0,i));
-       out.block<3,1>(0,i) = v.block<3,1>(0,i) + w() * t + arr_.block<3,1>(1,0).cross(t);
+       out.block<3,1>(0,i) = v.block<3,1>(0,i) + w() * (2.0 * arr_.block<3,1>(1,0).cross(v.block<3,1>(0,i))) + arr_.block<3,1>(1,0).cross((2.0 * arr_.block<3,1>(1,0).cross(v.block<3,1>(0,i))));
     }
     return out;
   }
 
-  Eigen::Matrix<double, 3, Eigen::Dynamic> multiinvrot(Eigen::Matrix<double, 3, Eigen::Dynamic> v)
+  Eigen::Matrix<double, 3, 2> doubleinvrot(Eigen::Matrix<double, 3, 2> v)
   {
-    Eigen::Matrix<double, 3, Eigen::Dynamic> out(3, v.cols());
+    Eigen::Matrix<double, 3, 2> out(3, v.cols());
     Eigen::Vector3d t;
     for (int i = 0; i < v.cols(); i++)
     {

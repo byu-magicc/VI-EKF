@@ -12,6 +12,8 @@ VIEKF_ROS::VIEKF_ROS() :
   depth_sub_ = it_.subscribe("camera/depth/image_raw", 10, &VIEKF_ROS::depth_image_callback, this);
   output_pub_ = it_.advertise("tracked", 1);
 
+  nh_private_.param<int>("num_features", num_features_, 12);
+
   std::string log_directory;
   std::string default_log_folder = ros::package::getPath("vi_ekf") + "/logs/" + to_string(ros::Time::now().sec) + "/";
   nh_private_.param<std::string>("log_directory", log_directory, default_log_folder );
@@ -29,7 +31,7 @@ VIEKF_ROS::VIEKF_ROS() :
   ekf_.set_camera_intrinsics(cam_center, focal_len);
   ekf_.set_camera_to_IMU(p_b_c, q_b_c);
   ekf_mtx_.unlock();
-  klt_tracker_.init(25, true, 30);
+  klt_tracker_.init(num_features_, true, 30);
 
   // Initialize the depth image to all NaNs
   depth_image_ = cv::Mat(640, 480, CV_32FC1, cv::Scalar(NAN));
@@ -44,6 +46,9 @@ VIEKF_ROS::VIEKF_ROS() :
 
   // Wait for truth to initialize pose
   initialized_ = false;
+
+  imu_count_ = 0;
+  u_sum_.setZero();
 }
 
 VIEKF_ROS::~VIEKF_ROS()
@@ -51,29 +56,47 @@ VIEKF_ROS::~VIEKF_ROS()
 
 void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
 {
+
+
   if (!initialized_)
     return;
-  Vector6d u;
-  u(0) = msg->linear_acceleration.x;
-  u(1) = msg->linear_acceleration.y;
-  u(2) = msg->linear_acceleration.z;
-  u(3) = msg->angular_velocity.x;
-  u(4) = msg->angular_velocity.y;
-  u(5) = msg->angular_velocity.z;
-  ekf_mtx_.lock();
-  ekf_.step(u, msg->header.stamp.toSec());
-  ekf_mtx_.unlock();
 
-  Vector2d z_acc = u.block<2,1>(0, 0);
-  ekf_mtx_.lock();
-  ekf_.update(z_acc, vi_ekf::VIEKF::ACC, acc_R_, true);
-  ekf_mtx_.unlock();
+  imu_count_++;
 
-  Vector4d z_att;
-  z_att << msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z;
-  ekf_mtx_.lock();
-  //  ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, true);
-  ekf_mtx_.unlock();
+  u_sum_(0) += msg->linear_acceleration.x;
+  u_sum_(1) += msg->linear_acceleration.y;
+  u_sum_(2) += msg->linear_acceleration.z;
+  u_sum_(3) += msg->angular_velocity.x;
+  u_sum_(4) += msg->angular_velocity.y;
+  u_sum_(5) += msg->angular_velocity.z;
+
+  if ((msg->header.stamp - last_imu_update_).toSec() > 0.010)
+  {
+    // moving average over imu readings
+    Vector6d u = u_sum_ / imu_count_;
+
+    // Reset counting variables
+    imu_count_ = 0;
+    u_sum_.setZero();
+    last_imu_update_ = msg->header.stamp;
+
+    // Propagate filter
+    ekf_mtx_.lock();
+    ekf_.step(u, msg->header.stamp.toSec());
+    ekf_mtx_.unlock();
+
+    // update accelerometer measurement
+    Vector2d z_acc = u.block<2,1>(0, 0);
+    ekf_mtx_.lock();
+    ekf_.update(z_acc, vi_ekf::VIEKF::ACC, acc_R_, true);
+    ekf_mtx_.unlock();
+  }
+
+//  Vector4d z_att;
+//  z_att << msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z;
+//  ekf_mtx_.lock();
+//  //  ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, true);
+//  ekf_mtx_.unlock();
 }
 
 void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)

@@ -12,8 +12,6 @@ VIEKF_ROS::VIEKF_ROS() :
   depth_sub_ = it_.subscribe("camera/depth/image_raw", 10, &VIEKF_ROS::depth_image_callback, this);
   output_pub_ = it_.advertise("tracked", 1);
 
-  nh_private_.param<int>("num_features", num_features_, 12);
-
   std::string log_directory;
   std::string default_log_folder = ros::package::getPath("vi_ekf") + "/logs/" + to_string(ros::Time::now().sec) + "/";
   nh_private_.param<std::string>("log_directory", log_directory, default_log_folder );
@@ -31,10 +29,11 @@ VIEKF_ROS::VIEKF_ROS() :
   ekf_.set_camera_intrinsics(cam_center, focal_len);
   ekf_.set_camera_to_IMU(p_b_c, q_b_c);
   ekf_mtx_.unlock();
-  klt_tracker_.init(num_features_, true, 30);
+  klt_tracker_.init(NUM_FEATURES, true, 30);
 
   // Initialize the depth image to all NaNs
   depth_image_ = cv::Mat(640, 480, CV_32FC1, cv::Scalar(NAN));
+  got_depth_ = false;
 
   // Initialize the measurement noise covariance matrices
   depth_R_ << 0.1;
@@ -115,6 +114,9 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
     return;
   }
 
+   if (!got_depth_)
+    return;
+
   // Track Features in Image
   std::vector<Point2f> features;
   std::vector<int> ids;
@@ -169,20 +171,15 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
     Matrix1d z_depth;
     z_depth << depth;
     ekf_mtx_.lock();
-    ekf_.update(z_feat, vi_ekf::VIEKF::FEAT, feat_R_, true, ids[i], depth);
-    //        ekf_.update(z_depth, vi_ekf::VIEKF::DEPTH, depth_R_, depth != depth, ids[i]);
-    ekf_.update(z_depth, vi_ekf::VIEKF::DEPTH, depth_R_, false, ids[i]);
+    if (!ekf_.update(z_feat, vi_ekf::VIEKF::FEAT, feat_R_, true, ids[i], depth))
+      ekf_.update(z_depth, vi_ekf::VIEKF::DEPTH, depth_R_, (depth == depth), ids[i]);
     ekf_mtx_.unlock();
 
     // Draw depth square on tracked features
     double h = 50.0 /depth;
     rectangle(tracked, Point(x-h, y-h), Point(x+h, y+h), Scalar(0, 255, 0));
   }
-  //  Mat merged(tracked.rows, tracked.cols + depth_image_.cols, CV_8UC3);
-  //  Mat left(merged, Rect(0, 0, tracked.cols, tracked.rows));
-  //  tracked.copyTo(left);
-  //  Mat right(merged, Rect(tracked.cols, 0, tracked.cols, tracked.rows));
-  //  cvtColor(plot_depth, right, COLOR_GRAY2BGR);
+
   cv::imshow("tracked", tracked);
   waitKey(1);
 }
@@ -200,6 +197,7 @@ void VIEKF_ROS::depth_image_callback(const sensor_msgs::ImageConstPtr &msg)
     return;
   }
   depth_image_ = cv_ptr->image;
+  got_depth_ = true;
 }
 
 void VIEKF_ROS::truth_callback(const geometry_msgs::PoseStampedConstPtr &msg)

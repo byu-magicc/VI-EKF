@@ -13,7 +13,7 @@
 #include "math_helper.h"
 
 #ifndef NUM_FEATURES
-#define NUM_FEATURES 12
+#define NUM_FEATURES 25
 #endif
 
 #define MAX_X 17+NUM_FEATURES*5
@@ -97,8 +97,11 @@ private:
   dxMatrix Qx_;
   Eigen::Matrix<double, 6, 6> Qu_;
 
+  // Partial Update Gains
+  xVector gamma_;
+
   // Initial uncertainty on features
-  Eigen::Matrix<double, 3, 3> P0_feat_;
+  Eigen::Matrix3d P0_feat_;
 
   // Internal bookkeeping variables
   double prev_t_;
@@ -113,7 +116,7 @@ private:
   dxVector dx_;
   const dxMatrix I_big_ = dxMatrix::Identity();
   xVector xp_;
-  Eigen::MatrixXd K_;
+  Eigen::Matrix<double, MAX_DX, 1>  K_;
   zVector zhat_;
   hMatrix H_;
 
@@ -155,9 +158,20 @@ public:
   inline bool NaNsInTheHouse()
   {
     if( ( (x_).array() != (x_).array()).any() || ((P_).array() != (P_).array()).any() )
-      return true;
+       return true;
     else
       return false;
+  }
+
+  inline bool NegativeDepth()
+  {
+    for (int i = 0; i < len_features_; i++)
+    {
+      int xRHO_i = (int)xZ+5*i+4;
+      if (x_(xRHO_i,0) < 0)
+        return true;
+    }
+    return false;
   }
 
   inline int global_to_local_feature_id(int global_id)
@@ -197,7 +211,7 @@ public:
   void dynamics(const xVector &x, const uVector& u);
 
   // Measurement Updates
-  void update(const Eigen::VectorXd& z, const measurement_type_t& meas_type, const Eigen::MatrixXd& R, const bool active=false, const int id=-1, const double depth=NAN);
+  bool update(const Eigen::VectorXd& z, const measurement_type_t& meas_type, const Eigen::MatrixXd& R, const bool active=false, const int id=-1, const double depth=NAN);
   void h_acc(const xVector& x, zVector& h, hMatrix& H, const int id);
   void h_alt(const xVector& x, zVector& h, hMatrix& H, const int id);
   void h_att(const xVector& x, zVector& h, hMatrix& H, const int id);
@@ -219,9 +233,9 @@ static std::map<VIEKF::measurement_type_t, std::string> measurement_names = [] {
   tmp[VIEKF::VEL] = "VEL";
   tmp[VIEKF::QZETA] = "QZETA";
   tmp[VIEKF::FEAT] = "FEAT";
-  tmp[VIEKF::PIXEL_VEL] = "PIXEL_VEL";
   tmp[VIEKF::DEPTH] = "DEPTH";
   tmp[VIEKF::INV_DEPTH] = "INV_DEPTH";
+  tmp[VIEKF::PIXEL_VEL] = "PIXEL_VEL";
   return tmp;
 }();
 
@@ -234,9 +248,9 @@ static std::map<VIEKF::measurement_type_t, measurement_function_ptr> measurement
   tmp[VIEKF::VEL] = &VIEKF::h_vel;
   tmp[VIEKF::QZETA] = &VIEKF::h_qzeta;
   tmp[VIEKF::FEAT] = &VIEKF::h_feat;
-  tmp[VIEKF::PIXEL_VEL] = &VIEKF::h_depth;
-  tmp[VIEKF::DEPTH] = &VIEKF::h_inv_depth;
-  tmp[VIEKF::INV_DEPTH] = &VIEKF::h_pixel_vel;
+  tmp[VIEKF::DEPTH] = &VIEKF::h_depth;
+  tmp[VIEKF::INV_DEPTH] = &VIEKF::h_inv_depth;
+  tmp[VIEKF::PIXEL_VEL] = &VIEKF::h_pixel_vel;
   return tmp;
 }();
 

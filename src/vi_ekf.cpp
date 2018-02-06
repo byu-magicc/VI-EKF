@@ -1,14 +1,15 @@
 #include "vi_ekf.h"
 
 #ifndef DEBUG
-#define NAN_CHECK(x) if (NaNsInTheHouse()) cout << "NaNs In The House at line " << x << "!!!\n"
+#define NAN_CHECK if (NaNsInTheHouse()) cout << "NaNs In The House at line " << __LINE__ << "!!!\n"
+#define NEGATIVE_DEPTH if (NegativeDepth()) cout << "Negatiive Depth " << __LINE__ << "!!!\n"
 #else
-#define NAN_CHECK(x) {}
+#define NAN_CHECK {}
+#define NEGATIVE_DEPTH {}
 #endif
 
 using namespace quat;
 using namespace std;
-using namespace std::placeholders;
 
 namespace vi_ekf
 {
@@ -61,7 +62,7 @@ void VIEKF::init(xVector x0, std::string log_directory, bool multirotor)
   Qu_ = diag.asDiagonal();
 
   diag.resize(3,1);
-  diag << 0.01, 0.01, 10.0;
+  diag << 0.01, 0.01, 0.5;
   P0_feat_ = diag.asDiagonal();
 
   len_features_ = 0;
@@ -223,13 +224,13 @@ bool VIEKF::init_feature(const Eigen::Vector2d& l, const int id, const double de
   x_.block<4,1>(x_max - 5, 0) = qzeta;
   x_(x_max - 1 ) = 1.0/init_depth;
 
-  // Zero out the cross-covariance parts of the covariance and reset the uncertainty on this new feature
+  // Zero out the cross-covariance and reset the uncertainty on this new feature
   int dx_max = dxZ+3*len_features_;
   P_.block(dx_max-3, 0, 3, dx_max-3).setZero();
   P_.block(0, dx_max-3, dx_max-3, 3).setZero();
   P_.block<3,3>(dx_max-3, dx_max-3) = P0_feat_;
 
-  NAN_CHECK(__LINE__);
+  NAN_CHECK;
 
   return true;
 }
@@ -237,7 +238,7 @@ bool VIEKF::init_feature(const Eigen::Vector2d& l, const int id, const double de
 
 void VIEKF::clear_feature(const int id)
 {
-  int local_feature_id = global_to_local_feature_id(id);
+    int local_feature_id = global_to_local_feature_id(id);
   int xZETA_i = xZ + 5 * local_feature_id;
   int dxZETA_i = dxZ + 3 * local_feature_id;
   current_feature_ids_.erase(current_feature_ids_.begin() + local_feature_id);
@@ -252,7 +253,7 @@ void VIEKF::clear_feature(const int id)
     P_.block(0, dxZETA_i, P_.rows(), (P_.cols() - (dxZETA_i+3))) = P_.rightCols(P_.cols() - (dxZETA_i+3));
   }
 
-  NAN_CHECK(__LINE__);
+  NAN_CHECK;
 }
 
 
@@ -279,7 +280,7 @@ void VIEKF::keep_only_features(const vector<int> features)
   {
     clear_feature(features_to_remove[i]);
   }
-  NAN_CHECK(__LINE__);
+  NAN_CHECK;
 }
 
 
@@ -301,11 +302,13 @@ void VIEKF::propagate(const xVector& x, dxMatrix& P, const uVector &u, const dou
 
     dynamics(x, u, dx_, A_, G_);
     boxplus(x, dx_*dt, x_);
-    P_ += (A_ * P_ + P_ * A_.transpose() + G_ * Qu_ * G_.transpose() + Qx_)*dt;
+    NAN_CHECK;
+     P_ += (A_ * P_ + P_ * A_.transpose() + G_ * Qu_ * G_.transpose() + Qx_)*dt;
   }
   prev_t_ = t;
 
-  NAN_CHECK(__LINE__);
+  NAN_CHECK;
+  NEGATIVE_DEPTH;
 
 
   perf_log_.prop_time += 0.1 * (now() - start - perf_log_.prop_time);
@@ -437,7 +440,7 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
   }
 }
 
-void VIEKF::update(const Eigen::VectorXd& z, const measurement_type_t& meas_type,
+bool VIEKF::update(const Eigen::VectorXd& z, const measurement_type_t& meas_type,
                    const Eigen::MatrixXd& R, const bool active, const int id, const double depth)
 {
   double start = now();
@@ -448,49 +451,68 @@ void VIEKF::update(const Eigen::VectorXd& z, const measurement_type_t& meas_type
     if (std::find(current_feature_ids_.begin(), current_feature_ids_.end(), id) == current_feature_ids_.end())
     {
       init_feature(z, id, depth);
-      return; // Don't do a measurement update this time
+      return true; // Don't do a measurement update this time
     }
   }
 
   int z_dim = z.rows();
 
-  NAN_CHECK(__LINE__);
+  NAN_CHECK;
 
   zhat_.setZero();
   H_.setZero();
 
   (this->*(measurement_functions[meas_type]))(x_, zhat_, H_, id);
 
-  NAN_CHECK(__LINE__);
+  NAN_CHECK;
 
-  Eigen::VectorXd residual;
+  zVector residual;
   if (meas_type == QZETA)
   {
-    residual = q_feat_boxminus(Quaternion(z), Quaternion(zhat_));
+    residual.topRows(2) = q_feat_boxminus(Quaternion(z), Quaternion(zhat_));
     z_dim = 2;
   }
   else if (meas_type == ATT)
   {
-    residual = Quaternion(z) - Quaternion(zhat_);
+    residual.topRows(3) = Quaternion(z) - Quaternion(zhat_);
     z_dim = 3;
   }
   else
   {
-    residual = z - zhat_.topRows(z_dim);
+    residual.topRows(z_dim) = z - zhat_.topRows(z_dim);
   }
 
-  NAN_CHECK(__LINE__);
+  NAN_CHECK;
 
   if (active)
   {
-    K_ = P_ * H_.topRows(z_dim).transpose() * (R + H_.topRows(z_dim)*P_ * H_.topRows(z_dim).transpose()).inverse();
-    NAN_CHECK(__LINE__);
-    P_ = (I_big_ - K_*H_.topRows(z_dim))*P_;
+    K_.leftCols(z_dim) = P_ * H_.topRows(z_dim).transpose() * (R + H_.topRows(z_dim)*P_ * H_.topRows(z_dim).transpose()).inverse();
+    NAN_CHECK;
+    P_ = (I_big_ - K_.leftCols(z_dim)*H_.topRows(z_dim))*P_;
     xp_ = x_;
-    boxplus(xp_, K_ * residual, x_);
+    boxplus(xp_, K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
   }
 
-  NAN_CHECK(__LINE__);
+  if (meas_type == DEPTH || meas_type == INV_DEPTH)
+  {
+    // Apply an Inequality Constrain per
+    // "Avoiding Negative Depth in Inverse Depth Bearing-Only SLAM"
+    // by Parsley and Julier
+    for (int i = 0; i < len_features_; i++)
+    {
+      int xRHO_i = xZ + 5*i + 4;
+      int dxRHO_i = dxZ + 3*i + 2;
+      if (x_(xRHO_i, 0) < 0.0)
+      {
+        double err = 1e-3 - x_(xRHO_i, 0);
+        P_(dxRHO_i, dxRHO_i) += err*err;
+        x_(xRHO_i, 0) += err;
+      }
+    }
+  }
+
+  NAN_CHECK;
+  NEGATIVE_DEPTH;
 
   if (logger_)
   {
@@ -499,6 +521,7 @@ void VIEKF::update(const Eigen::VectorXd& z, const measurement_type_t& meas_type
   }
   perf_log_.update_times[(int)meas_type] += 0.1 * (now() - start - perf_log_.update_times[(int)meas_type]);
   perf_log_.count++;
+  return false;
 }
 
 void VIEKF::h_acc(const xVector& x, zVector& h, hMatrix& H, const int id)

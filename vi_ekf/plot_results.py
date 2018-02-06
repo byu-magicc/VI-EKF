@@ -16,6 +16,8 @@ meas_file = open(log_dir + str(latest_folder) + "/meas.txt")
 h = History()
 for line in prop_file:
     line_arr = np.array([float(item) for item in line.split()])
+    if len(line_arr) < 17:
+        continue
     num_features = len(line_arr) - 1 - 17 - 16
     X = 1
     COV = 1 + 17 + 5*num_features
@@ -35,16 +37,21 @@ for line in meas_file:
     t = float(line.split()[1])
 
     if meas_type == 'ACC':
+        if len(line_arr) < 5: continue
         h.store(t, acc=line_arr[0:2], acc_hat=line_arr[2:4])
     elif meas_type == 'ATT':
+        if len(line_arr) < 8: continue
         h.store(t, att=line_arr[0:4], att_hat=line_arr[4:8])
     elif meas_type == 'POS':
+        if len(line_arr) < 7: continue
         h.store(t, pos=line_arr[0:3], pos_hat=line_arr[3:6])
     elif meas_type == 'FEAT':
+        if len(line_arr) < 5: continue
         id = line_arr[4]
         h.store(t, line_arr[4], feat=line_arr[0:2], feat_hat=line_arr[2:4])
         ids.append(id) if id not in ids else None
     elif meas_type == 'DEPTH':
+        if len(line_arr) < 3: continue
         h.store(t, line_arr[2], depth=line_arr[0], depth_hat=line_arr[1])
     else:
         print("unsupported measurement type ", meas_type)

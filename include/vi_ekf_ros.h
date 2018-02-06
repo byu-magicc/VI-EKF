@@ -54,6 +54,7 @@ private:
   KLT_Tracker klt_tracker_;
 
   cv::Mat depth_image_;
+  bool got_depth_;
 
   bool initialized_ = false;
 

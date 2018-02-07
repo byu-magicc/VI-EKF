@@ -3,6 +3,8 @@ import numpy as np
 from data import History
 from plot_helper import plot_side_by_side, init_plots
 from tqdm import tqdm
+import scipy.signal
+from pyquat import Quaternion
 
 log_dir = os.path.dirname(os.path.realpath(__file__)) + "/../logs/"
 log_folders =  [int(name) for name in os.listdir(log_dir) if os.path.isdir(log_dir + name)]
@@ -72,6 +74,25 @@ for line in meas_file:
 
 
 h.tonumpy()
+
+# Calculate body-fixed velocity by differentiating position and rotating
+# into the body frame
+b, a = scipy.signal.butter(8, 0.03)  # Create a Butterworth Filter
+# differentiate Position
+delta_x = np.diff(h.pos, axis=0)
+delta_t = np.diff(h.t.pos)
+unfiltered_inertial_velocity = np.vstack((np.zeros((1, 3)), delta_x / delta_t[:, None]))
+# Filter
+v_inertial = scipy.signal.filtfilt(b, a, unfiltered_inertial_velocity, axis=0)
+# Rotate into Body Frame
+vel_data = []
+for i in range(len(t)):
+    q_I_b = Quaternion(h.att[i, :, None])
+    vel_data.append(q_I_b.rot(v_inertial[i, None].T).T)
+
+vel_data = np.array(vel_data).squeeze()
+
+
 start = h.t.xhat[0]
 end = h.t.xhat[-1]
 fig_dir = os.path.dirname(os.path.realpath(__file__)) + "/../plots/"

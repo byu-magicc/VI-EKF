@@ -17,7 +17,7 @@
 #ifndef NDEBUG
 #define NUM_FEATURES 3
 #else
-#define NUM_FEATURES 25
+#define NUM_FEATURES 35
 #endif
 #endif
 

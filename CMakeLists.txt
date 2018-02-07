@@ -3,6 +3,9 @@ project(vi_ekf)
 
 set(CMAKE_CXX_FLAGS "-std=c++17")
 
+message (CMAKE_CXX_FLAGS_DEBUG = ${CMAKE_CXX_FLAGS_DEBUG})
+message (CMAKE_CXX_FLAGS_RELEASE = ${CMAKE_CXX_FLAGS_RELEASE})
+
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
@@ -54,6 +57,7 @@ target_link_libraries(vi_ekf_test ${GTEST_LIBRARIES} pthread vi_ekf)
 add_executable(vi_ekf_node
   src/vi_ekf_ros.cpp
   include/vi_ekf_ros.h
+  include/eigen_helpers.h
 )
 target_link_libraries(vi_ekf_node
   ${catkin_LIBRARIES}

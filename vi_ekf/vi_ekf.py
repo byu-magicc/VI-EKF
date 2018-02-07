@@ -111,6 +111,7 @@ class VI_EKF():
         self.last_propagate = None
         self.cam_center = np.array([[320.0, 240.0]]).T
         self.cam_F = np.array([[250.0, 250.0]]).dot(I_2x3)
+        self.use_drag_term = multirotor
 
     def set_camera_intrinsics(self, center, F):
         assert center.shape == (2,1) and F.shape ==(2,3)
@@ -353,7 +354,7 @@ class VI_EKF():
         if self.use_drag_term:
             self.dx[dxVEL:dxVEL+3] =  acc_z + gravity_B - mu * vel_xy
         else:
-            self.dx[dxVEL:dxVEL+3] = acc + q_I_b.rot(self.gravity)
+            self.dx[dxVEL:dxVEL+3] = acc + gravity_B
         self.dx[dxATT:dxATT+3] = omega
 
         ###################################

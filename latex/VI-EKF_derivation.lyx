@@ -2969,5 +2969,160 @@ and this expression
 
 \end_layout
 
+\begin_layout Section
+Partial Update
+\end_layout
+
+\begin_layout Standard
+If we wish to perform a partial update per Brink, we can't do it directly,
+ because of the non-vector components in the state.
+ However, if we massage the partial update equations, we can get it to work.
+ 
+\end_layout
+
+\begin_layout Standard
+For reference, the partial update equations are as follows:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{eqnarray}
+K & = & P^{-}H^{\top}\left(HP^{-}H^{\top}+R\right)^{-1}\nonumber \\
+\xhat^{+} & = & \xhat^{-}+K\left(z-H\xhat^{-}\right)\nonumber \\
+P^{+} & = & \left(I-KH\right)P^{-}\nonumber \\
+ & \cdots\nonumber \\
+\hat{x_{i}}^{++} & = & \left(1-\gamma_{i}\right)\hat{x_{i}}^{-}+\gamma_{i}\hat{x_{i}}^{+}\label{eq:state_partial_update}\\
+P_{ij}^{++} & = & \left(1-\gamma_{i}\gamma_{j}\right)P_{ij}^{-}+\gamma_{i}\gamma_{j}P_{ij}^{+}\nonumber 
+\end{eqnarray}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The covariance update is okay, but the state partial update in 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:state_partial_update"
+
+\end_inset
+
+ doesn't make sense if 
+\begin_inset Formula $x$
+\end_inset
+
+ is not a vector.
+ Let us work with 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:state_partial_update"
+
+\end_inset
+
+ and see if we can't get it into a sensible form for our parameterization,
+ where 
+\begin_inset Formula $\xhat^{+}-\xhat^{-}=K\left(z-H\xhat^{-}\right)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{eqnarray*}
+\xhat^{++} & = & \left(I-\Gamma\right)\xhat^{-}+\Gamma\xhat^{+}\\
+ & = & \xhat^{-}-\Gamma\xhat^{-}+\Gamma\xhat^{+}\\
+ & = & \xhat^{-}-\Gamma\left(\xhat^{-}+\xhat^{+}\right)\\
+ & = & \xhat^{-}+\Gamma\left(K\left(z-H\xhat^{-}\right)\right)
+\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+At this point, we can switch to the 
+\begin_inset Formula $\boxplus$
+\end_inset
+
+ notation to operate on the manifold
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\xhat^{++}=\xhat^{-}+\Gamma\left(K\left(z-H\xhat^{-}\right)\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\xhat^{+}=\xhat^{-}\boxplus K\left(H\xhat^{-}\boxminus z\right)
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+\xhat^{++}=\xhat^{-}\boxplus\Gamma\left(K\left(H\xhat^{-}\boxminus z\right)\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Let
+\end_layout
+
+\begin_layout Standard
+where 
+\begin_inset Formula $\Gamma=\gamma I$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The covariance update is as follows (where 
+\begin_inset Formula $\mathbf{1}$
+\end_inset
+
+ is a matrix of all 
+\begin_inset Formula $1$
+\end_inset
+
+s and 
+\begin_inset Formula $\odot$
+\end_inset
+
+ is the Hadamard product)
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{eqnarray*}
+P^{++} & = & \left(\mathbf{1}-\gamma\gamma^{\top}\right)\odot P^{-}+\gamma\gamma^{\top}\odot P^{+}\\
+ & = & P^{-}-\gamma\gamma^{\top}\odot P^{-}+\gamma\gamma^{\top}\odot P^{+}\\
+ & = & P^{-}-\gamma\gamma^{\top}\odot\left(P^{-}-P^{+}\right)\\
+ & = & P^{-}-\gamma\gamma^{\top}\odot\left(P^{-}-\left(I-KH\right)P^{-}\right)\\
+ & = & P^{-}-\gamma\gamma^{\top}\odot\left(P^{-}-P^{-}+KHP^{-}\right)\\
+ & = & P^{-}-\gamma\gamma^{\top}\odot KHP^{-}
+\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
 \end_body
 \end_document

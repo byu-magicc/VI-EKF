@@ -290,19 +290,17 @@ VIEKF init_jacobians_test(xVector& x0, uVector& u0)
 
   // Create VIEKF
   VIEKF ekf;
-  ekf.init(x0, "~", true);
-
-  // camera_to_body transform
-  Eigen::Vector3d p_b_c = Eigen::Vector3d::Random() * 0.5;
-  Quaternion q_b_c = Quaternion::Random();
-  ekf.set_camera_to_IMU(p_b_c, q_b_c);
-
-  // Camera Intrinsics
+  Eigen::Matrix<double, vi_ekf::VIEKF::dxZ, 1> P0, Qx, gamma;
+  uVector Qu;
+  Eigen::Vector3d P0feat, Qxfeat, gammafeat;
   Eigen::Vector2d cam_center = Eigen::Vector2d::Random();
-  Eigen::Vector2d F;
-  F << static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/100.0)),
-       static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/100.0));
-  ekf.set_camera_intrinsics(cam_center, F);
+  cam_center << 320-25+std::rand()%50, 240-25+std::rand()%50;
+  Eigen::Vector2d focal_len;
+  focal_len << static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/100.0)),
+               static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/100.0));
+  Eigen::Vector4d q_b_c = Quaternion::Random().elements();
+  Eigen::Vector3d p_b_c = Eigen::Vector3d::Random() * 0.5;
+  ekf.init(x0.block<17, 1>(0,0), P0, Qx, gamma, Qu, P0feat, Qxfeat, gammafeat, cam_center, focal_len, q_b_c, p_b_c, 2.0, "~", true);
 
   // Initialize Random Features
   for (int i = 0; i < NUM_FEATURES; i++)

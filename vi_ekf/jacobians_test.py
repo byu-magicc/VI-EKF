@@ -193,7 +193,7 @@ def run_tests():
         # Add noise to non-vector attitude states
         x0[xATT:xATT + 4] = (Quaternion(x0[xATT:xATT + 4]) + np.random.normal(0, 1, (3,1))).elements
 
-        ekf = VI_EKF(x0)
+        ekf = VI_EKF(x0, True)
 
         # Add a camera_to_body transform
         p_b_c = np.random.uniform(-0.5, 0.5, (3,1))

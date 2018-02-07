@@ -1,4 +1,5 @@
 #include "vi_ekf_ros.h"
+#include "eigen_helpers.h"
 
 VIEKF_ROS::VIEKF_ROS() :
   nh_private_("~"),
@@ -15,39 +16,88 @@ VIEKF_ROS::VIEKF_ROS() :
   std::string log_directory;
   std::string default_log_folder = ros::package::getPath("vi_ekf") + "/logs/" + to_string(ros::Time::now().sec) + "/";
   nh_private_.param<std::string>("log_directory", log_directory, default_log_folder );
+  bool drag_term;
+  nh_private_.param<bool>("drag_term", drag_term, false);
+
+  Eigen::Matrix<double, vi_ekf::VIEKF::xZ, 1> x0;
+  Eigen::Matrix<double, vi_ekf::VIEKF::dxZ, 1> P0diag, Qxdiag, gamma;
+  uVector Qudiag;
+  Vector3d P0feat, Qxfeat, gammafeat;
+  Vector2d cam_center, focal_len;
+  Vector4d q_b_c;
+  Vector3d p_b_c;
+  Vector2d feat_r_diag, acc_r_diag;
+  Vector3d att_r_diag, pos_r_diag, vel_r_diag;
+  importMatrixFromParamServer(nh_private_, x0, "x0");
+  importMatrixFromParamServer(nh_private_, P0diag, "P0");
+  importMatrixFromParamServer(nh_private_, Qxdiag, "Qx");
+  importMatrixFromParamServer(nh_private_, gamma, "gamma");
+  importMatrixFromParamServer(nh_private_, gammafeat, "gamma_feat");
+  importMatrixFromParamServer(nh_private_, Qudiag, "Qu");
+  importMatrixFromParamServer(nh_private_, P0feat, "P0_feat");
+  importMatrixFromParamServer(nh_private_, Qxfeat, "Qx_feat");
+  importMatrixFromParamServer(nh_private_, cam_center, "cam_center");
+  importMatrixFromParamServer(nh_private_, focal_len, "focal_len");
+  importMatrixFromParamServer(nh_private_, q_b_c, "q_b_c");
+  importMatrixFromParamServer(nh_private_, p_b_c, "p_b_c");
+  importMatrixFromParamServer(nh_private_, feat_r_diag, "feat_R");
+  importMatrixFromParamServer(nh_private_, acc_r_diag, "acc_R");
+  importMatrixFromParamServer(nh_private_, att_r_diag, "att_R");
+  importMatrixFromParamServer(nh_private_, pos_r_diag, "pos_R");
+  importMatrixFromParamServer(nh_private_, vel_r_diag, "vel_R");
+  double depth_r, alt_r, min_depth;
+  ROS_FATAL_COND(!nh_private_.getParam("depth_R", depth_r), "you need to specify the 'depth_R' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("alt_R", alt_r), "you need to specify the 'alt_R' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("min_depth", min_depth), "you need to specify the 'min_depth' parameter");
+
+  P0feat(2,0) = 1.0/(16.0 * min_depth * min_depth);
 
   ekf_mtx_.lock();
-  ekf_.init(ekf_.get_state(), log_directory, true);
-  Vector2d cam_center, focal_len;
-  focal_len << 533.013144, 533.503964;
-  cam_center << 316.680559, 230.660661;
-  Matrix3d R_b_c;
-  R_b_c << 0, 1, 0,    0, 0, 1,     1, 0, 0;
-  quat::Quaternion q_b_c = quat::Quaternion::from_R(R_b_c);
-  Vector3d p_b_c;
-  p_b_c << 0.16, -0.05, 0.1;
-  ekf_.set_camera_intrinsics(cam_center, focal_len);
-  ekf_.set_camera_to_IMU(p_b_c, q_b_c);
+  ekf_.init(x0, P0diag, Qxdiag, gamma, Qudiag, P0feat, Qxfeat, gammafeat,
+            cam_center, focal_len, q_b_c, p_b_c, min_depth, log_directory, drag_term);
   ekf_mtx_.unlock();
-  klt_tracker_.init(NUM_FEATURES, true, 30);
+  klt_tracker_.init(NUM_FEATURES, false, 30);
 
   // Initialize the depth image to all NaNs
   depth_image_ = cv::Mat(640, 480, CV_32FC1, cv::Scalar(NAN));
   got_depth_ = false;
 
   // Initialize the measurement noise covariance matrices
-  depth_R_ << 0.1;
-  feat_R_ << 1.0, 0.0, 0.0, 1.0;
-  acc_R_ << 0.5, 0.0, 0.0, 0.5;
-  att_R_ << 0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01;
-  pos_R_ << 0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01;
-  vel_R_ << 0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.1;
+  depth_R_ << depth_r;
+  feat_R_ = feat_r_diag.asDiagonal();
+  acc_R_ = acc_r_diag.asDiagonal();
+  att_R_ = att_r_diag.asDiagonal();
+  pos_R_ = pos_r_diag.asDiagonal();
+  vel_R_ = vel_r_diag.asDiagonal();
+  alt_R_ << alt_r;
+
+  // Turn on the specified measurements
+  ROS_FATAL_COND(!nh_private_.getParam("use_truth", use_truth_), "you need to specify the 'use_truth' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("use_depth", use_depth_), "you need to specify the 'use_depth' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("use_features", use_features_), "you need to specify the 'use_features' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("use_acc", use_acc_), "you need to specify the 'use_acc' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("use_imu_att", use_imu_att_), "you need to specify the 'use_imu_att' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("use_alt", use_alt_), "you need to specify the 'use_alt' parameter");
+
+  cout << "truth:" << use_truth_ << "\n";
+  cout << "depth:" << use_depth_ << "\n";
+  cout << "features:" << use_features_ << "\n";
+  cout << "acc:" << use_acc_ << "\n";
+  cout << "imu_att:" << use_imu_att_ << "\n";
+  cout << "imu_alt:" << use_alt_ << "\n";
+
+  double imu_update_rate;
+  ROS_FATAL_COND(!nh_private_.getParam("max_imu_update_rate", imu_update_rate), "you need to specify the 'max_imu_update_rate' parameter");
+  imu_skip_ = 1.0/imu_update_rate;
 
   // Wait for truth to initialize pose
   initialized_ = false;
 
-  imu_count_ = 0;
-  u_sum_.setZero();
+  u_prev_.setZero();
+
+  initialized_ = true;
+
+  odom_msg_.header.frame_id = "body";
 }
 
 VIEKF_ROS::~VIEKF_ROS()
@@ -55,47 +105,58 @@ VIEKF_ROS::~VIEKF_ROS()
 
 void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
 {
-
-
   if (!initialized_)
     return;
 
-  imu_count_++;
+  Vector6d u;
+  u(0) = msg->linear_acceleration.x;
+  u(1) = msg->linear_acceleration.y;
+  u(2) = msg->linear_acceleration.z;
+  u(3) = msg->angular_velocity.x;
+  u(4) = msg->angular_velocity.y;
+  u(5) = msg->angular_velocity.z;
 
-  u_sum_(0) += msg->linear_acceleration.x;
-  u_sum_(1) += msg->linear_acceleration.y;
-  u_sum_(2) += msg->linear_acceleration.z;
-  u_sum_(3) += msg->angular_velocity.x;
-  u_sum_(4) += msg->angular_velocity.y;
-  u_sum_(5) += msg->angular_velocity.z;
+  // LPF IMU
+//  u_prev_ = (0.85)*u + (0.15)*u_prev_;
 
-  if ((msg->header.stamp - last_imu_update_).toSec() > 0.010)
+  if ((msg->header.stamp - last_imu_update_).toSec() >= imu_skip_)
   {
-    // moving average over imu readings
-    Vector6d u = u_sum_ / imu_count_;
-
-    // Reset counting variables
-    imu_count_ = 0;
-    u_sum_.setZero();
     last_imu_update_ = msg->header.stamp;
 
     // Propagate filter
     ekf_mtx_.lock();
-    ekf_.step(u, msg->header.stamp.toSec());
+    ekf_.propagate(u, msg->header.stamp.toSec());
     ekf_mtx_.unlock();
 
     // update accelerometer measurement
     Vector2d z_acc = u.block<2,1>(0, 0);
     ekf_mtx_.lock();
-    ekf_.update(z_acc, vi_ekf::VIEKF::ACC, acc_R_, true);
+    ekf_.update(z_acc, vi_ekf::VIEKF::ACC, acc_R_, use_acc_);
     ekf_mtx_.unlock();
-  }
 
-  //  Vector4d z_att;
-  //  z_att << msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z;
-  //  ekf_mtx_.lock();
-  //  //  ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, true);
-  //  ekf_mtx_.unlock();
+    // update attitude measurement
+    Vector4d z_att;
+    z_att << msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z;
+    ekf_mtx_.lock();
+//    ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, (use_truth_) ? true : use_imu_att_);
+    ekf_mtx_.unlock();
+
+    odom_msg_.header.stamp = msg->header.stamp;
+    odom_msg_.pose.pose.position.x = ekf_.get_state()(vi_ekf::VIEKF::xPOS,0);
+    odom_msg_.pose.pose.position.y = ekf_.get_state()(vi_ekf::VIEKF::xPOS+1,0);
+    odom_msg_.pose.pose.position.z = ekf_.get_state()(vi_ekf::VIEKF::xPOS+2,0);
+    odom_msg_.pose.pose.orientation.w = ekf_.get_state()(vi_ekf::VIEKF::xATT,0);
+    odom_msg_.pose.pose.orientation.x = ekf_.get_state()(vi_ekf::VIEKF::xATT+1,0);
+    odom_msg_.pose.pose.orientation.y = ekf_.get_state()(vi_ekf::VIEKF::xATT+2,0);
+    odom_msg_.pose.pose.orientation.z = ekf_.get_state()(vi_ekf::VIEKF::xATT+3,0);
+    odom_msg_.twist.twist.linear.x = ekf_.get_state()(vi_ekf::VIEKF::xVEL,0);
+    odom_msg_.twist.twist.linear.y = ekf_.get_state()(vi_ekf::VIEKF::xVEL+1,0);
+    odom_msg_.twist.twist.linear.z = ekf_.get_state()(vi_ekf::VIEKF::xVEL+2,0);
+    odom_msg_.twist.twist.angular.x = u(3);
+    odom_msg_.twist.twist.angular.y = u(4);
+    odom_msg_.twist.twist.angular.z = u(5);
+    odometry_pub_.publish(odom_msg_);
+  }
 }
 
 void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
@@ -114,73 +175,57 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
     return;
   }
 
-   if (!got_depth_)
+  if (!got_depth_)
     return;
 
   // Track Features in Image
   std::vector<Point2f> features;
   std::vector<int> ids;
-  Mat tracked;
-  klt_tracker_.load_image(cv_ptr->image, msg->header.stamp.toSec(), features, ids, tracked);
-
-  // Plot feature locations on depth image
-  Mat plot_depth_ft, plot_depth;
-  depth_image_.copyTo(plot_depth_ft);
-  double min, max;
-  cv::minMaxLoc(plot_depth_ft, &min, &max);
-  plot_depth_ft -= min;
-  plot_depth_ft /= (max-min);
-  plot_depth_ft *= 255;
-  for (int i = 0; i < features.size(); i++)
-  {
-    circle(plot_depth, features[i], 5, Scalar(255,255,255), -1);
-    putText(plot_depth, to_string(ids[i]), features[i], FONT_HERSHEY_COMPLEX, 0.5, Scalar(255,255,255));
-  }
+  klt_tracker_.load_image(cv_ptr->image, msg->header.stamp.toSec(), features, ids);
 
   ekf_mtx_.lock();
   ekf_.keep_only_features(ids);
   ekf_mtx_.unlock();
+
+  Mat output_image;
+  cv_ptr->image.copyTo(output_image);
   for (int i = 0; i < features.size(); i++)
   {
     int x = round(features[i].x);
     int y = round(features[i].y);
     float depth_mm;
     double depth;
-    try
-    {
-      depth_mm = depth_image_.at<float>(y, x);
-      depth = ((double)depth_mm) * 1e-3;
-
-    }
-    catch (const Exception& e)
-    {
-      ROS_ERROR_STREAM("depth error" << e.what());
-      throw;
-    }
-
+    depth_mm = depth_image_.at<float>(y, x);
+    depth = ((double)depth_mm) * 1e-3;
     if (depth > 1e3)
-    {
       depth = NAN;
-    }
     else if (depth < 0.1)
-    {
       depth = NAN;
-    }
+
     Vector2d z_feat;
     z_feat << features[i].x, features[i].y;
     Matrix1d z_depth;
     z_depth << depth;
+
     ekf_mtx_.lock();
-    if (!ekf_.update(z_feat, vi_ekf::VIEKF::FEAT, feat_R_, true, ids[i], depth))
-      ekf_.update(z_depth, vi_ekf::VIEKF::DEPTH, depth_R_, (depth == depth), ids[i]);
+    if (!ekf_.update(z_feat, vi_ekf::VIEKF::FEAT, feat_R_, use_features_, ids[i], (use_depth_) ? depth : NAN))
+      ekf_.update(z_depth, vi_ekf::VIEKF::DEPTH, depth_R_, use_depth_, ids[i]);
     ekf_mtx_.unlock();
 
-    // Draw depth square on tracked features
-    double h = 50.0 /depth;
-    rectangle(tracked, Point(x-h, y-h), Point(x+h, y+h), Scalar(0, 255, 0));
+    // Draw depth and position of tracked features
+    Eigen::Vector2d est_feat = ekf_.get_feat(ids[i]);
+    circle(output_image, features[i], 5, Scalar(0,255,0));
+    circle(output_image, Point(est_feat.x(), est_feat.y()), 5, Scalar(255, 0, 255));
+    double h_true = 50.0 /depth;
+    double h_est = 50.0 /ekf_.get_depth(ids[i]);
+    rectangle(output_image, Point(x-h_true, y-h_true), Point(x+h_true, y+h_true), Scalar(0, 255, 0));
+    rectangle(output_image, Point(est_feat.x()-h_est, est_feat.y()-h_est), Point(est_feat.x()+h_est, est_feat.y()+h_est), Scalar(255, 0, 255));
   }
+  cv::imshow("tracked", output_image);
 
-  cv::imshow("tracked", tracked);
+  cv::Mat cov;
+  cv::eigen2cv(ekf_.get_covariance(), cov);
+  cv::imshow("covariance", cov);
   waitKey(1);
 }
 
@@ -219,21 +264,25 @@ void VIEKF_ROS::truth_callback(const geometry_msgs::PoseStampedConstPtr &msg)
   z_pos << msg->pose.position.z, -msg->pose.position.x, -msg->pose.position.y;
 
   Vector4d z_att;
-  z_att << msg->pose.orientation.w, msg->pose.orientation.z, -msg->pose.orientation.x, -msg->pose.orientation.y;
+  z_att << -msg->pose.orientation.w, -msg->pose.orientation.z, msg->pose.orientation.x, msg->pose.orientation.y;
+
+  Eigen::Matrix<double, 1, 1> z_alt;
+  z_alt << msg->pose.position.y;
 
   ekf_mtx_.lock();
-  ekf_.update(z_pos, vi_ekf::VIEKF::POS, pos_R_, true);
+  ekf_.update(z_pos, vi_ekf::VIEKF::POS, pos_R_, use_truth_);
+  ekf_.update(z_alt, vi_ekf::VIEKF::ALT, alt_R_, (use_truth_) ? false : use_alt_);
   ekf_mtx_.unlock();
 
   ekf_mtx_.lock();
-  ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, true);
+  ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, use_truth_);
   ekf_mtx_.unlock();
 }
 
 
 int main(int argc, char* argv[])
 {
-  ros::init(argc, argv, "viekf_node");
+  ros::init(argc, argv, "vi_ekf_node");
   VIEKF_ROS ekf;
 
   ros::spin();
@@ -243,7 +292,5 @@ int main(int argc, char* argv[])
 
   return 0;
 }
-
-
 
 

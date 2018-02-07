@@ -12,12 +12,18 @@
 #include "quat.h"
 #include "math_helper.h"
 
+
 #ifndef NUM_FEATURES
+#ifndef NDEBUG
+#define NUM_FEATURES 3
+#else
 #define NUM_FEATURES 25
+#endif
 #endif
 
 #define MAX_X 17+NUM_FEATURES*5
 #define MAX_DX 16+NUM_FEATURES*3
+#define AVG_DEPTH 1.5
 
 typedef Eigen::Matrix<double, MAX_X, 1> xVector;
 typedef Eigen::Matrix<double, MAX_DX, 1> dxVector;
@@ -33,7 +39,7 @@ namespace vi_ekf
 
 class VIEKF;
 
-typedef void (VIEKF::*measurement_function_ptr)(const xVector& x, zVector& h, hMatrix& H, const int id);
+typedef void (VIEKF::*measurement_function_ptr)(const xVector& x, zVector& h, hMatrix& H, const int id) const;
 
 static const Eigen::Vector3d gravity = [] {
   Eigen::Vector3d tmp;
@@ -89,6 +95,7 @@ private:
     LOG_PROP,
     LOG_MEAS,
     LOG_PERF,
+    LOG_CONF,
   } log_type_t;
 
   // State and Covariance and Process Noise Matrices
@@ -98,7 +105,8 @@ private:
   Eigen::Matrix<double, 6, 6> Qu_;
 
   // Partial Update Gains
-  xVector gamma_;
+  dxVector gamma_;
+  dxMatrix ggT_;
 
   // Initial uncertainty on features
   Eigen::Matrix3d P0_feat_;
@@ -115,14 +123,15 @@ private:
   dxuMatrix G_;
   dxVector dx_;
   const dxMatrix I_big_ = dxMatrix::Identity();
+  const dxMatrix Ones_big_ = dxMatrix::Constant(1.0);
   xVector xp_;
-  Eigen::Matrix<double, MAX_DX, 1>  K_;
+  Eigen::Matrix<double, MAX_DX, 3>  K_;
   zVector zhat_;
   hMatrix H_;
 
   // EKF Configuration Parameters
-  bool use_drag_term;
-  double default_depth_ = 1.5;
+  bool use_drag_term_;
+  double min_depth_;
 
   // Camera Intrinsics and Extrinsics
   Eigen::Vector2d cam_center_;
@@ -131,39 +140,43 @@ private:
   Eigen::Vector3d p_b_c_;
 
   // Log Stuff
-  std::map<log_type_t, std::ofstream>* logger_ = nullptr;
-
   typedef struct
   {
+    std::map<log_type_t, std::ofstream>* stream = nullptr;
     double update_times[10] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    int update_count[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     double prop_time = 0.0;
+    int prop_log_count = 0;
     int count = 0;
-  } perf_log_t;
-  perf_log_t perf_log_;
+  } log_t;
+  log_t log_;
+
 
 public:
 
   VIEKF();
   ~VIEKF();
-  void init(xVector x0, std::string log_directory, bool multirotor=true);
-
+  void init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P0, Eigen::Matrix<double, dxZ,1> &Qx,
+                   Eigen::Matrix<double, dxZ,1> &gamma, uVector &Qu, Eigen::Vector3d& P0_feat, Eigen::Vector3d& Qx_feat,
+                   Eigen::Vector3d& gamma_feat, Eigen::Vector2d& cam_center, Eigen::Vector2d& focal_len,
+                   Eigen::Vector4d& q_b_c, Eigen::Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term);
   void init_logger(std::string root_filename);
 
-  inline double now()
+  inline double now() const
   {
     std::chrono::microseconds now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
     return (double)now.count()*1e-6;
   }
 
-  inline bool NaNsInTheHouse()
+  inline bool NaNsInTheHouse() const
   {
     if( ( (x_).array() != (x_).array()).any() || ((P_).array() != (P_).array()).any() )
-       return true;
+        return true;
     else
       return false;
   }
 
-  inline bool NegativeDepth()
+  inline bool NegativeDepth() const
   {
     for (int i = 0; i < len_features_; i++)
     {
@@ -174,7 +187,7 @@ public:
     return false;
   }
 
-  inline int global_to_local_feature_id(int global_id)
+  inline int global_to_local_feature_id(const int global_id) const
   {
     int dist = std::distance(current_feature_ids_.begin(), std::find(current_feature_ids_.begin(), current_feature_ids_.end(), global_id));
     if (dist < current_feature_ids_.size())
@@ -187,41 +200,46 @@ public:
     }
   }
 
-  void set_x0(const Eigen::VectorXd &_x0);
-  void set_camera_to_IMU(const Eigen::Vector3d& translation, const quat::Quaternion& rotation);
-  void set_camera_intrinsics(const Eigen::Vector2d& center, const Eigen::Vector2d& focal_len);
   Eigen::VectorXd get_depths() const;
   Eigen::MatrixXd get_zetas() const;
   Eigen::MatrixXd get_qzetas() const;
   Eigen::VectorXd get_zeta(const int i) const;
+  Eigen::Vector2d get_feat(const int id) const;
   const xVector& get_state() const;
   const dxMatrix& get_covariance() const;
-  double get_depth(const int i) const;
+  double get_depth(const int id) const;
   inline int get_len_features() const { return len_features_; }
+
+  void set_x0(const Eigen::VectorXd& _x0);
   void set_imu_bias(const Eigen::Vector3d& b_g, const Eigen::Vector3d& b_a);
+
   bool init_feature(const Eigen::Vector2d &l, const int id, const double depth=-1.0);
   void clear_feature(const int id);
   void keep_only_features(const std::vector<int> features);
 
   // State Propagation
   void boxplus(const xVector &x, const dxVector &dx, xVector &out) const;
+  void boxminus(const xVector& x1, const xVector &x2, dxVector& out) const;
   void step(const uVector& u, const double t);
-  void propagate(const xVector &x, dxMatrix &P, const uVector& u, const double t);
+  void propagate(const uVector& u, const double t);
   void dynamics(const xVector &x, const uVector& u, dxVector& xdot, dxMatrix& dfdx, dxuMatrix& dfdu);
   void dynamics(const xVector &x, const uVector& u);
 
   // Measurement Updates
   bool update(const Eigen::VectorXd& z, const measurement_type_t& meas_type, const Eigen::MatrixXd& R, const bool active=false, const int id=-1, const double depth=NAN);
-  void h_acc(const xVector& x, zVector& h, hMatrix& H, const int id);
-  void h_alt(const xVector& x, zVector& h, hMatrix& H, const int id);
-  void h_att(const xVector& x, zVector& h, hMatrix& H, const int id);
-  void h_pos(const xVector& x, zVector& h, hMatrix& H, const int id);
-  void h_vel(const xVector& x, zVector& h, hMatrix& H, const int id);
-  void h_qzeta(const xVector& x, zVector& h, hMatrix& H, const int id);
-  void h_feat(const xVector& x, zVector& h, hMatrix& H, const int id);
-  void h_depth(const xVector& x, zVector& h, hMatrix& H, const int id);
-  void h_inv_depth(const xVector& x, zVector& h, hMatrix& H, const int id);
-  void h_pixel_vel(const xVector& x, zVector& h, hMatrix& H, const int id);
+  void h_acc(const xVector& x, zVector& h, hMatrix& H, const int id) const;
+  void h_alt(const xVector& x, zVector& h, hMatrix& H, const int id) const;
+  void h_att(const xVector& x, zVector& h, hMatrix& H, const int id) const;
+  void h_pos(const xVector& x, zVector& h, hMatrix& H, const int id) const;
+  void h_vel(const xVector& x, zVector& h, hMatrix& H, const int id) const;
+  void h_qzeta(const xVector& x, zVector& h, hMatrix& H, const int id) const;
+  void h_feat(const xVector& x, zVector& h, hMatrix& H, const int id) const;
+  void h_depth(const xVector& x, zVector& h, hMatrix& H, const int id) const;
+  void h_inv_depth(const xVector& x, zVector& h, hMatrix& H, const int id) const;
+  void h_pixel_vel(const xVector& x, zVector& h, hMatrix& H, const int id) const;
+
+  // Inequality Constraint on Depth
+  void fix_depth();
 };
 
 static std::map<VIEKF::measurement_type_t, std::string> measurement_names = [] {
@@ -255,4 +273,6 @@ static std::map<VIEKF::measurement_type_t, measurement_function_ptr> measurement
 }();
 
 }
+
+
 

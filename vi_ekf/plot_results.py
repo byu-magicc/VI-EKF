@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import os
 import numpy as np
 from data import History
@@ -65,7 +67,11 @@ for line in meas_file:
         ids.append(id) if id not in ids else None
     elif meas_type == 'DEPTH':
         if len(line_arr) < 4: continue
-        h.store(t, line_arr[3], depth=line_arr[0], depth_hat=line_arr[1], depth_cov=[[line_arr[2]]])
+        # Invert the covariance measurement
+        p = 1.0/line_arr[1]
+        s = line_arr[2]
+        cov = 1./(p+s) - 1./p
+        h.store(t, line_arr[3], depth=line_arr[0], depth_hat=line_arr[1], depth_cov=[[cov]])
     elif meas_type == 'ALT':
         if len(line_arr) < 3: continue
         h.store(t, line_arr[2], alt=line_arr[0], alt_hat=line_arr[1])
@@ -79,15 +85,23 @@ h.tonumpy()
 # into the body frame
 b, a = scipy.signal.butter(8, 0.03)  # Create a Butterworth Filter
 # differentiate Position
-delta_x = np.diff(h.pos, axis=0)
 delta_t = np.diff(h.t.pos)
+good_ids = delta_t != 0
+delta_t = delta_t[good_ids]
+v_t = h.t.pos[np.hstack((good_ids, False))]
+delta_x = np.diff(h.pos, axis=0)
+delta_x = delta_x[good_ids]
 unfiltered_inertial_velocity = np.vstack((np.zeros((1, 3)), delta_x / delta_t[:, None]))
 # Filter
 v_inertial = scipy.signal.filtfilt(b, a, unfiltered_inertial_velocity, axis=0)
 # Rotate into Body Frame
 vel_data = []
-for i in range(len(t)):
-    q_I_b = Quaternion(h.att[i, :, None])
+try:
+    att = h.att[np.hstack((good_ids))]
+except:
+    att = h.att[np.hstack((good_ids, False))]
+for i in range(len(v_t)):
+    q_I_b = Quaternion(att[i, :, None])
     vel_data.append(q_I_b.rot(v_inertial[i, None].T).T)
 
 vel_data = np.array(vel_data).squeeze()
@@ -100,12 +114,10 @@ fig_dir = os.path.dirname(os.path.realpath(__file__)) + "/../plots/"
 init_plots(start, end, fig_dir)
 
 plot_side_by_side('x_pos', 0, 3, h.t.xhat, h.xhat, cov=h.cov, truth_t=h.t.pos, truth=h.pos, labels=['x', 'y', 'z'], start_t=start, end_t=end)
-plot_side_by_side('x_vel', 3, 6, h.t.xhat, h.xhat, cov=h.cov, labels=['x', 'y', 'z'], start_t=start, end_t=end)
+plot_side_by_side('x_vel', 3, 6, h.t.xhat, h.xhat, cov=h.cov, truth_t=v_t, truth=vel_data, labels=['x', 'y', 'z'], start_t=start, end_t=end)
 plot_side_by_side('x_att', 6, 10, h.t.xhat, h.xhat, cov=None, truth_t=h.t.att, truth=h.att, labels=['w','x', 'y', 'z'], start_t=start, end_t=end)
 plot_side_by_side('z_acc', 0, 2, h.t.acc, h.acc, labels=['x', 'y'], start_t=start, end_t=end)
-plot_side_by_side('bias', 10, 17, h.t.xhat, h.xhat, labels=['gx', 'gy', 'gz', 'ax', 'ay', 'az', 'mu'], start_t=start, end_t=end,
-                  cov=h.cov, cov_bounds=(9,16))
-
+plot_side_by_side('bias', 10, 17, h.t.xhat, h.xhat, labels=['gx', 'gy', 'gz', 'ax', 'ay', 'az', 'mu'], start_t=start, end_t=end, cov=h.cov, cov_bounds=(9,16))
 
 
 for i in tqdm(ids):

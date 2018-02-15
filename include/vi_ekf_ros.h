@@ -2,6 +2,8 @@
 #include "klt_tracker.h"
 
 #include <mutex>
+#include <deque>
+
 #include <ros/ros.h>
 #include <ros/package.h>
 #include <sensor_msgs/Image.h>
@@ -13,7 +15,6 @@
 #include <image_transport/image_transport.h>
 #include <opencv/cv.hpp>
 #include <opencv2/core/eigen.hpp>
-
 
 
 using namespace Eigen;
@@ -66,7 +67,10 @@ private:
   bool use_acc_;
   bool use_imu_att_;
   bool use_alt_;
+  double imu_LPF_;
   double imu_skip_;
+
+  Vector6d imu_;
 
   Matrix2d feat_R_;
   Matrix2d acc_R_;

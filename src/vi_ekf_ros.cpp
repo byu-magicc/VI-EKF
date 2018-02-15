@@ -49,6 +49,8 @@ VIEKF_ROS::VIEKF_ROS() :
   ROS_FATAL_COND(!nh_private_.getParam("depth_R", depth_r), "you need to specify the 'depth_R' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("alt_R", alt_r), "you need to specify the 'alt_R' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("min_depth", min_depth), "you need to specify the 'min_depth' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("imu_LPF", imu_LPF_), "you need to specify the 'imu_LPF' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("num_features", num_features_), "you need to specify the 'num_features' parameter");
 
   P0feat(2,0) = 1.0/(16.0 * min_depth * min_depth);
 
@@ -56,7 +58,7 @@ VIEKF_ROS::VIEKF_ROS() :
   ekf_.init(x0, P0diag, Qxdiag, gamma, Qudiag, P0feat, Qxfeat, gammafeat,
             cam_center, focal_len, q_b_c, p_b_c, min_depth, log_directory, drag_term);
   ekf_mtx_.unlock();
-  klt_tracker_.init(NUM_FEATURES, false, 30);
+  klt_tracker_.init(num_features_, false, 30);
 
   // Initialize the depth image to all NaNs
   depth_image_ = cv::Mat(640, 480, CV_32FC1, cv::Scalar(NAN));
@@ -95,7 +97,7 @@ VIEKF_ROS::VIEKF_ROS() :
 
   u_prev_.setZero();
 
-  initialized_ = true;
+//  initialized_ = true;
 
   odom_msg_.header.frame_id = "body";
 }
@@ -105,9 +107,6 @@ VIEKF_ROS::~VIEKF_ROS()
 
 void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
 {
-  if (!initialized_)
-    return;
-
   Vector6d u;
   u(0) = msg->linear_acceleration.x;
   u(1) = msg->linear_acceleration.y;
@@ -116,8 +115,14 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
   u(4) = msg->angular_velocity.y;
   u(5) = msg->angular_velocity.z;
 
-  // LPF IMU
-//  u_prev_ = (0.85)*u + (0.15)*u_prev_;
+  if (!initialized_)
+  {
+    imu_ = u;
+    initialized_ = true;
+    return;
+  }
+
+  imu_ = (imu_LPF_) * u + (1.0 - imu_LPF_) * imu_;
 
   if ((msg->header.stamp - last_imu_update_).toSec() >= imu_skip_)
   {
@@ -125,11 +130,11 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
 
     // Propagate filter
     ekf_mtx_.lock();
-    ekf_.propagate(u, msg->header.stamp.toSec());
+    ekf_.propagate(imu_, msg->header.stamp.toSec());
     ekf_mtx_.unlock();
 
     // update accelerometer measurement
-    Vector2d z_acc = u.block<2,1>(0, 0);
+    Vector2d z_acc = imu_.block<2,1>(0, 0);
     ekf_mtx_.lock();
     ekf_.update(z_acc, vi_ekf::VIEKF::ACC, acc_R_, use_acc_);
     ekf_mtx_.unlock();

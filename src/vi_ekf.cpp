@@ -1,12 +1,12 @@
 #include "vi_ekf.h"
 
-#ifndef NDEBUG
+//#ifndef NDEBUG
 #define NAN_CHECK if (NaNsInTheHouse()) cout << "NaNs In The House at line " << __LINE__ << "!!!\n"
 #define NEGATIVE_DEPTH if (NegativeDepth()) cout << "Negatiive Depth " << __LINE__ << "!!!\n"
-#else
-#define NAN_CHECK {}
-#define NEGATIVE_DEPTH {}
-#endif
+//#else
+//#define NAN_CHECK {}
+//#define NEGATIVE_DEPTH {}
+//#endif
 
 using namespace quat;
 using namespace std;
@@ -61,6 +61,8 @@ void VIEKF::init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P
   {
     init_logger(log_directory);
   }
+  K_.setZero();
+  H_.setZero();
 }
 
 void VIEKF::set_x0(const Eigen::VectorXd& _x0)
@@ -479,8 +481,11 @@ bool VIEKF::update(const Eigen::VectorXd& z, const measurement_type_t& meas_type
     // Apply Fixed Gain Partial update per
     // "Partial-Update Schmidt-Kalman Filter" by Brink
     // Modified to operate on the manifold
+    if ((K_.array() != K_.array()).any())
+      cout << "Issue in Kalman Gain\n" << K_ << "\n";
+    if ((H_.array() != H_.array()).any())
+      cout << "Issue in Measurement Model\n" << H_ << "\n";
     boxplus(xp_, gamma_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
-    NAN_CHECK;
     P_ -= (ggT_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*P_);
     NAN_CHECK;
   }
@@ -664,9 +669,6 @@ void VIEKF::init_logger(string root_filename)
   (*log_.stream)[LOG_CONF] << "Qu: " << Qu_.diagonal().transpose() << "\n";
   (*log_.stream)[LOG_CONF] << "gamma: " << gamma_.transpose() << "\n";
 }
-
-
-
 
 
 }

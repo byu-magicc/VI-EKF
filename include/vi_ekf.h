@@ -170,8 +170,10 @@ public:
 
   inline bool NaNsInTheHouse() const
   {
+    if ( ((x_).array() > 1e2).any() || ((P_).array() > 1e2).any())
+      return true;
     if( ( (x_).array() != (x_).array()).any() || ((P_).array() != (P_).array()).any() )
-        return true;
+      return true;
     else
       return false;
   }

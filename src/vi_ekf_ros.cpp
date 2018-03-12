@@ -9,8 +9,8 @@ VIEKF_ROS::VIEKF_ROS() :
   truth_sub_ = nh_.subscribe("vrpn/Leo/pose", 10, &VIEKF_ROS::truth_callback, this);
   odometry_pub_ = nh_.advertise<nav_msgs::Odometry>("odom", 1);
 
-  image_sub_ = it_.subscribe("camera/rgb/image_mono", 10, &VIEKF_ROS::color_image_callback, this);
-  depth_sub_ = it_.subscribe("camera/depth/image_raw", 10, &VIEKF_ROS::depth_image_callback, this);
+  image_sub_ = it_.subscribe("camera/color/image_raw", 10, &VIEKF_ROS::color_image_callback, this);
+  depth_sub_ = it_.subscribe("camera/depth/image_rect_raw", 10, &VIEKF_ROS::depth_image_callback, this);
   output_pub_ = it_.advertise("tracked", 1);
 
   std::string log_directory;
@@ -51,6 +51,8 @@ VIEKF_ROS::VIEKF_ROS() :
   ROS_FATAL_COND(!nh_private_.getParam("min_depth", min_depth), "you need to specify the 'min_depth' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("imu_LPF", imu_LPF_), "you need to specify the 'imu_LPF' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("num_features", num_features_), "you need to specify the 'num_features' parameter");
+
+  num_features_ = (num_features_ > NUM_FEATURES) ? NUM_FEATURES : num_features_;
 
   P0feat(2,0) = 1.0/(16.0 * min_depth * min_depth);
 
@@ -183,17 +185,19 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
   if (!got_depth_)
     return;
 
+  Mat img;
+  cv::flip(cv_ptr->image, img, ROTATE_180);
+  
   // Track Features in Image
   std::vector<Point2f> features;
   std::vector<int> ids;
-  klt_tracker_.load_image(cv_ptr->image, msg->header.stamp.toSec(), features, ids);
+  klt_tracker_.load_image(img, msg->header.stamp.toSec(), features, ids);
 
   ekf_mtx_.lock();
   ekf_.keep_only_features(ids);
   ekf_mtx_.unlock();
 
-  Mat output_image;
-  cv_ptr->image.copyTo(output_image);
+//  cv_ptr->image.copyTo(output_image);
   for (int i = 0; i < features.size(); i++)
   {
     int x = round(features[i].x);
@@ -219,14 +223,14 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
 
     // Draw depth and position of tracked features
     Eigen::Vector2d est_feat = ekf_.get_feat(ids[i]);
-    circle(output_image, features[i], 5, Scalar(0,255,0));
-    circle(output_image, Point(est_feat.x(), est_feat.y()), 5, Scalar(255, 0, 255));
+    circle(img, features[i], 5, Scalar(0,255,0));
+    circle(img, Point(est_feat.x(), est_feat.y()), 5, Scalar(255, 0, 255));
     double h_true = 50.0 /depth;
     double h_est = 50.0 /ekf_.get_depth(ids[i]);
-    rectangle(output_image, Point(x-h_true, y-h_true), Point(x+h_true, y+h_true), Scalar(0, 255, 0));
-    rectangle(output_image, Point(est_feat.x()-h_est, est_feat.y()-h_est), Point(est_feat.x()+h_est, est_feat.y()+h_est), Scalar(255, 0, 255));
+    rectangle(img, Point(x-h_true, y-h_true), Point(x+h_true, y+h_true), Scalar(0, 255, 0));
+    rectangle(img, Point(est_feat.x()-h_est, est_feat.y()-h_est), Point(est_feat.x()+h_est, est_feat.y()+h_est), Scalar(255, 0, 255));
   }
-  cv::imshow("tracked", output_image);
+  cv::imshow("tracked", img);
 
   cv::Mat cov;
   cv::eigen2cv(ekf_.get_covariance(), cov);
@@ -246,7 +250,7 @@ void VIEKF_ROS::depth_image_callback(const sensor_msgs::ImageConstPtr &msg)
     ROS_FATAL("cv_bridge exception: %s", e.what());
     return;
   }
-  depth_image_ = cv_ptr->image;
+  cv::flip(cv_ptr->image, depth_image_, ROTATE_180);
   got_depth_ = true;
 }
 

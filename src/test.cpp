@@ -62,9 +62,43 @@ static std::map<std::string, std::vector<int>> indexes = [] {
   return tmp;
 }();
 
-int print_error(std::string row_id, std::string col_id, Eigen::MatrixXd analytical, Eigen::MatrixXd fd);
-int check_all(Eigen::MatrixXd analytical, Eigen::MatrixXd fd, std::string name);
 
+bool check_block(std::string row_id, std::string col_id, Eigen::MatrixXd analytical, Eigen::MatrixXd fd, double tolerance=1e-3)
+{
+  Eigen::MatrixXd error_mat = analytical - fd;
+  std::vector<int> row = indexes[row_id];
+  std::vector<int> col = indexes[col_id];
+  if ((error_mat.block(row[0], col[0], row[1], col[1]).array().abs() > tolerance).any())
+  {
+    std::cout << FONT_FAIL << "Error in Jacobian " << row_id << ", " << col_id << "\n";
+    std::cout << "BLOCK ERROR:\n" << error_mat.block(row[0], col[0], row[1], col[1]) << "\n";
+    std::cout << "ANALYTICAL:\n" << analytical.block(row[0], col[0], row[1], col[1]) << "\n";
+    std::cout << "FD:\n" << fd.block(row[0], col[0], row[1], col[1]) << ENDC << "\n";
+    return true;
+  }
+  return false;
+}
+
+int check_all(Eigen::MatrixXd analytical, Eigen::MatrixXd fd, std::string name, double tol = 1e-3)
+{
+  Eigen::MatrixXd error_mat = analytical - fd;
+  if ((error_mat.array().abs() > tol).any())
+  {
+    std::cout << FONT_FAIL << "Error in total " << BOLD << name << ENDC << FONT_FAIL << " matrix" << ENDC << "\n";
+    for (int row =0; row < error_mat.rows(); row ++)
+    {
+      for (int col = 0; col < error_mat.cols(); col++)
+      {
+        if(std::abs(error_mat(row, col)) > tol)
+        {
+          std::cout << BOLD << "error in (" << row << ", " << col << "):\tERR: " << error_mat(row,col) << "\tA: " << analytical(row, col) << "\tFD: " << fd(row,col) << ENDC << "\n";
+        }
+      }
+    }
+    return true;
+  }
+  return false;
+}
 
 
 TEST(Quaternion, rotation_direction)
@@ -75,9 +109,9 @@ TEST(Quaternion, rotation_direction)
   v_active_rotated << 0, std::pow(-0.5,0.5), std::pow(0.5,0.5);
   beta << 1, 0, 0;
   Quaternion q_x_45 = Quaternion::from_axis_angle(beta, 45*M_PI/180.0);
-
+  
   EXPECT_VECTOR3_EQUALS(q_x_45.rot(v), v_active_rotated);
-
+  
   v_passive_rotated << 0, std::pow(0.5, 0.5), std::pow(0.5, 0.5);
   EXPECT_VECTOR3_EQUALS(q_x_45.rot(v), v_passive_rotated);
 }
@@ -90,7 +124,7 @@ TEST(Quaternion, rot_invrot_R)
   {
     v.setRandom();
     q1 = Quaternion::Random();
-
+    
     // Check that rotations are inverses of each other
     EXPECT_VECTOR3_EQUALS(q1.rot(v), q1.R.T * v);
     EXPECT_VECTOR3_EQUALS(q1.invrot(v), q1.R * v);
@@ -106,7 +140,7 @@ TEST(Quaternion, from_two_unit_vectors)
     v2.setRandom();
     v1 /= v1.norm();
     v2 /= v2.norm();
-
+    
     EXPECT_VECTOR3_EQUALS(Quaternion::from_two_unit_vectors(v1, v2).rot(v1), v2);
     EXPECT_VECTOR3_EQUALS(Quaternion::from_two_unit_vectors(v2, v1).invrot(v1), v2);
   }
@@ -145,8 +179,8 @@ TEST(Quaternion, exp_log_axis_angle)
     Quaternion q_omega_exp = Quaternion::exp(omega);
     EXPECT_QUATERNION_EQUALS(q_R_omega_exp, q_omega);
     EXPECT_QUATERNION_EQUALS(q_omega_exp, q_omega);
-
-    // Check that exp and log are inverses of each other
+    
+    // Check that exp and log are inverses of each otherprint_error
     EXPECT_VECTOR3_EQUALS(Quaternion::log(Quaternion::exp(omega)), omega);
     EXPECT_QUATERNION_EQUALS(Quaternion::exp(Quaternion::log(q_omega)), q_omega);
   }
@@ -163,7 +197,7 @@ TEST(Quaternion, boxplus_and_boxminus)
     Quaternion q2 = Quaternion::Random();
     delta1.setRandom();
     delta2.setRandom();
-
+    
     EXPECT_QUATERNION_EQUALS(q + zeros, q);
     EXPECT_QUATERNION_EQUALS(q + (q2 - q), q2);
     EXPECT_VECTOR3_EQUALS((q + delta1) - q, delta1);
@@ -182,10 +216,10 @@ TEST(Quaternion, inplace_add_and_mul)
     Quaternion q_copy = q.copy();
     delta1.setRandom();
     delta2.setRandom();
-
+    
     q_copy += delta1;
     EXPECT_QUATERNION_EQUALS(q_copy, q+delta1);
-
+    
     q_copy = q.copy();
     q_copy *= q2;
     EXPECT_QUATERNION_EQUALS(q_copy, q*q2);
@@ -268,7 +302,7 @@ TEST(math_helper, manifold_operations)
     omega2(2) = 0;
     Quaternion x = Quaternion::exp(omega);
     Quaternion y = Quaternion::exp(omega2);
-
+    
     EXPECT_QUATERNION_EQUALS( q_feat_boxplus(x, zeros), x);
     EXPECT_VECTOR3_EQUALS( q_feat_boxplus( x, q_feat_boxminus(y, x)).rot(e_z), y.rot(e_z));
     EXPECT_VECTOR2_EQUALS( q_feat_boxminus(q_feat_boxplus(x, dx), x), dx);
@@ -287,7 +321,7 @@ VIEKF init_jacobians_test(xVector& x0, uVector& u0)
   x0.block<3,1>((int)VIEKF::xB_A, 0) += Eigen::Vector3d::Random() * 1.0;
   x0.block<3,1>((int)VIEKF::xB_G, 0) += Eigen::Vector3d::Random() * 0.5;
   x0((int)VIEKF::xMU, 0) += (static_cast <double> (rand()) / (static_cast <double> (RAND_MAX)))*0.05;
-
+  
   // Create VIEKF
   VIEKF ekf;
   Eigen::Matrix<double, vi_ekf::VIEKF::dxZ, 1> P0, Qx, gamma;
@@ -297,11 +331,11 @@ VIEKF init_jacobians_test(xVector& x0, uVector& u0)
   cam_center << 320-25+std::rand()%50, 240-25+std::rand()%50;
   Eigen::Vector2d focal_len;
   focal_len << static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/100.0)),
-               static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/100.0));
+      static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/100.0));
   Eigen::Vector4d q_b_c = Quaternion::Random().elements();
   Eigen::Vector3d p_b_c = Eigen::Vector3d::Random() * 0.5;
   ekf.init(x0.block<17, 1>(0,0), P0, Qx, gamma, Qu, P0feat, Qxfeat, gammafeat, cam_center, focal_len, q_b_c, p_b_c, 2.0, "~", true);
-
+  
   // Initialize Random Features
   for (int i = 0; i < NUM_FEATURES; i++)
   {
@@ -312,12 +346,12 @@ VIEKF init_jacobians_test(xVector& x0, uVector& u0)
   }
   // Recover the new state to return
   x0 = ekf.get_state();
-
+  
   // Initialize Inputs
   u0.setZero();
   u0.block<3,1>((int)VIEKF::uA, 0) += Eigen::Vector3d::Random() * 1.0;
   u0.block<3,1>((int)VIEKF::uG, 0) += Eigen::Vector3d::Random() * 1.0;
-
+  
   return ekf;
 }
 
@@ -325,126 +359,165 @@ TEST(VI_EKF, dfdx_test)
 {  
   xVector x0;
   uVector u0;
-  vi_ekf::VIEKF ekf = init_jacobians_test(x0, u0);
-
-  dxVector dx0;
-  dxuMatrix a_dfdu;
-  dxMatrix a_dfdx;
-
-  ekf.dynamics(x0, u0, dx0, a_dfdx, a_dfdu);
-
-  dxMatrix Idx = dxMatrix::Identity();
-  double epsilon = 1e-6;
-
-  dxMatrix d_dfdx;
-  d_dfdx.setZero();
-
-
   dxMatrix dummydfdx;
   dxuMatrix dummydfdu;
   dxVector dxprime;
   xVector xprime;
-  xprime.resizeLike(x0);
-  for (int i = 0; i < d_dfdx.cols(); i++)
+  dxMatrix Idx = dxMatrix::Identity();
+  double epsilon = 1e-6;
+  
+  dxMatrix d_dfdx;
+  dxVector dx0;
+  dxuMatrix a_dfdu;
+  dxMatrix a_dfdx;
+  for (int j = 0; j < 100; j++)
   {
-    ekf.boxplus(x0, (Idx.col(i) * epsilon), xprime);
-    ekf.dynamics(xprime, u0, dxprime, dummydfdx, dummydfdu);
-    d_dfdx.col(i) = (dxprime - dx0) / epsilon;
+    vi_ekf::VIEKF ekf = init_jacobians_test(x0, u0);
+    
+    // analytical differentiation
+    ekf.dynamics(x0, u0, dx0, a_dfdx, a_dfdu);
+    d_dfdx.setZero();
+    
+    // numeri
+    for (int i = 0; i < d_dfdx.cols(); i++)
+    {
+      ekf.boxplus(x0, (Idx.col(i) * epsilon), xprime);
+      ekf.dynamics(xprime, u0, dxprime, dummydfdx, dummydfdu);
+      d_dfdx.col(i) = (dxprime - dx0) / epsilon;
+    }
+    
+    EXPECT_FALSE(check_block("dxPOS", "dxVEL", a_dfdx, d_dfdx));
+    EXPECT_FALSE(check_block("dxPOS", "dxATT", a_dfdx, d_dfdx));
+    EXPECT_FALSE(check_block("dxVEL", "dxVEL", a_dfdx, d_dfdx));
+    EXPECT_FALSE(check_block("dxVEL", "dxPOS", a_dfdx, d_dfdx));
+    EXPECT_FALSE(check_block("dxVEL", "dxATT", a_dfdx, d_dfdx));
+    EXPECT_FALSE(check_block("dxVEL", "dxB_A", a_dfdx, d_dfdx));
+    EXPECT_FALSE(check_block("dxVEL", "dxB_G", a_dfdx, d_dfdx));
+    EXPECT_FALSE(check_block("dxVEL", "dxMU", a_dfdx, d_dfdx));
+    
+    for (int i = 0; i < ekf.get_len_features(); i++)
+    {
+      std::string zeta_key = "dxZETA_" + std::to_string(i);
+      std::string rho_key = "dxRHO_" + std::to_string(i);
+      
+      EXPECT_FALSE(check_block(zeta_key, "dxVEL", a_dfdx, d_dfdx));
+      EXPECT_FALSE(check_block(zeta_key, "dxB_G", a_dfdx, d_dfdx));
+      EXPECT_FALSE(check_block(zeta_key, zeta_key, a_dfdx, d_dfdx));
+      EXPECT_FALSE(check_block(zeta_key, rho_key, a_dfdx, d_dfdx));
+      EXPECT_FALSE(check_block(rho_key, "dxVEL", a_dfdx, d_dfdx));
+      EXPECT_FALSE(check_block(rho_key, "dxB_G", a_dfdx, d_dfdx));
+      EXPECT_FALSE(check_block(rho_key, zeta_key, a_dfdx, d_dfdx, 1.0));
+      EXPECT_FALSE(check_block(rho_key, rho_key, a_dfdx, d_dfdx));
+    }
+    EXPECT_EQ(check_all(a_dfdx, d_dfdx, "dfdx", 1.0), 0);
   }
-
-  EXPECT_EQ(print_error("dxPOS", "dxVEL", a_dfdx, d_dfdx), 0);
-  EXPECT_EQ(print_error("dxPOS", "dxATT", a_dfdx, d_dfdx), 0);
-  EXPECT_EQ(print_error("dxVEL", "dxVEL", a_dfdx, d_dfdx), 0);
-  EXPECT_EQ(print_error("dxVEL", "dxPOS", a_dfdx, d_dfdx), 0);
-  EXPECT_EQ(print_error("dxVEL", "dxATT", a_dfdx, d_dfdx), 0);
-  EXPECT_EQ(print_error("dxVEL", "dxB_A", a_dfdx, d_dfdx), 0);
-  EXPECT_EQ(print_error("dxVEL", "dxB_G", a_dfdx, d_dfdx), 0);
-  EXPECT_EQ(print_error("dxVEL", "dxMU", a_dfdx, d_dfdx), 0);
-
-  for (int i = 0; i < ekf.get_len_features(); i++)
-  {
-    std::string zeta_key = "dxZETA_" + std::to_string(i);
-    std::string rho_key = "dxRHO_" + std::to_string(i);
-
-    EXPECT_EQ(print_error(zeta_key, "dxVEL", a_dfdx, d_dfdx), 0);
-    EXPECT_EQ(print_error(zeta_key, "dxB_G", a_dfdx, d_dfdx), 0);
-    EXPECT_EQ(print_error(zeta_key, zeta_key, a_dfdx, d_dfdx), 0);
-    EXPECT_EQ(print_error(zeta_key, rho_key, a_dfdx, d_dfdx), 0);
-    EXPECT_EQ(print_error(rho_key, "dxVEL", a_dfdx, d_dfdx), 0);
-    EXPECT_EQ(print_error(rho_key, "dxB_G", a_dfdx, d_dfdx), 0);
-    EXPECT_EQ(print_error(rho_key, zeta_key, a_dfdx, d_dfdx), 0);
-    EXPECT_EQ(print_error(rho_key, rho_key, a_dfdx, d_dfdx), 0);
-  }
-  EXPECT_EQ(check_all(a_dfdx, d_dfdx, "dfdx"), 0);
 }
 
 TEST(VI_EKF, dfdu_test)
 {
   xVector x0;
   uVector u0;
-  vi_ekf::VIEKF ekf = init_jacobians_test(x0, u0);
-
-  // Perform Analytical Differentiation
-  dxVector dx0;
-  dxMatrix a_dfdx;
-  dxuMatrix a_dfdu;
-  ekf.dynamics(x0, u0, dx0, a_dfdx, a_dfdu);
-
-  dxuMatrix d_dfdu;
-  d_dfdu.setZero();
+  dxVector dxprime;
+  uVector uprime;
   double epsilon = 1e-6;
   dxMatrix dfdx_dummy;
   dxuMatrix dfdu_dummy;
+  dxuMatrix d_dfdu;
   Eigen::Matrix<double, 6, 6> Iu = Eigen::Matrix<double, 6, 6>::Identity();
-
-  // Perform Numerical Differentiation
-  dxVector dxprime;
-  uVector uprime;
-  for (int i = 0; i < d_dfdu.cols(); i++)
+  dxVector dx0;
+  dxMatrix a_dfdx;
+  dxuMatrix a_dfdu;
+  for (int j = 0; j < 100; j++)
   {
-    uprime = u0 + (Iu.col(i) * epsilon);
-    ekf.dynamics(x0, uprime, dxprime, dfdx_dummy, dfdu_dummy);
-    d_dfdu.col(i) = (dxprime - dx0) / epsilon;
-  }
-
-  EXPECT_EQ(print_error("dxVEL","uA", a_dfdu, d_dfdu), 0);
-  EXPECT_EQ(print_error("dxVEL","uG", a_dfdu, d_dfdu), 0);
-  EXPECT_EQ(print_error("dxATT", "uG", a_dfdu, d_dfdu), 0);
-  for (int i = 0; i < ekf.get_len_features(); i++)
-  {
-    std::string zeta_key = "dxZETA_" + std::to_string(i);
-    std::string rho_key = "dxRHO_" + std::to_string(i);
-    EXPECT_EQ(print_error(zeta_key, "uG", a_dfdu, d_dfdu), 0);
-    EXPECT_EQ(print_error(rho_key, "uG", a_dfdu, d_dfdu), 0);
+    vi_ekf::VIEKF ekf = init_jacobians_test(x0, u0);
+    
+    // Perform Analytical Differentiation
+    ekf.dynamics(x0, u0, dx0, a_dfdx, a_dfdu);
+    d_dfdu.setZero();
+    
+    // Perform Numerical Differentiation
+    for (int i = 0; i < d_dfdu.cols(); i++)
+    {
+      uprime = u0 + (Iu.col(i) * epsilon);
+      ekf.dynamics(x0, uprime, dxprime, dfdx_dummy, dfdu_dummy);
+      d_dfdu.col(i) = (dxprime - dx0) / epsilon;
+    }
+    
+    EXPECT_FALSE(check_block("dxVEL","uA", a_dfdu, d_dfdu));
+    EXPECT_FALSE(check_block("dxVEL","uG", a_dfdu, d_dfdu));
+    EXPECT_FALSE(check_block("dxATT", "uG", a_dfdu, d_dfdu));
+    for (int i = 0; i < ekf.get_len_features(); i++)
+    {
+      std::string zeta_key = "dxZETA_" + std::to_string(i);
+      std::string rho_key = "dxRHO_" + std::to_string(i);
+      EXPECT_FALSE(check_block(zeta_key, "uG", a_dfdu, d_dfdu));
+      EXPECT_FALSE(check_block(rho_key, "uG", a_dfdu, d_dfdu));
+    }
   }
 }
 
-int htest(measurement_function_ptr fn, VIEKF& ekf, const VIEKF::measurement_type_t type, const int id, const int dim)
+TEST(VI_EKF, KF_reset_test)
+{
+  uVector u0;
+  dxMatrix d_dxpdxm;
+  dxMatrix a_dxpdxm;
+  xVector xm;
+  xVector xp;
+  dxMatrix dummy;
+  dxMatrix I_dx = dxMatrix::Identity();
+  xVector xm_prime;    
+  xVector xp_prime;    
+  dxVector d_xp;
+  
+  for (int j = 0; j < 100; j++)
+  {
+    vi_ekf::VIEKF ekf = init_jacobians_test(xm, u0);
+    ekf.keyframe_reset(xm, xp, a_dxpdxm);
+    
+    d_dxpdxm.setZero();
+    double epsilon = 1e-6;
+
+    // Perform Numerical Differentiation
+    for (int i = 0; i < d_dxpdxm.cols(); i++)
+    {
+      ekf.boxplus(xm, (I_dx.col(i) * epsilon), xm_prime);
+      ekf.keyframe_reset(xm_prime, xp_prime, dummy);
+      ekf.boxminus(xp_prime, xp, d_xp);
+      d_dxpdxm.row(i) =  d_xp / epsilon;
+    }
+    
+    EXPECT_FALSE(check_block("dxPOS", "dxPOS", a_dxpdxm, d_dxpdxm));
+    EXPECT_FALSE(check_block("dxATT", "dxATT", a_dxpdxm, d_dxpdxm, 1e-1));
+    EXPECT_FALSE(check_all(a_dxpdxm, d_dxpdxm, "dfdx", 1e-1));
+  }
+}
+
+int htest(measurement_function_ptr fn, VIEKF& ekf, const VIEKF::measurement_type_t type, const int id, const int dim, double tol=1e-3)
 {
   int num_errors = 0;
   xVector x0 = ekf.get_state();
   zVector z0;
   hMatrix a_dhdx;
   a_dhdx.setZero();
-
+  
   // Call the Measurement function
   CALL_MEMBER_FN(ekf, fn)(x0, z0, a_dhdx, id);
-
+  
   hMatrix d_dhdx;
   d_dhdx.setZero();
-
+  
   Eigen::Matrix<double, MAX_DX, MAX_DX> I = Eigen::Matrix<double, MAX_DX, MAX_DX>::Identity();
   double epsilon = 1e-6;
-
+  
   zVector z_prime;
   hMatrix dummy_H;
   xVector x_prime;
   for (int i = 0; i < a_dhdx.cols(); i++)
   {
     ekf.boxplus(ekf.get_state(), (I.col(i) * epsilon), x_prime);
-
+    
     CALL_MEMBER_FN(ekf, fn)(x_prime, z_prime, dummy_H, id);
-
+    
     if (type == VIEKF::QZETA)
       d_dhdx.block(0, i, dim, 1) = q_feat_boxminus(Quaternion(z_prime), Quaternion(z0))/epsilon;
     else if (type == VIEKF::ATT)
@@ -452,21 +525,21 @@ int htest(measurement_function_ptr fn, VIEKF& ekf, const VIEKF::measurement_type
     else
       d_dhdx.block(0, i, dim, 1) = (z_prime.topRows(dim) - z0.topRows(dim))/epsilon;
   }
-
+  
   Eigen::MatrixXd error = (a_dhdx - d_dhdx).topRows(dim);
-  double err_threshold = std::max(1e-3 * a_dhdx.norm(), 1e-5);
-
+  double err_threshold = std::max(tol * a_dhdx.norm(), tol);
+  
   for (std::map<std::string, std::vector<int>>::iterator it=indexes.begin(); it!=indexes.end(); ++it)
   {
     if(it->second[0] + it->second[1] > error.cols())
       continue;
-    Eigen::MatrixXd block_error = error.block(0, it->second[0], error.rows(), it->second[1]);
+    Eigen::MatrixXd block_error = error.block(0, it->second[0], error.rows(), it->second[1]);    
     if ((block_error.array().abs() > err_threshold).any())
     {
       num_errors += 1;
-      std::cout << FONT_FAIL << "Error in Measurement " << measurement_names[type] << "_" << id << ", " << it->first << ":\n";
+      std::cout << FONT_FAIL << "Error in Measurement " << measurement_names[type] << "_" << id << ", " << it->first << ": (thresh = " << err_threshold << " mean = " << a_dhdx.norm() << ")\n";
       std::cout << "ERR:\n" << block_error << "\nA:\n" << a_dhdx.block(0, it->second[0], error.rows(), it->second[1]) << "\n";
-      std::cout << "FD:\n" << d_dhdx.block(0, it->second[0], error.rows(), it->second[1]) << "\n";
+      std::cout << "FD:\n" << d_dhdx.block(0, it->second[0], error.rows(), it->second[1]) << ENDC <<  "\n";
     }
   }
   return num_errors;
@@ -476,58 +549,24 @@ TEST(VI_EKF, h_test)
 {
   xVector x0;
   uVector u0;
-  vi_ekf::VIEKF ekf = init_jacobians_test(x0, u0);
-
-  EXPECT_EQ(htest(&VIEKF::h_acc, ekf, VIEKF::ACC, 0, 2), 0);
-  EXPECT_EQ(htest(&VIEKF::h_pos, ekf, VIEKF::POS, 0, 3), 0);
-  EXPECT_EQ(htest(&VIEKF::h_vel, ekf, VIEKF::VEL, 0, 3), 0);
-  EXPECT_EQ(htest(&VIEKF::h_alt, ekf, VIEKF::ALT, 0, 1), 0);
-  EXPECT_EQ(htest(&VIEKF::h_att, ekf, VIEKF::ATT, 0, 3), 0);
-  for (int i = 0; i < ekf.get_len_features(); i++)
+  for (int j = 0; j < 100; j++)
   {
-    EXPECT_EQ(htest(&VIEKF::h_feat, ekf, VIEKF::FEAT, i, 2), 0);
-    EXPECT_EQ(htest(&VIEKF::h_qzeta, ekf, VIEKF::QZETA, i, 2), 0);
-    EXPECT_EQ(htest(&VIEKF::h_depth, ekf, VIEKF::DEPTH, i, 1), 0);
-    EXPECT_EQ(htest(&VIEKF::h_inv_depth, ekf, VIEKF::INV_DEPTH, i, 1), 0);
-//        EXPECT_EQ(htest(VIEKF::h_pixel_vel, ekf, VIEKF::PIXEL_VEL, i), 0); // Still needs to be implemented
-  }
-}
-
-int print_error(std::string row_id, std::string col_id, Eigen::MatrixXd analytical, Eigen::MatrixXd fd)
-{
-  Eigen::MatrixXd error_mat = analytical - fd;
-  std::vector<int> row = indexes[row_id];
-  std::vector<int> col = indexes[col_id];
-  if ((error_mat.block(row[0], col[0], row[1], col[1]).array().abs() > 1e-3).any())
-  {
-    std::cout << FONT_FAIL << "Error in Jacobian " << row_id << ", " << col_id << "\n";
-    std::cout << "BLOCK ERROR:\n" << error_mat.block(row[0], col[0], row[1], col[1]) << "\n";
-    std::cout << "ANALYTICAL:\n" << analytical.block(row[0], col[0], row[1], col[1]) << "\n";
-    std::cout << "FD:\n" << fd.block(row[0], col[0], row[1], col[1]) << ENDC << "\n";
-    return 1;
-  }
-  return 0;
-}
-
-int check_all(Eigen::MatrixXd analytical, Eigen::MatrixXd fd, std::string name)
-{
-  Eigen::MatrixXd error_mat = analytical - fd;
-  if ((error_mat.array().abs() > 1e-3).any())
-  {
-    std::cout << FONT_FAIL << "Error in total " << BOLD << name << ENDC << FONT_FAIL << " matrix" << ENDC << "\n";
-    for (int row =0; row < error_mat.rows(); row ++)
+    vi_ekf::VIEKF ekf = init_jacobians_test(x0, u0);
+    
+    EXPECT_EQ(htest(&VIEKF::h_acc, ekf, VIEKF::ACC, 0, 2), 0);
+    EXPECT_EQ(htest(&VIEKF::h_pos, ekf, VIEKF::POS, 0, 3), 0);
+    EXPECT_EQ(htest(&VIEKF::h_vel, ekf, VIEKF::VEL, 0, 3), 0);
+    EXPECT_EQ(htest(&VIEKF::h_alt, ekf, VIEKF::ALT, 0, 1), 0);
+    EXPECT_EQ(htest(&VIEKF::h_att, ekf, VIEKF::ATT, 0, 3), 0);
+    for (int i = 0; i < ekf.get_len_features(); i++)
     {
-      for (int col = 0; col < error_mat.cols(); col++)
-      {
-        if(std::abs(error_mat(row, col)) > 1e-3)
-        {
-          std::cout << BOLD << "error in (" << row << ", " << col << "):\tERR: " << error_mat(row,col) << "\tA: " << analytical(row, col) << "\tFD: " << fd(row,col) << ENDC << "\n";
-        }
-      }
+      EXPECT_EQ(htest(&VIEKF::h_feat, ekf, VIEKF::FEAT, i, 2, 5e-1), 0);
+      EXPECT_EQ(htest(&VIEKF::h_qzeta, ekf, VIEKF::QZETA, i, 2), 0);
+      EXPECT_EQ(htest(&VIEKF::h_depth, ekf, VIEKF::DEPTH, i, 1), 0);
+      EXPECT_EQ(htest(&VIEKF::h_inv_depth, ekf, VIEKF::INV_DEPTH, i, 1), 0);
+      //        EXPECT_EQ(htest(VIEKF::h_pixel_vel, ekf, VIEKF::PIXEL_VEL, i), 0); // Still needs to be implemented
     }
-    return 1;
   }
-  return 0;
 }
 
 

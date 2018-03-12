@@ -22,9 +22,9 @@ Qu: [0.1, 0.1, 0.1,        # u_acc
 gamma: [1, 1, 1,           # POS
         1, 1, 1,           # VEL
         1, 1, 1,           # ATT
-        1, 1, 1,           # B_A
-        1, 1, 1,           # B_G
-        1],                # MU
+        0.2, 0.2, 0.2,     # B_A
+        0.2, 0.2, 0.2,     # B_G
+        0.2],              # MU
 P0_feat: [0.15, 0.15, 1.0],
 Qx_feat: [0.05, 0.05, 0.15],
 
@@ -51,14 +51,14 @@ pos_R: [2.0, 2.0, 2.0],
 vel_R: [0.1, 0.1, 0.1],
 alt_R: 0.1,
 
-imu_LPF: 0.5,
+imu_LPF: 0.02,
 
 drag_term: true,
 
-max_imu_update_rate: 200.0,
+max_imu_update_rate: 100.0,
 
 use_truth: false,
-use_depth: false,
+use_depth: true,
 use_features: true,
 use_acc: true,
 use_imu_att: false,

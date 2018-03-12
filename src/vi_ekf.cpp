@@ -1,7 +1,7 @@
 #include "vi_ekf.h"
 
 //#ifndef NDEBUG
-#define NAN_CHECK if (NaNsInTheHouse()) cout << "NaNs In The House at line " << __LINE__ << "!!!\n"
+#define NAN_CHECK if (NaNsInTheHouse()) { cout << "NaNs In The House at line " << __LINE__ << "!!!\n"; exit(0); }
 #define NEGATIVE_DEPTH if (NegativeDepth()) cout << "Negatiive Depth " << __LINE__ << "!!!\n"
 //#else
 //#define NAN_CHECK {}
@@ -17,26 +17,26 @@ namespace vi_ekf
 VIEKF::VIEKF(){}
 
 void VIEKF::init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P0, Eigen::Matrix<double, dxZ,1> &Qx,
-                 Eigen::Matrix<double, dxZ,1> &gamma, uVector &Qu, Eigen::Vector3d& P0_feat, Eigen::Vector3d& Qx_feat,
-                 Eigen::Vector3d& gamma_feat, Eigen::Vector2d &cam_center, Eigen::Vector2d &focal_len, Eigen::Vector4d &q_b_c,
+                 Eigen::Matrix<double, dxZ,1> &lambda, uVector &Qu, Eigen::Vector3d& P0_feat, Eigen::Vector3d& Qx_feat,
+                 Eigen::Vector3d& lambda_feat, Eigen::Vector2d &cam_center, Eigen::Vector2d &focal_len, Eigen::Vector4d &q_b_c,
                  Eigen::Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term)
 {
   x_.block<(int)xZ, 1>(0,0) = x0;
   P_.block<(int)dxZ, (int)dxZ>(0,0) = P0.asDiagonal();
   Qx_.block<(int)dxZ, (int)dxZ>(0,0) = Qx.asDiagonal();
-  gamma_.block<(int)dxZ, 1>(0,0) = gamma;
+  lambda_.block<(int)dxZ, 1>(0,0) = lambda;
 
   for (int i = 0; i < NUM_FEATURES; i++)
   {
     P_.block<3,3>(dxZ+3*i, dxZ+3*i) = P0_feat.asDiagonal();
     Qx_.block<3,3>(dxZ+3*i, dxZ+3*i) = Qx_feat.asDiagonal();
-    gamma_.block<3,1>(dxZ+3*i,0) = gamma_feat;
+    lambda_.block<3,1>(dxZ+3*i,0) = lambda_feat;
   }
 
   Qu_ = Qu.asDiagonal();
   P0_feat_ = P0_feat.asDiagonal();
 
-  ggT_ = gamma_*gamma_.transpose();
+  Lambda_ = dx_ones_ * dx_ones_.transpose() - dx_ones_ * lambda_.transpose() - lambda_*dx_ones_.transpose() + lambda_*lambda_.transpose();
 
   len_features_ = 0;
   next_feature_id_ = 0;
@@ -485,8 +485,8 @@ bool VIEKF::update(const Eigen::VectorXd& z, const measurement_type_t& meas_type
       cout << "Issue in Kalman Gain\n" << K_ << "\n";
     if ((H_.array() != H_.array()).any())
       cout << "Issue in Measurement Model\n" << H_ << "\n";
-    boxplus(xp_, gamma_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
-    P_ -= (ggT_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*P_);
+    boxplus(xp_, lambda_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
+    P_ -= (Lambda_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*P_);
     NAN_CHECK;
   }
 
@@ -512,6 +512,42 @@ bool VIEKF::update(const Eigen::VectorXd& z, const measurement_type_t& meas_type
   log_.count++;
   return false;
 }
+
+void VIEKF::keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N)
+{
+    x_ = xm;
+    keyframe_reset();
+    xp = x_;
+    N = A_;    
+}
+
+
+void VIEKF::keyframe_reset()
+{    
+    // reset global xy position
+    x_(xPOS, 0) = 0;
+    x_(xPOS+1, 0) = 0;
+    
+    // precalculate some things
+    Quaternion qm(x_.block<4,1>((int)xATT, 0));
+    Eigen::Vector3d u_rot = qm.rot(khat);
+    Eigen::Vector3d v = khat.cross(u_rot); // Axis of rotation (without rotation about khat)
+    double theta = khat.transpose() * u_rot; // Angle of rotation
+    Eigen::Matrix3d sk_tv = skew(theta*v);
+    Eigen::Matrix3d sk_u = skew(khat);
+    Eigen::Matrix3d qmR = qm.R();
+    
+    // reset yaw
+    x_.block<4,1>((int)(xATT), 0) = Quaternion::exp(theta * v).elements();    
+    
+    // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
+    A_ = I_big_;
+    A_((int)xPOS, (int)xPOS) = 0;
+    A_((int)xPOS+1, (int)xPOS+1) = 0;
+    A_.block<3,3>((int)dxATT, (int)dxATT) = (sk_u * qmR * khat)*v.transpose() + theta * (sk_u * qmR * sk_u.transpose())
+            * (I_3x3 + ((1.-cos(theta))*sk_tv)/(theta*theta) + ((theta - sin(theta))*sk_tv*sk_tv)/(theta*theta*theta));
+}
+
 
 void VIEKF::h_acc(const xVector& x, zVector& h, hMatrix& H, const int id) const
 {
@@ -651,7 +687,8 @@ void VIEKF::init_logger(string root_filename)
   log_.stream = new std::map<log_type_t, std::ofstream>;
 
   // Make the directory
-  system(("mkdir -p " + root_filename).c_str());
+  int result = system(("mkdir -p " + root_filename).c_str());
+  (void)result;
 
   // A logger for the results of propagation
   (*log_.stream)[LOG_PROP].open(root_filename + "prop.txt", std::ofstream::out | std::ofstream::trunc);
@@ -667,7 +704,7 @@ void VIEKF::init_logger(string root_filename)
   (*log_.stream)[LOG_CONF] << "P0_feat: " << P0_feat_.diagonal().transpose() << "\n";
   (*log_.stream)[LOG_CONF] << "Qx: " << Qx_.diagonal().transpose() << "\n";
   (*log_.stream)[LOG_CONF] << "Qu: " << Qu_.diagonal().transpose() << "\n";
-  (*log_.stream)[LOG_CONF] << "gamma: " << gamma_.transpose() << "\n";
+  (*log_.stream)[LOG_CONF] << "gamma: " << lambda_.transpose() << "\n";
 }
 
 

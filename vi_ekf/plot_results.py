@@ -71,7 +71,7 @@ for line in meas_file:
         p = 1.0/line_arr[1]
         s = line_arr[2]
         cov = 1./(p+s) - 1./p
-        h.store(t, line_arr[3], depth=line_arr[0], depth_hat=line_arr[1], depth_cov=[[cov]])
+        h.store(t, line_arr[3], depth=line_arr[0], depth_hat=line_arr[1], depth_cov=[[cov   ]])
     elif meas_type == 'ALT':
         if len(line_arr) < 3: continue
         h.store(t, line_arr[2], alt=line_arr[0], alt_hat=line_arr[1])

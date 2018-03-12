@@ -8,6 +8,7 @@
 #include <functional>
 #include <fstream>
 #include <chrono>
+#include <iostream>
 
 #include "quat.h"
 #include "math_helper.h"
@@ -44,6 +45,12 @@ typedef void (VIEKF::*measurement_function_ptr)(const xVector& x, zVector& h, hM
 static const Eigen::Vector3d gravity = [] {
   Eigen::Vector3d tmp;
   tmp << 0, 0, 9.80665;
+  return tmp;
+}();
+
+static const Eigen::Vector3d khat = [] {
+  Eigen::Vector3d tmp;
+  tmp << 0, 0, 1.0;
   return tmp;
 }();
 
@@ -105,8 +112,8 @@ private:
   Eigen::Matrix<double, 6, 6> Qu_;
 
   // Partial Update Gains
-  dxVector gamma_;
-  dxMatrix ggT_;
+  dxVector lambda_;
+  dxMatrix Lambda_;
 
   // Initial uncertainty on features
   Eigen::Matrix3d P0_feat_;
@@ -124,6 +131,7 @@ private:
   dxVector dx_;
   const dxMatrix I_big_ = dxMatrix::Identity();
   const dxMatrix Ones_big_ = dxMatrix::Constant(1.0);
+  const dxVector dx_ones_ = dxVector::Constant(1.0);
   xVector xp_;
   Eigen::Matrix<double, MAX_DX, 3>  K_;
   zVector zhat_;
@@ -157,8 +165,8 @@ public:
   VIEKF();
   ~VIEKF();
   void init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P0, Eigen::Matrix<double, dxZ,1> &Qx,
-                   Eigen::Matrix<double, dxZ,1> &gamma, uVector &Qu, Eigen::Vector3d& P0_feat, Eigen::Vector3d& Qx_feat,
-                   Eigen::Vector3d& gamma_feat, Eigen::Vector2d& cam_center, Eigen::Vector2d& focal_len,
+                   Eigen::Matrix<double, dxZ,1> &lambda, uVector &Qu, Eigen::Vector3d& P0_feat, Eigen::Vector3d& Qx_feat,
+                   Eigen::Vector3d& lambda_feat, Eigen::Vector2d& cam_center, Eigen::Vector2d& focal_len,
                    Eigen::Vector4d& q_b_c, Eigen::Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term);
   void init_logger(std::string root_filename);
 
@@ -170,9 +178,32 @@ public:
 
   inline bool NaNsInTheHouse() const
   {
-    if ( ((x_).array() > 1e2).any() || ((P_).array() > 1e2).any())
-      return true;
     if( ( (x_).array() != (x_).array()).any() || ((P_).array() != (P_).array()).any() )
+    {
+      for(int i = 0; i < xZ + 5*len_features_; i++)
+      {
+        if (x_(i) != x_(i))
+          std::cout << "NaN found in x[" << i << "]\n";
+      }
+      for (int i = 0; i < dxZ + 3*len_features_; i++)
+      {
+        for (int j = 0; j < dxZ+3*len_features_; j++)
+        {
+          if (P_(i,j) != P_(i,j))
+          {
+            std::cout << "NaN found in P[" << i << ", " << j << "]\n";
+          }
+        }
+      }
+      exit(0);
+    }
+    else
+      return false;
+  }
+
+  inline bool BlowingUp() const
+  {
+    if ( ((x_).array() > 1e8).any() || ((P_).array() > 1e8).any())
       return true;
     else
       return false;
@@ -239,6 +270,10 @@ public:
   void h_depth(const xVector& x, zVector& h, hMatrix& H, const int id) const;
   void h_inv_depth(const xVector& x, zVector& h, hMatrix& H, const int id) const;
   void h_pixel_vel(const xVector& x, zVector& h, hMatrix& H, const int id) const;
+  
+  // Keyframe Reset
+  void keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N);
+  void keyframe_reset();
 
   // Inequality Constraint on Depth
   void fix_depth();

@@ -114,6 +114,8 @@ private:
   // Partial Update Gains
   dxVector lambda_;
   dxMatrix Lambda_;
+  
+  bool partial_update_;
 
   // Initial uncertainty on features
   Eigen::Matrix3d P0_feat_;
@@ -167,7 +169,7 @@ public:
   void init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P0, Eigen::Matrix<double, dxZ,1> &Qx,
                    Eigen::Matrix<double, dxZ,1> &lambda, uVector &Qu, Eigen::Vector3d& P0_feat, Eigen::Vector3d& Qx_feat,
                    Eigen::Vector3d& lambda_feat, Eigen::Vector2d& cam_center, Eigen::Vector2d& focal_len,
-                   Eigen::Vector4d& q_b_c, Eigen::Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term);
+                   Eigen::Vector4d& q_b_c, Eigen::Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, bool partial_update);
   void init_logger(std::string root_filename);
 
   inline double now() const

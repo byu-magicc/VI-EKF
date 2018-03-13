@@ -16,13 +16,12 @@ VIEKF_ROS::VIEKF_ROS() :
   std::string log_directory;
   std::string default_log_folder = ros::package::getPath("vi_ekf") + "/logs/" + to_string(ros::Time::now().sec) + "/";
   nh_private_.param<std::string>("log_directory", log_directory, default_log_folder );
-  bool drag_term;
-  nh_private_.param<bool>("drag_term", drag_term, false);
+  
 
   Eigen::Matrix<double, vi_ekf::VIEKF::xZ, 1> x0;
-  Eigen::Matrix<double, vi_ekf::VIEKF::dxZ, 1> P0diag, Qxdiag, gamma;
+  Eigen::Matrix<double, vi_ekf::VIEKF::dxZ, 1> P0diag, Qxdiag, lambda;
   uVector Qudiag;
-  Vector3d P0feat, Qxfeat, gammafeat;
+  Vector3d P0feat, Qxfeat, lambdafeat;
   Vector2d cam_center, focal_len;
   Vector4d q_b_c;
   Vector3d p_b_c;
@@ -31,8 +30,8 @@ VIEKF_ROS::VIEKF_ROS() :
   importMatrixFromParamServer(nh_private_, x0, "x0");
   importMatrixFromParamServer(nh_private_, P0diag, "P0");
   importMatrixFromParamServer(nh_private_, Qxdiag, "Qx");
-  importMatrixFromParamServer(nh_private_, gamma, "gamma");
-  importMatrixFromParamServer(nh_private_, gammafeat, "gamma_feat");
+  importMatrixFromParamServer(nh_private_, lambda, "lambda");
+  importMatrixFromParamServer(nh_private_, lambdafeat, "lambda_feat");
   importMatrixFromParamServer(nh_private_, Qudiag, "Qu");
   importMatrixFromParamServer(nh_private_, P0feat, "P0_feat");
   importMatrixFromParamServer(nh_private_, Qxfeat, "Qx_feat");
@@ -46,19 +45,23 @@ VIEKF_ROS::VIEKF_ROS() :
   importMatrixFromParamServer(nh_private_, pos_r_diag, "pos_R");
   importMatrixFromParamServer(nh_private_, vel_r_diag, "vel_R");
   double depth_r, alt_r, min_depth;
+  bool partial_update, drag_term;
   ROS_FATAL_COND(!nh_private_.getParam("depth_R", depth_r), "you need to specify the 'depth_R' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("alt_R", alt_r), "you need to specify the 'alt_R' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("min_depth", min_depth), "you need to specify the 'min_depth' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("imu_LPF", imu_LPF_), "you need to specify the 'imu_LPF' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("num_features", num_features_), "you need to specify the 'num_features' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("invert_image", invert_image_), "you need to specify the 'invert_image' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("partial_update", partial_update), "you need to specify the 'partial_update' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("drag_term", drag_term), "you need to specify the 'drag_term' parameter");
 
   num_features_ = (num_features_ > NUM_FEATURES) ? NUM_FEATURES : num_features_;
 
   P0feat(2,0) = 1.0/(16.0 * min_depth * min_depth);
 
   ekf_mtx_.lock();
-  ekf_.init(x0, P0diag, Qxdiag, gamma, Qudiag, P0feat, Qxfeat, gammafeat,
-            cam_center, focal_len, q_b_c, p_b_c, min_depth, log_directory, drag_term);
+  ekf_.init(x0, P0diag, Qxdiag, lambda, Qudiag, P0feat, Qxfeat, lambdafeat,
+            cam_center, focal_len, q_b_c, p_b_c, min_depth, log_directory, drag_term, partial_update);
   ekf_mtx_.unlock();
   klt_tracker_.init(num_features_, false, 30);
 
@@ -109,61 +112,56 @@ VIEKF_ROS::~VIEKF_ROS()
 
 void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
 {
-  Vector6d u;
-  u(0) = msg->linear_acceleration.x;
-  u(1) = msg->linear_acceleration.y;
-  u(2) = msg->linear_acceleration.z;
-  u(3) = msg->angular_velocity.x;
-  u(4) = msg->angular_velocity.y;
-  u(5) = msg->angular_velocity.z;
+  imu_(0) = msg->linear_acceleration.x;
+  imu_(1) = msg->linear_acceleration.y;
+  imu_(2) = msg->linear_acceleration.z;
+  imu_(3) = msg->angular_velocity.x;
+  imu_(4) = msg->angular_velocity.y;
+  imu_(5) = msg->angular_velocity.z;
 
   if (!initialized_)
   {
-    imu_ = u;
+    Vector3d init_b_a, init_b_g;
+    init_b_g << msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z;
+    init_b_a << msg->linear_acceleration.x, msg->linear_acceleration.y, msg->linear_acceleration.z + 9.80665;
+    ekf_.set_imu_bias(init_b_g, init_b_a);
     initialized_ = true;
     return;
   }
 
-  imu_ = (imu_LPF_) * u + (1.0 - imu_LPF_) * imu_;
+  // Propagate filter
+  ekf_mtx_.lock();
+  ekf_.propagate(imu_, msg->header.stamp.toSec());
+  ekf_mtx_.unlock();
 
-  if ((msg->header.stamp - last_imu_update_).toSec() >= imu_skip_)
-  {
-    last_imu_update_ = msg->header.stamp;
+  // update accelerometer measurement
+  Vector2d z_acc = imu_.block<2,1>(0, 0);
+  ekf_mtx_.lock();
+  ekf_.update(z_acc, vi_ekf::VIEKF::ACC, acc_R_, use_acc_);
+  ekf_mtx_.unlock();
 
-    // Propagate filter
-    ekf_mtx_.lock();
-    ekf_.propagate(imu_, msg->header.stamp.toSec());
-    ekf_mtx_.unlock();
-
-    // update accelerometer measurement
-    Vector2d z_acc = imu_.block<2,1>(0, 0);
-    ekf_mtx_.lock();
-    ekf_.update(z_acc, vi_ekf::VIEKF::ACC, acc_R_, use_acc_);
-    ekf_mtx_.unlock();
-
-    // update attitude measurement
-    Vector4d z_att;
-    z_att << msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z;
-    ekf_mtx_.lock();
+  // update attitude measurement
+  Vector4d z_att;
+  z_att << msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z;
+  ekf_mtx_.lock();
 //    ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, (use_truth_) ? true : use_imu_att_);
-    ekf_mtx_.unlock();
+  ekf_mtx_.unlock();
 
-    odom_msg_.header.stamp = msg->header.stamp;
-    odom_msg_.pose.pose.position.x = ekf_.get_state()(vi_ekf::VIEKF::xPOS,0);
-    odom_msg_.pose.pose.position.y = ekf_.get_state()(vi_ekf::VIEKF::xPOS+1,0);
-    odom_msg_.pose.pose.position.z = ekf_.get_state()(vi_ekf::VIEKF::xPOS+2,0);
-    odom_msg_.pose.pose.orientation.w = ekf_.get_state()(vi_ekf::VIEKF::xATT,0);
-    odom_msg_.pose.pose.orientation.x = ekf_.get_state()(vi_ekf::VIEKF::xATT+1,0);
-    odom_msg_.pose.pose.orientation.y = ekf_.get_state()(vi_ekf::VIEKF::xATT+2,0);
-    odom_msg_.pose.pose.orientation.z = ekf_.get_state()(vi_ekf::VIEKF::xATT+3,0);
-    odom_msg_.twist.twist.linear.x = ekf_.get_state()(vi_ekf::VIEKF::xVEL,0);
-    odom_msg_.twist.twist.linear.y = ekf_.get_state()(vi_ekf::VIEKF::xVEL+1,0);
-    odom_msg_.twist.twist.linear.z = ekf_.get_state()(vi_ekf::VIEKF::xVEL+2,0);
-    odom_msg_.twist.twist.angular.x = u(3);
-    odom_msg_.twist.twist.angular.y = u(4);
-    odom_msg_.twist.twist.angular.z = u(5);
-    odometry_pub_.publish(odom_msg_);
-  }
+  odom_msg_.header.stamp = msg->header.stamp;
+  odom_msg_.pose.pose.position.x = ekf_.get_state()(vi_ekf::VIEKF::xPOS,0);
+  odom_msg_.pose.pose.position.y = ekf_.get_state()(vi_ekf::VIEKF::xPOS+1,0);
+  odom_msg_.pose.pose.position.z = ekf_.get_state()(vi_ekf::VIEKF::xPOS+2,0);
+  odom_msg_.pose.pose.orientation.w = ekf_.get_state()(vi_ekf::VIEKF::xATT,0);
+  odom_msg_.pose.pose.orientation.x = ekf_.get_state()(vi_ekf::VIEKF::xATT+1,0);
+  odom_msg_.pose.pose.orientation.y = ekf_.get_state()(vi_ekf::VIEKF::xATT+2,0);
+  odom_msg_.pose.pose.orientation.z = ekf_.get_state()(vi_ekf::VIEKF::xATT+3,0);
+  odom_msg_.twist.twist.linear.x = ekf_.get_state()(vi_ekf::VIEKF::xVEL,0);
+  odom_msg_.twist.twist.linear.y = ekf_.get_state()(vi_ekf::VIEKF::xVEL+1,0);
+  odom_msg_.twist.twist.linear.z = ekf_.get_state()(vi_ekf::VIEKF::xVEL+2,0);
+  odom_msg_.twist.twist.angular.x = imu_(3);
+  odom_msg_.twist.twist.angular.y = imu_(4);
+  odom_msg_.twist.twist.angular.z = imu_(5);
+  odometry_pub_.publish(odom_msg_);
 }
 
 void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
@@ -186,7 +184,10 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
     return;
 
   Mat img;
-  cv::flip(cv_ptr->image, img, ROTATE_180);
+  if (invert_image_)
+    cv::flip(cv_ptr->image, img, -1);
+  else
+    cv_ptr->image.copyTo(img);
   
   // Track Features in Image
   std::vector<Point2f> features;
@@ -197,7 +198,6 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
   ekf_.keep_only_features(ids);
   ekf_mtx_.unlock();
 
-//  cv_ptr->image.copyTo(output_image);
   for (int i = 0; i < features.size(); i++)
   {
     int x = round(features[i].x);
@@ -250,7 +250,10 @@ void VIEKF_ROS::depth_image_callback(const sensor_msgs::ImageConstPtr &msg)
     ROS_FATAL("cv_bridge exception: %s", e.what());
     return;
   }
-  cv::flip(cv_ptr->image, depth_image_, ROTATE_180);
+  if (invert_image_)
+    cv::flip(cv_ptr->image, depth_image_, ROTATE_180);
+  else
+    cv_ptr->image.copyTo(depth_image_);
   got_depth_ = true;
 }
 

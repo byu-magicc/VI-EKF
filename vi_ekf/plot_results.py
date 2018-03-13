@@ -109,7 +109,7 @@ vel_data = np.array(vel_data).squeeze()
 
 start = h.t.xhat[0]
 end = h.t.xhat[-1]
-fig_dir = os.path.dirname(os.path.realpath(__file__)) + "/../plots/"
+fig_dir = os.path.dirname(os.path.realpath(__file__)) + "/../ROSplots/"
 
 init_plots(start, end, fig_dir)
 

@@ -58,6 +58,7 @@ private:
 
   cv::Mat depth_image_;
   bool got_depth_;
+  bool invert_image_;
 
   bool initialized_ = false;
 

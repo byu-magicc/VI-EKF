@@ -2,7 +2,8 @@
 
 <rosparam command="load" file="$(find vi_ekf)/params/gains.yaml" ns="vi_ekf_node"/>
 
-<node name="play" type="play" pkg="rosbag" args="/home/superjax/truth_laser_xtion_imu.bag -s 8 -u 30"/>
+<!--<node name="play" type="play" pkg="rosbag" args="/home/superjax/truth_laser_xtion_imu.bag -s 8 -u 30"/>-->
+<node name="play" type="play" pkg="rosbag" args="/home/superjax/no_yaw.bag -s 18 -u 30 -d 3"/>
 
 <node name="vi_ekf_node" type="vi_ekf_node" pkg="vi_ekf" output="screen"/>
 

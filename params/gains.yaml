@@ -2,15 +2,15 @@
 x0: [0, 0, 0,         # POS
      0, 0, 0,         # VEL
      1, 0, 0, 0,      # ATT
-     0.0, 0.0, 0,     # B_A
-     0.00, -0.05, 0,  # B_G
-     0.11],           # MU
+     0.0, 0.0, 0.0,     # B_A
+     0.0, 0.0, 0.0,  # B_G
+     0.2],           # MU
 P0: [0.001, 0.001, 0.001,
      0.01, 0.01, 0.01,
      0.01, 0.01, 0.01,
-     0.0, 0.0, 0.0,
-     0.0, 0.0, 0.0,
-     0.0],
+     0.1, 0.1, 0.1,
+     0.1, 0.1, 0.1,
+     0.1],
 Qx: [0.000, 0.000, 0.000,
      0.000, 0.00, 0.000,
      0.000, 0.000, 0.000,
@@ -19,16 +19,16 @@ Qx: [0.000, 0.000, 0.000,
      0.00],
 Qu: [0.1, 0.1, 0.1,        # u_acc
      0.005, 0.005, 0.005], # u_gyro
-gamma: [1, 1, 1,           # POS
-        1, 1, 1,           # VEL
-        1, 1, 1,           # ATT
-        0.2, 0.2, 0.2,     # B_A
-        0.2, 0.2, 0.2,     # B_G
-        0.2],              # MU
+lambda: [0.0, 0.0, 0.0,     # POS
+         0.0, 0.0, 0.0,     # VEL
+         0.0, 0.0, 0.0,     # ATT
+         0.0, 0.0, 0.0,     # B_A
+         0.0, 0.0, 0.0,     # B_G
+         0.0],              # MU
 P0_feat: [0.15, 0.15, 1.0],
 Qx_feat: [0.05, 0.05, 0.15],
 
-gamma_feat: [1, 1, 1],
+lambda_feat: [1, 1, 1],
 cam_center: [316.680559, 230.660661],
 focal_len: [533.013144, 533.503964],
 q_b_c: [0.5, 0.5, 0.5, 0.5],
@@ -45,9 +45,10 @@ p_b_c: [0.16, 0.03, 0.09],
 
 depth_R: 0.1,
 feat_R: [1.0, 1.0],
-acc_R: [3.0, 3.0],
-att_R: [0.3, 0.3, 0.3],
-pos_R: [2.0, 2.0, 2.0],
+acc_R: [1.0, 1.0],
+att_R: [0.1, 0.1, 0.1],
+# pos_R: [2.0, 2.0, 2.0],
+pos_R: [0.1, 0.1, 0.1],
 vel_R: [0.1, 0.1, 0.1],
 alt_R: 0.1,
 
@@ -57,15 +58,20 @@ drag_term: true,
 
 max_imu_update_rate: 100.0,
 
-use_truth: false,
-use_depth: true,
-use_features: true,
-use_acc: true,
+use_truth: true,
+use_depth: false,
+use_features: false,
+use_acc: false,
 use_imu_att: false,
-use_alt: true,
+use_alt: false,
+
+invert_image: true,
+drag_term: false,
+partial_update: false,
 
 min_depth: 1.5,
 
-num_features: 20,
+num_features: 3,
+
 
 }

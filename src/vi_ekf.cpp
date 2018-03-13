@@ -19,7 +19,7 @@ VIEKF::VIEKF(){}
 void VIEKF::init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P0, Eigen::Matrix<double, dxZ,1> &Qx,
                  Eigen::Matrix<double, dxZ,1> &lambda, uVector &Qu, Eigen::Vector3d& P0_feat, Eigen::Vector3d& Qx_feat,
                  Eigen::Vector3d& lambda_feat, Eigen::Vector2d &cam_center, Eigen::Vector2d &focal_len, Eigen::Vector4d &q_b_c,
-                 Eigen::Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term)
+                 Eigen::Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, bool partial_update)
 {
   x_.block<(int)xZ, 1>(0,0) = x0;
   P_.block<(int)dxZ, (int)dxZ>(0,0) = P0.asDiagonal();
@@ -53,6 +53,7 @@ void VIEKF::init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P
             0, focal_len(1), 0;
 
   use_drag_term_ = use_drag_term;
+  partial_update_ = partial_update;
   prev_t_ = 0.0;
 
   min_depth_ = min_depth;
@@ -478,15 +479,23 @@ bool VIEKF::update(const Eigen::VectorXd& z, const measurement_type_t& meas_type
     NAN_CHECK;
     xp_ = x_;
 
-    // Apply Fixed Gain Partial update per
-    // "Partial-Update Schmidt-Kalman Filter" by Brink
-    // Modified to operate on the manifold
     if ((K_.array() != K_.array()).any())
       cout << "Issue in Kalman Gain\n" << K_ << "\n";
     if ((H_.array() != H_.array()).any())
       cout << "Issue in Measurement Model\n" << H_ << "\n";
-    boxplus(xp_, lambda_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
-    P_ -= (Lambda_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*P_);
+    if (partial_update_)
+    {
+      // Apply Fixed Gain Partial update per
+      // "Partial-Update Schmidt-Kalman Filter" by Brink
+      // Modified to operate inline and on the manifold 
+      boxplus(xp_, lambda_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
+      P_ -= (Lambda_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*P_);
+    }
+    else
+    {
+      boxplus(xp_, K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
+      P_ -= K_.leftCols(z_dim) * H_.topRows(z_dim)*P_;
+    }
     NAN_CHECK;
   }
 

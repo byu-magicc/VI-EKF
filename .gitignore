@@ -24,3 +24,4 @@ logs/
 *data
 *.emergency
 */plots/
+plots/*

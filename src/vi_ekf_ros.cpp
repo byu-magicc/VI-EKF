@@ -45,15 +45,16 @@ VIEKF_ROS::VIEKF_ROS() :
   importMatrixFromParamServer(nh_private_, pos_r_diag, "pos_R");
   importMatrixFromParamServer(nh_private_, vel_r_diag, "vel_R");
   double depth_r, alt_r, min_depth;
-  bool partial_update, drag_term;
-  ROS_FATAL_COND(!nh_private_.getParam("depth_R", depth_r), "you need to specify the 'depth_R' parameter");
-  ROS_FATAL_COND(!nh_private_.getParam("alt_R", alt_r), "you need to specify the 'alt_R' parameter");
-  ROS_FATAL_COND(!nh_private_.getParam("min_depth", min_depth), "you need to specify the 'min_depth' parameter");
-  ROS_FATAL_COND(!nh_private_.getParam("imu_LPF", imu_LPF_), "you need to specify the 'imu_LPF' parameter");
-  ROS_FATAL_COND(!nh_private_.getParam("num_features", num_features_), "you need to specify the 'num_features' parameter");
-  ROS_FATAL_COND(!nh_private_.getParam("invert_image", invert_image_), "you need to specify the 'invert_image' parameter");
-  ROS_FATAL_COND(!nh_private_.getParam("partial_update", partial_update), "you need to specify the 'partial_update' parameter");
-  ROS_FATAL_COND(!nh_private_.getParam("drag_term", drag_term), "you need to specify the 'drag_term' parameter");
+  bool partial_update, drag_term, keyframe_reset;
+  ROS_ASSERT_MSG(nh_private_.getParam("depth_R", depth_r), "you need to specify the 'depth_R' parameter");
+  ROS_ASSERT_MSG(nh_private_.getParam("alt_R", alt_r), "you need to specify the 'alt_R' parameter");
+  ROS_ASSERT_MSG(nh_private_.getParam("min_depth", min_depth), "you need to specify the 'min_depth' parameter");
+  ROS_ASSERT_MSG(nh_private_.getParam("imu_LPF", imu_LPF_), "you need to specify the 'imu_LPF' parameter");
+  ROS_ASSERT_MSG(nh_private_.getParam("num_features", num_features_), "you need to specify the 'num_features' parameter");
+  ROS_ASSERT_MSG(nh_private_.getParam("invert_image", invert_image_), "you need to specify the 'invert_image' parameter");
+  ROS_ASSERT_MSG(nh_private_.getParam("partial_update", partial_update), "you need to specify the 'partial_update' parameter");
+  ROS_ASSERT_MSG(nh_private_.getParam("drag_term", drag_term), "you need to specify the 'drag_term' parameter");
+  ROS_ASSERT_MSG(nh_private_.getParam("keyframe_reset", keyframe_reset), "you need to specify the 'keyframe_reset' parameter");
 
   num_features_ = (num_features_ > NUM_FEATURES) ? NUM_FEATURES : num_features_;
 
@@ -61,7 +62,8 @@ VIEKF_ROS::VIEKF_ROS() :
 
   ekf_mtx_.lock();
   ekf_.init(x0, P0diag, Qxdiag, lambda, Qudiag, P0feat, Qxfeat, lambdafeat,
-            cam_center, focal_len, q_b_c, p_b_c, min_depth, log_directory, drag_term, partial_update);
+            cam_center, focal_len, q_b_c, p_b_c, min_depth, log_directory, 
+            drag_term, partial_update, keyframe_reset);
   ekf_mtx_.unlock();
   klt_tracker_.init(num_features_, false, 30);
 
@@ -79,12 +81,12 @@ VIEKF_ROS::VIEKF_ROS() :
   alt_R_ << alt_r;
 
   // Turn on the specified measurements
-  ROS_FATAL_COND(!nh_private_.getParam("use_truth", use_truth_), "you need to specify the 'use_truth' parameter");
-  ROS_FATAL_COND(!nh_private_.getParam("use_depth", use_depth_), "you need to specify the 'use_depth' parameter");
-  ROS_FATAL_COND(!nh_private_.getParam("use_features", use_features_), "you need to specify the 'use_features' parameter");
-  ROS_FATAL_COND(!nh_private_.getParam("use_acc", use_acc_), "you need to specify the 'use_acc' parameter");
-  ROS_FATAL_COND(!nh_private_.getParam("use_imu_att", use_imu_att_), "you need to specify the 'use_imu_att' parameter");
-  ROS_FATAL_COND(!nh_private_.getParam("use_alt", use_alt_), "you need to specify the 'use_alt' parameter");
+  ROS_ASSERT_MSG(nh_private_.getParam("use_truth", use_truth_), "you need to specify the 'use_truth' parameter");
+  ROS_ASSERT_MSG(nh_private_.getParam("use_depth", use_depth_), "you need to specify the 'use_depth' parameter");
+  ROS_ASSERT_MSG(nh_private_.getParam("use_features", use_features_), "you need to specify the 'use_features' parameter");
+  ROS_ASSERT_MSG(nh_private_.getParam("use_acc", use_acc_), "you need to specify the 'use_acc' parameter");
+  ROS_ASSERT_MSG(nh_private_.getParam("use_imu_att", use_imu_att_), "you need to specify the 'use_imu_att' parameter");
+  ROS_ASSERT_MSG(nh_private_.getParam("use_alt", use_alt_), "you need to specify the 'use_alt' parameter");
 
   cout << "truth:" << use_truth_ << "\n";
   cout << "depth:" << use_depth_ << "\n";
@@ -92,10 +94,6 @@ VIEKF_ROS::VIEKF_ROS() :
   cout << "acc:" << use_acc_ << "\n";
   cout << "imu_att:" << use_imu_att_ << "\n";
   cout << "imu_alt:" << use_alt_ << "\n";
-
-  double imu_update_rate;
-  ROS_FATAL_COND(!nh_private_.getParam("max_imu_update_rate", imu_update_rate), "you need to specify the 'max_imu_update_rate' parameter");
-  imu_skip_ = 1.0/imu_update_rate;
 
   // Wait for truth to initialize pose
   initialized_ = false;
@@ -119,12 +117,12 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
   imu_(4) = msg->angular_velocity.y;
   imu_(5) = msg->angular_velocity.z;
 
-  if (!initialized_)
+  if (got_init_truth_ && !initialized_)
   {
-    Vector3d init_b_a, init_b_g;
-    init_b_g << msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z;
-    init_b_a << msg->linear_acceleration.x, msg->linear_acceleration.y, msg->linear_acceleration.z + 9.80665;
-    ekf_.set_imu_bias(init_b_g, init_b_a);
+//    Vector3d init_b_a, init_b_g;  
+//    init_b_g << msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z;
+//    init_b_a << msg->linear_acceleration.x, msg->linear_acceleration.y, msg->linear_acceleration.z + 9.80665;
+//    ekf_.set_imu_bias(init_b_g, init_b_a);
     initialized_ = true;
     return;
   }
@@ -144,7 +142,8 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
   Vector4d z_att;
   z_att << msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z;
   ekf_mtx_.lock();
-//    ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, (use_truth_) ? true : use_imu_att_);
+  if (use_imu_att_)
+    ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, (use_truth_) ? true : use_imu_att_);
   ekf_mtx_.unlock();
 
   odom_msg_.header.stamp = msg->header.stamp;
@@ -259,7 +258,7 @@ void VIEKF_ROS::depth_image_callback(const sensor_msgs::ImageConstPtr &msg)
 
 void VIEKF_ROS::truth_callback(const geometry_msgs::PoseStampedConstPtr &msg)
 {
-  if (!initialized_)
+  if (!got_init_truth_)
   {
     xVector x0;
     x0.setZero();
@@ -267,9 +266,9 @@ void VIEKF_ROS::truth_callback(const geometry_msgs::PoseStampedConstPtr &msg)
     x0.block<4,1>(vi_ekf::VIEKF::xATT, 0) << msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
     x0(vi_ekf::VIEKF::xMU, 0) = 0.2;
     ekf_mtx_.lock();
-    ekf_.set_x0(x0);
-    initialized_ = true;
+//    ekf_.set_x0(x0);
     ekf_mtx_.unlock();
+    got_init_truth_ = true;
     return;
   }
   Vector3d z_pos;
@@ -287,7 +286,8 @@ void VIEKF_ROS::truth_callback(const geometry_msgs::PoseStampedConstPtr &msg)
   ekf_mtx_.unlock();
 
   ekf_mtx_.lock();
-  ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, use_truth_);
+  if (!use_imu_att_)
+    ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, use_truth_);
   ekf_mtx_.unlock();
 }
 

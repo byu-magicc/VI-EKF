@@ -231,10 +231,25 @@ public:
   Eigen::Vector3d euler()
   {
     Eigen::Vector3d out;
-    out << std::atan2(2.0*w()*x()+y()*z(), 1.0-2.0*(x()*x() + y()*y())),
+    out << std::atan2(2.0*(w()*x()+y()*z()), 1.0-2.0*(x()*x() + y()*y())),
         std::asin(2.0*(w()*y() - z()*z())),
-        std::atan2(2.0*w()*z()+x()*y(), 1.0-2.0*(y()*y() + z()*z()));
+        std::atan2(2.0*(w()*z()+x()*y()), 1.0-2.0*(y()*y() + z()*z()));
     return out;
+  }
+  
+  double roll()
+  {
+    return std::atan2(2.0*(w()*x()+y()*z()), 1.0-2.0*(x()*x() + y()*y()));
+  }
+  
+  double pitch()
+  {
+    return std::asin(2.0*(w()*y() - z()*z()));
+  }
+  
+  double yaw()
+  {
+    return std::atan2(2.0*(w()*z()+x()*y()), 1.0-2.0*(y()*y() + z()*z()));
   }
 
   Eigen::Matrix3d R()

@@ -226,6 +226,26 @@ TEST(Quaternion, inplace_add_and_mul)
   }
 }
 
+double random(double max, double min)
+{
+  double f = (double)rand() / RAND_MAX;
+  return min + f * (max - min);
+}
+
+TEST(Quaternion, euler)
+{
+  for (int i =0; i < 100; i++)
+  {
+    double roll = random(-M_PI, M_PI);
+    double pitch = random(-M_PI/2.0, M_PI/2.0);
+    double yaw = random(-M_PI, M_PI);
+    Quaternion q = Quaternion::from_euler(roll, pitch, yaw);
+    EXPECT_NEAR(roll, q.roll(), 1e-8);
+    EXPECT_NEAR(pitch, q.pitch(), 1e-8);
+    EXPECT_NEAR(yaw, q.yaw(), 1e-8);    
+  }
+}
+
 TEST(math_helper, T_zeta)
 {
   Eigen::Vector3d v2;
@@ -334,7 +354,7 @@ VIEKF init_jacobians_test(xVector& x0, uVector& u0)
       static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/100.0));
   Eigen::Vector4d q_b_c = Quaternion::Random().elements();
   Eigen::Vector3d p_b_c = Eigen::Vector3d::Random() * 0.5;
-  ekf.init(x0.block<17, 1>(0,0), P0, Qx, gamma, Qu, P0feat, Qxfeat, gammafeat, cam_center, focal_len, q_b_c, p_b_c, 2.0, "~", true, true);
+  ekf.init(x0.block<17, 1>(0,0), P0, Qx, gamma, Qu, P0feat, Qxfeat, gammafeat, cam_center, focal_len, q_b_c, p_b_c, 2.0, "~", true, true, true);
   
   // Initialize Random Features
   for (int i = 0; i < NUM_FEATURES; i++)

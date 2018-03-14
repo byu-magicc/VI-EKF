@@ -3,6 +3,7 @@
 #include "Eigen/Core"
 #include "Eigen/Geometry"
 
+#include <deque>
 #include <set>
 #include <map>
 #include <functional>
@@ -115,8 +116,6 @@ private:
   dxVector lambda_;
   dxMatrix Lambda_;
   
-  bool partial_update_;
-
   // Initial uncertainty on features
   Eigen::Matrix3d P0_feat_;
 
@@ -126,6 +125,14 @@ private:
   int len_features_;
   int next_feature_id_;
   std::vector<int> current_feature_ids_;
+  std::vector<int> keyframe_features_;
+  double keyframe_overlap_threshold_;
+  
+  typedef struct{
+    Eigen::Vector3d transform;
+    Eigen::Matrix3d cov;    
+  } edge_SE2_t;
+  std::deque<edge_SE2_t> edges_;
 
   // Matrix Workspace
   dxMatrix A_;
@@ -141,6 +148,8 @@ private:
 
   // EKF Configuration Parameters
   bool use_drag_term_;
+  bool keyframe_reset_;
+  bool partial_update_;
   double min_depth_;
 
   // Camera Intrinsics and Extrinsics
@@ -167,9 +176,10 @@ public:
   VIEKF();
   ~VIEKF();
   void init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P0, Eigen::Matrix<double, dxZ,1> &Qx,
-                   Eigen::Matrix<double, dxZ,1> &lambda, uVector &Qu, Eigen::Vector3d& P0_feat, Eigen::Vector3d& Qx_feat,
-                   Eigen::Vector3d& lambda_feat, Eigen::Vector2d& cam_center, Eigen::Vector2d& focal_len,
-                   Eigen::Vector4d& q_b_c, Eigen::Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, bool partial_update);
+            Eigen::Matrix<double, dxZ,1> &lambda, uVector &Qu, Eigen::Vector3d& P0_feat, Eigen::Vector3d& Qx_feat,
+            Eigen::Vector3d& lambda_feat, Eigen::Vector2d& cam_center, Eigen::Vector2d& focal_len,
+            Eigen::Vector4d& q_b_c, Eigen::Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, 
+            bool partial_update, bool keyframe_reset);
   void init_logger(std::string root_filename);
 
   inline double now() const
@@ -197,7 +207,6 @@ public:
           }
         }
       }
-      exit(0);
     }
     else
       return false;

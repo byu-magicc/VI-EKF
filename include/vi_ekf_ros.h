@@ -3,6 +3,7 @@
 
 #include <mutex>
 #include <deque>
+#include <vector>
 
 #include <ros/ros.h>
 #include <ros/package.h>
@@ -40,7 +41,6 @@ private:
   Vector6d u_prev_;
   ros::Time last_imu_update_;
 
-
   ros::NodeHandle nh_;
   ros::NodeHandle nh_private_;
   image_transport::ImageTransport it_;
@@ -61,6 +61,7 @@ private:
   bool invert_image_;
 
   bool initialized_ = false;
+  bool got_init_truth_ = false;
 
   bool use_truth_;
   bool use_depth_;

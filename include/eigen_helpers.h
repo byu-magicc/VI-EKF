@@ -24,11 +24,7 @@ template <class Derived>
 void importMatrixFromParamServer(ros::NodeHandle nh, Eigen::MatrixBase<Derived>& mat, std::string param)
 {
   std::vector<double> vec;
-  if(!nh.getParam(param, vec))
-  {
-    ROS_FATAL("Could not find %s/%s on server. Zeros!",nh.getNamespace().c_str(),param.c_str());
-    mat.setZero();
-    return;
-  }
-  ROS_ERROR_COND(!vectorToMatrix(mat,vec),"Param %s/%s is the wrong size" ,nh.getNamespace().c_str(),param.c_str());
+  ROS_ASSERT_MSG(nh.getParam(param, vec), "Could not find %s/%s on server.",nh.getNamespace().c_str(),param.c_str());
+  ROS_ASSERT_MSG(vectorToMatrix(mat,vec), "Param %s/%s is the wrong size - param is %d (total) while matrix is %dx%d",
+                 nh.getNamespace().c_str(),param.c_str(), (int)vec.size(), (int)mat.rows(), (int)mat.cols());
 }

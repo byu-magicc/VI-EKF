@@ -1794,13 +1794,16 @@ and
 \begin{eqnarray*}
 \hat{x}_{i}^{++} & = & \left(1-\lambda_{i}\right)\hat{x}^{-}+\lambda_{i}\hat{x}_{i}^{+}\\
 P_{ij}^{++} & = & \left(1-\lambda_{i}\right)\left(1-\lambda_{j}\right)P_{ij}^{-}+\left(1-\left(1-\lambda_{i}\right)\left(1-\lambda_{j}\right)\right)P_{ij}^{+}\\
+ & = & \left(1-\lambda_{i}-\lambda_{j}+\lambda_{i}\lambda_{j}\right)P_{ij}^{-}+\left(1-\left(1-\lambda_{i}-\lambda_{j}+\lambda_{i}\lambda_{j}\right)\right)P_{ij}^{+}\\
+ & = & 1-\left(\lambda_{i}+\lambda_{j}-\lambda_{i}\lambda_{j}\right)P_{ij}^{-}+\left(1-1+\lambda_{i}+\lambda_{j}-\lambda_{i}\lambda_{j}\right)P_{ij}^{+}\\
+ & = & 1-\left(\lambda_{i}+\lambda_{j}-\lambda_{i}\lambda_{j}\right)P_{ij}^{-}+\left(\lambda_{i}+\lambda_{j}-\lambda_{i}\lambda_{j}\right)P_{ij}^{+}\\
  & = & \left(1-\tau_{ij}\right)P_{ij}^{-}+\tau_{ij}P_{ij}^{+}
 \end{eqnarray*}
 
 \end_inset
 
 with 
-\begin_inset Formula $\tau_{ij}=\left(1-\lambda_{i}-\lambda_{j}+\lambda_{i}\lambda_{j}\right)$
+\begin_inset Formula $\tau_{ij}=\left(\lambda_{i}+\lambda_{j}-\lambda_{i}\lambda_{j}\right)$
 \end_inset
 
 .
@@ -1815,7 +1818,7 @@ with
 \end_inset
 
  and 
-\begin_inset Formula $\Lambda=\mathbf{1}\mathbf{1}^{\top}-\mathbf{1}\boldsymbol{\lambda}{}^{\top}-\boldsymbol{\lambda}\mathbf{1}^{\top}+\boldsymbol{\lambda}\boldsymbol{\lambda}^{\top}$
+\begin_inset Formula $\Lambda=\mathbf{1}\boldsymbol{\lambda}{}^{\top}+\boldsymbol{\lambda}\mathbf{1}^{\top}-\boldsymbol{\lambda}\boldsymbol{\lambda}^{\top}$
 \end_inset
 
  and perform the following manipulations, (where 

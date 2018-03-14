@@ -210,6 +210,18 @@ class Quaternion():
         self.arr[1:] *= -1.0
 
     @property
+    def roll(self):
+        return np.arctan2(2.0 * (self.w * self.x + self.y * self.z), 1.0 - 2.0 * (self.x * self.x + self.y * self.y))
+
+    @property
+    def pitch(self):
+        return np.arcsin(2.0 * (self.w * self.y - self.z * self.x))
+
+    @property
+    def yaw(self):
+        return np.arctan2(2.0 * (self.w * self.z + self.x * self.y), 1.0 - 2.0 * (self.y * self.y + self.z * self.z))
+
+    @property
     def inverse(self):
         inverted = self.arr.copy()
         inverted[1:] *= -1.0
@@ -285,10 +297,10 @@ class Quaternion():
         st = np.sin(pitch/2.0)
         ss = np.sin(yaw/2.0)
 
-        return Quaternion(np.array([[cp*ct*cs - sp*st*ss],
-                                    [sp*st*cs + cp*ct*ss],
-                                    [sp*ct*cs + cp*st*ss],
-                                    [cp*st*cs - sp*ct*ss]]))
+        return Quaternion(np.array([[cp*ct*cs + sp*st*ss],
+                                    [sp*ct*cs - cp*st*ss],
+                                    [cp*st*cs + sp*ct*ss],
+                                    [cp*ct*ss - sp*st*cs]]))
 
     def otimes(self, q):
         q_new = Quaternion(qmat_matrix.dot(q.arr).squeeze().dot(self.arr).copy())
@@ -345,6 +357,16 @@ def run_tests():
         v2 /= norm(v2)
         assert norm(Quaternion.from_two_unit_vectors(v1, v2).rot(v1) - v2) < 1e-8
         assert norm(Quaternion.from_two_unit_vectors(v2, v1).invrot(v1) - v2) < 1e-8
+
+        # Check from_euler and to_euler
+        roll = np.random.uniform(-np.pi, np.pi)
+        pitch = np.random.uniform(-np.pi/2.0, np.pi/2.0)
+        yaw = np.random.uniform(-np.pi, np.pi)
+        q_euler = Quaternion.from_euler(roll, pitch, yaw)
+        assert norm(q_euler.elements) - 1.0 < 1e-8
+        assert abs(q_euler.yaw - yaw) < 1e-8, "yaw error q_euler.yaw = %s, actual = %s" % (q_euler.yaw, yaw)
+        assert abs(q_euler.pitch - pitch) < 1e-8, "pitch error q_euler.pitch = %s, actual = %s" % (q_euler.pitch, pitch)
+        assert abs(q_euler.roll - roll) < 1e-8 ,"roll error q_euler.roll = %s, actual = %s" % (q_euler.roll, roll)
 
         # Check from_R
         R = q.R
@@ -413,89 +435,10 @@ def run_tests():
             a = skew(v).dot(q.R)
             assert (np.abs(a - d) < 1e-3).all()
 
-
-
-
-
-
     print "pyquat test [PASSED]"
 
 if __name__ == '__main__':
     run_tests()
-    e = 1e-6
-
-    ## Scratch remove axis of rotation from quaternion
-    u = np.array([[0, 0, 1.]]).T
-    # u = np.random.random((3,1))
-    u /= norm(u)
-    qm0 = Quaternion.from_euler(270.0*np.pi/180.0, 85.0*np.pi/180.0, 90.0*np.pi/180.0)
-
-    w = qm0.rot(u)
-    th = u.T.dot(w)
-    ve = skew(u).dot(w)
-    qp0 = Quaternion.exp(th * ve)
-
-    # RN Paper
-    phi = qm0.euler[0]
-    theta = qm0.euler[1]
-    psi = qm0.euler[2]
-
-    N = np.array([[1, np.sin(phi)*np.tan(theta), np.cos(phi)*np.tan(theta)],
-                  [0, np.cos(phi)**2, -np.cos(phi)*np.sin(phi)],
-                  [0, -np.cos(phi)*np.sin(phi), np.sin(phi)**2]])
-
-    epsilon = np.eye(3) * e
-
-    t = u.T.dot(qm0.rot(u))
-    v = skew(u).dot(qm0.rot(u))
-
-    tv0 = u.T.dot(qm0.rot(u)) * (skew(u).dot(qm0.rot(u)))
-    a_dtvdq = (skew(u).dot(qm0.R).dot(u)).dot(v.T) + t*(skew(u).dot(qm0.R).dot(skew(u).T))
-    d_dtvdq = np.zeros_like(a_dtvdq)
-
-
-
-
-    nd = norm(t*v)
-    d0 = t*v
-    qd0 = Quaternion.exp(d0)
-    skd = skew(t*v)
-    Tau = np.eye(3) + ((1.-np.cos(nd))*skd)/(nd*nd) + ((nd-np.sin(nd))*skd.dot(skd))/(nd*nd*nd)
-    Tau_approx = np.eye(3) + 1./2. * skd
-    a_dqdq = a_dtvdq.dot(Tau)
-    a_dqdq_approx = a_dtvdq.dot(Tau_approx)
-    d_dqdq = np.zeros_like(a_dqdq)
-
-    a_dexpdd = Tau
-    d_dexpdd = np.zeros_like(a_dexpdd)
-
-    for i in range(3):
-        qmi = qm0 + epsilon[:,i,None]
-        w = qmi.rot(u)
-        th = u.T.dot(w)
-        ve = skew(u).dot(w)
-        qpi = Quaternion.exp(th * ve)
-        d_dqdq[i,:,None] = (qpi - qp0)/e
-
-        qdi = Quaternion.exp(d0 + epsilon[:,i,None])
-        d_dexpdd[i,:,None] = (qdi - qd0)/e
-
-        tvi = u.T.dot(qmi.rot(u)) * (skew(u).dot(qmi.rot(u)))
-        d_dtvdq[i,:,None] = (tvi - tv0)/e
-
-    print "analytical:\n", np.around(a_dqdq, 5)
-    # print "approx:\n", np.around(a_dqdq_approx, 5)
-    print "finite difference:\n", np.around(d_dqdq, 5)
-    # print "dan:\n", np.around(N,5)
-
-    # print "bonus A:\n", np.around(a_dtvdq, 5)
-    # print "bonus FD:\n", np.around(d_dtvdq, 5)
-    print "bonus diff:\n", np.sum(a_dtvdq - d_dtvdq)
-    #
-    print "magic A:\n", np.around(Tau, 5)
-    print "magic FD:\n", np.around(d_dexpdd, 5)
-    print "magic diff:\n", np.sum(Tau - d_dexpdd)
-
 
 
 

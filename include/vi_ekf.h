@@ -125,14 +125,14 @@ private:
   int len_features_;
   int next_feature_id_;
   std::vector<int> current_feature_ids_;
-  std::vector<int> keyframe_features_;
-  double keyframe_overlap_threshold_;
+//  std::vector<int> keyframe_features_;
+//  double keyframe_overlap_threshold_;
   
-  typedef struct{
-    Eigen::Vector3d transform;
-    Eigen::Matrix3d cov;    
-  } edge_SE2_t;
-  std::deque<edge_SE2_t> edges_;
+//  typedef struct{
+//    Eigen::Vector3d transform;
+//    Eigen::Matrix3d cov;    
+//  } edge_SE2_t;
+//  std::deque<edge_SE2_t> edges_;
 
   // Matrix Workspace
   dxMatrix A_;
@@ -148,7 +148,7 @@ private:
 
   // EKF Configuration Parameters
   bool use_drag_term_;
-  bool keyframe_reset_;
+//  bool keyframe_reset_;
   bool partial_update_;
   double min_depth_;
 
@@ -192,21 +192,9 @@ public:
   {
     if( ( (x_).array() != (x_).array()).any() || ((P_).array() != (P_).array()).any() )
     {
-      for(int i = 0; i < xZ + 5*len_features_; i++)
-      {
-        if (x_(i) != x_(i))
-          std::cout << "NaN found in x[" << i << "]\n";
-      }
-      for (int i = 0; i < dxZ + 3*len_features_; i++)
-      {
-        for (int j = 0; j < dxZ+3*len_features_; j++)
-        {
-          if (P_(i,j) != P_(i,j))
-          {
-            std::cout << "NaN found in P[" << i << ", " << j << "]\n";
-          }
-        }
-      }
+      std::cout << "x:\n" << x_.block(0,0, xZ + len_features_, 1) << "\n";
+      std::cout << "P:\n" << P_.block(0, 0,xZ + len_features_, xZ + len_features_) << "\n";
+      return true;
     }
     else
       return false;

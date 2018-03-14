@@ -46,15 +46,15 @@ VIEKF_ROS::VIEKF_ROS() :
   importMatrixFromParamServer(nh_private_, vel_r_diag, "vel_R");
   double depth_r, alt_r, min_depth;
   bool partial_update, drag_term, keyframe_reset;
-  ROS_ASSERT_MSG(nh_private_.getParam("depth_R", depth_r), "you need to specify the 'depth_R' parameter");
-  ROS_ASSERT_MSG(nh_private_.getParam("alt_R", alt_r), "you need to specify the 'alt_R' parameter");
-  ROS_ASSERT_MSG(nh_private_.getParam("min_depth", min_depth), "you need to specify the 'min_depth' parameter");
-  ROS_ASSERT_MSG(nh_private_.getParam("imu_LPF", imu_LPF_), "you need to specify the 'imu_LPF' parameter");
-  ROS_ASSERT_MSG(nh_private_.getParam("num_features", num_features_), "you need to specify the 'num_features' parameter");
-  ROS_ASSERT_MSG(nh_private_.getParam("invert_image", invert_image_), "you need to specify the 'invert_image' parameter");
-  ROS_ASSERT_MSG(nh_private_.getParam("partial_update", partial_update), "you need to specify the 'partial_update' parameter");
-  ROS_ASSERT_MSG(nh_private_.getParam("drag_term", drag_term), "you need to specify the 'drag_term' parameter");
-  ROS_ASSERT_MSG(nh_private_.getParam("keyframe_reset", keyframe_reset), "you need to specify the 'keyframe_reset' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("depth_R", depth_r), "you need to specify the 'depth_R' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("alt_R", alt_r), "you need to specify the 'alt_R' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("min_depth", min_depth), "you need to specify the 'min_depth' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("imu_LPF", imu_LPF_), "you need to specify the 'imu_LPF' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("num_features", num_features_), "you need to specify the 'num_features' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("invert_image", invert_image_), "you need to specify the 'invert_image' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("partial_update", partial_update), "you need to specify the 'partial_update' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("drag_term", drag_term), "you need to specify the 'drag_term' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("keyframe_reset", keyframe_reset), "you need to specify the 'keyframe_reset' parameter");
 
   num_features_ = (num_features_ > NUM_FEATURES) ? NUM_FEATURES : num_features_;
 
@@ -81,12 +81,12 @@ VIEKF_ROS::VIEKF_ROS() :
   alt_R_ << alt_r;
 
   // Turn on the specified measurements
-  ROS_ASSERT_MSG(nh_private_.getParam("use_truth", use_truth_), "you need to specify the 'use_truth' parameter");
-  ROS_ASSERT_MSG(nh_private_.getParam("use_depth", use_depth_), "you need to specify the 'use_depth' parameter");
-  ROS_ASSERT_MSG(nh_private_.getParam("use_features", use_features_), "you need to specify the 'use_features' parameter");
-  ROS_ASSERT_MSG(nh_private_.getParam("use_acc", use_acc_), "you need to specify the 'use_acc' parameter");
-  ROS_ASSERT_MSG(nh_private_.getParam("use_imu_att", use_imu_att_), "you need to specify the 'use_imu_att' parameter");
-  ROS_ASSERT_MSG(nh_private_.getParam("use_alt", use_alt_), "you need to specify the 'use_alt' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("use_truth", use_truth_), "you need to specify the 'use_truth' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("use_depth", use_depth_), "you need to specify the 'use_depth' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("use_features", use_features_), "you need to specify the 'use_features' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("use_acc", use_acc_), "you need to specify the 'use_acc' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("use_imu_att", use_imu_att_), "you need to specify the 'use_imu_att' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("use_alt", use_alt_), "you need to specify the 'use_alt' parameter");
 
   cout << "truth:" << use_truth_ << "\n";
   cout << "depth:" << use_depth_ << "\n";

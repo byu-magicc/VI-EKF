@@ -1,11 +1,13 @@
 #include "vi_ekf.h"
 
 //#ifndef NDEBUG
-#define NAN_CHECK if (NaNsInTheHouse()) { cout << "NaNs In The House at line " << __LINE__ << "!!!\n"; exit(0); }
-#define NEGATIVE_DEPTH if (NegativeDepth()) cout << "Negatiive Depth " << __LINE__ << "!!!\n"
+#define NAN_CHECK if (NaNsInTheHouse()) { std::cout << "NaNs In The House at line " << __LINE__ << "!!!\n"; exit(0); }
+#define NEGATIVE_DEPTH if (NegativeDepth()) std::cout << "Negative Depth " << __LINE__ << "!!!\n"
+#define CHECK_MAT_FOR_NANS(mat) if ((K_.array() != K_.array()).any()) { std::cout << "NaN detected in " << #mat << " at line " << __LINE__ << "!!!\n"; exit(0); }
 //#else
 //#define NAN_CHECK {}
 //#define NEGATIVE_DEPTH {}
+//#define CHECK_MAT_FOR_NANS(mat) {}
 //#endif
 
 using namespace quat;
@@ -51,17 +53,17 @@ void VIEKF::init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P
   // set camera intrinsics
   cam_center_ = cam_center;
   cam_F_ << focal_len(0), 0, 0,
-      0, focal_len(1), 0;
+            0, focal_len(1), 0;
   
   use_drag_term_ = use_drag_term;
   partial_update_ = partial_update;
-  keyframe_reset_ = keyframe_reset;
+//  keyframe_reset_ = keyframe_reset;
   prev_t_ = 0.0;
   
   min_depth_ = min_depth;
   
-  keyframe_features_.clear();
-  edges_.clear();
+//  keyframe_features_.clear();
+//  edges_.clear();
   
   if (log_directory.compare("~") != 0)
   {
@@ -319,9 +321,11 @@ void VIEKF::propagate(const uVector &u, const double t)
   prev_t_ = t;
   
   dynamics(x_, u);
+  NAN_CHECK;
   boxplus(x_, dx_*dt, x_);
   NAN_CHECK;
   P_ += (A_ * P_ + P_ * A_.transpose() + G_ * Qu_ * G_.transpose() + Qx_)*dt;
+  NAN_CHECK;
   
   fix_depth();
   
@@ -506,37 +510,30 @@ bool VIEKF::update(const Eigen::VectorXd& z, const measurement_type_t& meas_type
   
   NAN_CHECK;
   
-//  if (active)
-//  {
-//    K_.leftCols(z_dim) = P_ * H_.topRows(z_dim).transpose() * (R + H_.topRows(z_dim)*P_ * H_.topRows(z_dim).transpose()).inverse();
-//    NAN_CHECK;
-//    xp_ = x_;
+  if (active)
+  {
+    K_.leftCols(z_dim) = P_ * H_.topRows(z_dim).transpose() * (R + H_.topRows(z_dim)*P_ * H_.topRows(z_dim).transpose()).inverse();
+    NAN_CHECK;
+    xp_ = x_;
     
-//    if ((K_.array() != K_.array()).any())
-//    {
-//      cout << "Issue in Kalman Gain\n" << K_ << "\n";
-//      exit(0);
-//    }
-//    if ((H_.array() != H_.array()).any())
-//    {
-//      cout << "Issue in Measurement Model\n" << H_ << "\n";
-//      exit(0);
-//    }
-//    if (partial_update_)
-//    {
-//      // Apply Fixed Gain Partial update per
-//      // "Partial-Update Schmidt-Kalman Filter" by Brink
-//      // Modified to operate inline and on the manifold 
-//      boxplus(xp_, lambda_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
-//      P_ -= (Lambda_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*P_);
-//    }
-//    else
-//    {
-//      boxplus(xp_, K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
-//      P_ -= K_.leftCols(z_dim) * H_.topRows(z_dim)*P_;
-//    }
-//    NAN_CHECK;
-//  }
+    CHECK_MAT_FOR_NANS(H_);
+    CHECK_MAT_FOR_NANS(K_);
+    
+    if (partial_update_)
+    {
+      // Apply Fixed Gain Partial update per
+      // "Partial-Update Schmidt-Kalman Filter" by Brink
+      // Modified to operate inline and on the manifold 
+      boxplus(xp_, lambda_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
+      P_ -= (Lambda_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*P_);
+    }
+    else
+    {
+      boxplus(xp_, K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
+      P_ -= K_.leftCols(z_dim) * H_.topRows(z_dim)*P_;
+    }
+    NAN_CHECK;
+  }
   
   fix_depth();
   
@@ -572,43 +569,43 @@ void VIEKF::keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N)
 
 void VIEKF::keyframe_reset()
 {   
-  // Save off current position into the new edge
-  edge_SE2_t edge;
-  edge.transform.block<2,1>(0,0) = x_.block<2,1>(xPOS,0);
-  edge.cov.block<2,2>((int)xPOS, (int)xPOS) = P_.block<2,2>((int)xPOS, (int)xPOS);
+//  // Save off current position into the new edge
+//  edge_SE2_t edge;
+//  edge.transform.block<2,1>(0,0) = x_.block<2,1>(xPOS,0);
+//  edge.cov.block<2,2>((int)xPOS, (int)xPOS) = P_.block<2,2>((int)xPOS, (int)xPOS);
   
-  // reset global xy position
-  x_(xPOS, 0) = 0;
-  x_(xPOS+1, 0) = 0;
+//  // reset global xy position
+//  x_(xPOS, 0) = 0;
+//  x_(xPOS+1, 0) = 0;
   
-  // precalculate some things
-  Quaternion qm(x_.block<4,1>((int)xATT, 0));
-  Eigen::Vector3d u_rot = qm.rot(khat);
-  Eigen::Vector3d v = khat.cross(u_rot); // Axis of rotation (without rotation about khat)
-  double theta = khat.transpose() * u_rot; // Angle of rotation
-  Eigen::Matrix3d sk_tv = skew(theta*v);
-  Eigen::Matrix3d sk_u = skew(khat);
-  Eigen::Matrix3d qmR = qm.R();
+//  // precalculate some things
+//  Quaternion qm(x_.block<4,1>((int)xATT, 0));
+//  Eigen::Vector3d u_rot = qm.rot(khat);
+//  Eigen::Vector3d v = khat.cross(u_rot); // Axis of rotation (without rotation about khat)
+//  double theta = khat.transpose() * u_rot; // Angle of rotation
+//  Eigen::Matrix3d sk_tv = skew(theta*v);
+//  Eigen::Matrix3d sk_u = skew(khat);
+//  Eigen::Matrix3d qmR = qm.R();
   
-  // Save off yaw and covariance /// TODO - do this right
-  edge.transform(2,0) = qm.yaw();
-  edge.cov(2,2) = P_(xATT+2, xATT+2);
+//  // Save off yaw and covariance /// TODO - do this right
+//  edge.transform(2,0) = qm.yaw();
+//  edge.cov(2,2) = P_(xATT+2, xATT+2);
   
-  // reset yaw
-  x_.block<4,1>((int)(xATT), 0) = Quaternion::exp(theta * v).elements();    
+//  // reset yaw
+//  x_.block<4,1>((int)(xATT), 0) = Quaternion::exp(theta * v).elements();    
   
-  NAN_CHECK;
+//  NAN_CHECK;
   
-  // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
-  A_ = I_big_;
-  A_((int)xPOS, (int)xPOS) = 0;
-  A_((int)xPOS+1, (int)xPOS+1) = 0;
-  A_.block<3,3>((int)dxATT, (int)dxATT) = (sk_u * qmR * khat)*v.transpose() + theta * (sk_u * qmR * sk_u.transpose())
-      * (I_3x3 + ((1.-cos(theta))*sk_tv)/(theta*theta) + ((theta - sin(theta))*sk_tv*sk_tv)/(theta*theta*theta));
+//  // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
+//  A_ = I_big_;
+//  A_((int)xPOS, (int)xPOS) = 0;
+//  A_((int)xPOS+1, (int)xPOS+1) = 0;
+//  A_.block<3,3>((int)dxATT, (int)dxATT) = (sk_u * qmR * khat)*v.transpose() + theta * (sk_u * qmR * sk_u.transpose())
+//      * (I_3x3 + ((1.-cos(theta))*sk_tv)/(theta*theta) + ((theta - sin(theta))*sk_tv*sk_tv)/(theta*theta*theta));
   
-  P_ = A_ * P_ * A_.transpose();
+//  P_ = A_ * P_ * A_.transpose();
   
-  NAN_CHECK;
+//  NAN_CHECK;
 }
 
 
@@ -772,6 +769,7 @@ void VIEKF::init_logger(string root_filename)
 
 
 }
+
 
 
 

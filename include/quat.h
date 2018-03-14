@@ -186,10 +186,10 @@ public:
     double ss = std::sin(yaw/2.0);
 
     Eigen::Vector4d arr;
-    arr << cp*ct*cs - sp*st*ss,
-           sp*st*cs + cp*ct*ss,
-           sp*ct*cs + cp*st*ss,
-           cp*st*cs - sp*ct*ss;
+    arr << cp*ct*cs + sp*st*ss,
+           sp*ct*cs - cp*st*ss,
+           cp*st*cs + sp*ct*ss,
+           cp*ct*ss - sp*st*cs;
     return Quaternion(arr);
   }
 
@@ -232,7 +232,7 @@ public:
   {
     Eigen::Vector3d out;
     out << std::atan2(2.0*(w()*x()+y()*z()), 1.0-2.0*(x()*x() + y()*y())),
-        std::asin(2.0*(w()*y() - z()*z())),
+        std::asin(2.0*(w()*y() - z()*x())),
         std::atan2(2.0*(w()*z()+x()*y()), 1.0-2.0*(y()*y() + z()*z()));
     return out;
   }
@@ -244,7 +244,7 @@ public:
   
   double pitch()
   {
-    return std::asin(2.0*(w()*y() - z()*z()));
+    return std::asin(2.0*(w()*y() - z()*x()));
   }
   
   double yaw()

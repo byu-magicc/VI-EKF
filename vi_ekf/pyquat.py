@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import numpy as np
 
 cross_matrix = np.array([[[0, 0, 0],

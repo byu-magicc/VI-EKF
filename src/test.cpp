@@ -9,6 +9,8 @@
 using namespace quat;
 using namespace vi_ekf;
 
+#define NUM_ITERS 10
+
 #define EXPECT_QUATERNION_EQUALS(q1, q2) \
   EXPECT_NEAR((q1).w(), (q1).w(), 1e-8); \
   EXPECT_NEAR((q1).x(), (q1).x(), 1e-8); \
@@ -100,6 +102,110 @@ int check_all(Eigen::MatrixXd analytical, Eigen::MatrixXd fd, std::string name, 
   return false;
 }
 
+VIEKF init_jacobians_test(xVector& x0, uVector& u0)
+{
+  // Configure initial State
+  x0.setZero();
+  x0(VIEKF::xATT) = 1.0;
+  x0(VIEKF::xMU) = 0.2;
+  x0.block<3,1>((int)VIEKF::xPOS, 0) += Eigen::Vector3d::Random() * 100.0;
+  x0.block<3,1>((int)VIEKF::xVEL, 0) += Eigen::Vector3d::Random() * 10.0;
+  x0.block<4,1>((int)VIEKF::xATT, 0) = (Quaternion(x0.block<4,1>((int)VIEKF::xATT, 0)) + Eigen::Vector3d::Random() * 0.5).elements();
+  x0.block<3,1>((int)VIEKF::xB_A, 0) += Eigen::Vector3d::Random() * 1.0;
+  x0.block<3,1>((int)VIEKF::xB_G, 0) += Eigen::Vector3d::Random() * 0.5;
+  x0((int)VIEKF::xMU, 0) += (static_cast <double> (rand()) / (static_cast <double> (RAND_MAX)))*0.05;
+  
+  // Create VIEKF
+  VIEKF ekf;
+  Eigen::Matrix<double, vi_ekf::VIEKF::dxZ, 1> P0, Qx, gamma;
+  uVector Qu;
+  Eigen::Vector3d P0feat, Qxfeat, gammafeat;
+  Eigen::Vector2d cam_center = Eigen::Vector2d::Random();
+  cam_center << 320-25+std::rand()%50, 240-25+std::rand()%50;
+  Eigen::Vector2d focal_len;
+  focal_len << static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/100.0)),
+      static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/100.0));
+  Eigen::Vector4d q_b_c = Quaternion::Random().elements();
+  Eigen::Vector3d p_b_c = Eigen::Vector3d::Random() * 0.5;
+  ekf.init(x0.block<17, 1>(0,0), P0, Qx, gamma, Qu, P0feat, Qxfeat, gammafeat, cam_center, focal_len, q_b_c, p_b_c, 2.0, "~", true, true, true, 0.0);
+  
+  // Initialize Random Features
+  for (int i = 0; i < NUM_FEATURES; i++)
+  {
+    Eigen::Vector2d l;
+    l << std::rand()%640, std::rand()%480;
+    double depth = static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/10.0));
+    ekf.init_feature(l, i, depth);
+  }
+  // Recover the new state to return
+  x0 = ekf.get_state();
+  
+  // Initialize Inputs
+  u0.setZero();
+  u0.block<3,1>((int)VIEKF::uA, 0) += Eigen::Vector3d::Random() * 1.0;
+  u0.block<3,1>((int)VIEKF::uG, 0) += Eigen::Vector3d::Random() * 1.0;
+  
+  return ekf;
+}
+
+double random(double max, double min)
+{
+  double f = (double)rand() / RAND_MAX;
+  return min + f * (max - min);
+}
+
+int htest(measurement_function_ptr fn, VIEKF& ekf, const VIEKF::measurement_type_t type, const int id, const int dim, double tol=1e-3)
+{
+  int num_errors = 0;
+  xVector x0 = ekf.get_state();
+  zVector z0;
+  hMatrix a_dhdx;
+  a_dhdx.setZero();
+  
+  // Call the Measurement function
+  CALL_MEMBER_FN(ekf, fn)(x0, z0, a_dhdx, id);
+  
+  hMatrix d_dhdx;
+  d_dhdx.setZero(); 
+  
+  Eigen::Matrix<double, MAX_DX, MAX_DX> I = Eigen::Matrix<double, MAX_DX, MAX_DX>::Identity();
+  double epsilon = 1e-6;
+  
+  zVector z_prime;
+  hMatrix dummy_H;
+  xVector x_prime;
+  for (int i = 0; i < a_dhdx.cols(); i++)
+  {
+    ekf.boxplus(ekf.get_state(), (I.col(i) * epsilon), x_prime);
+    
+    CALL_MEMBER_FN(ekf, fn)(x_prime, z_prime, dummy_H, id);
+    
+    if (type == VIEKF::QZETA)
+      d_dhdx.block(0, i, dim, 1) = q_feat_boxminus(Quaternion(z_prime), Quaternion(z0))/epsilon;
+    else if (type == VIEKF::ATT)
+      d_dhdx.col(i) = (Quaternion(z_prime) - Quaternion(z0))/epsilon;
+    else
+      d_dhdx.block(0, i, dim, 1) = (z_prime.topRows(dim) - z0.topRows(dim))/epsilon;
+  }
+  
+  Eigen::MatrixXd error = (a_dhdx - d_dhdx).topRows(dim);
+  double err_threshold = std::max(tol * a_dhdx.norm(), tol);
+  
+  for (std::map<std::string, std::vector<int>>::iterator it=indexes.begin(); it!=indexes.end(); ++it)
+  {
+    if(it->second[0] + it->second[1] > error.cols())
+      continue;
+    Eigen::MatrixXd block_error = error.block(0, it->second[0], error.rows(), it->second[1]);    
+    if ((block_error.array().abs() > err_threshold).any())
+    {
+      num_errors += 1;
+      std::cout << FONT_FAIL << "Error in Measurement " << measurement_names[type] << "_" << id << ", " << it->first << ": (thresh = " << err_threshold << " mean = " << a_dhdx.norm() << ")\n";
+      std::cout << "ERR:\n" << block_error << "\nA:\n" << a_dhdx.block(0, it->second[0], error.rows(), it->second[1]) << "\n";
+      std::cout << "FD:\n" << d_dhdx.block(0, it->second[0], error.rows(), it->second[1]) << ENDC <<  "\n";
+    }
+  }
+  return num_errors;
+}
 
 TEST(Quaternion, rotation_direction)
 {
@@ -120,7 +226,7 @@ TEST(Quaternion, rot_invrot_R)
 {
   Eigen::Vector3d v;
   Quaternion q1 = Quaternion::Random();
-  for (int i = 0; i < 100; i++)
+  for (int i = 0; i < NUM_ITERS; i++)
   {
     v.setRandom();
     q1 = Quaternion::Random();
@@ -134,7 +240,7 @@ TEST(Quaternion, rot_invrot_R)
 TEST(Quaternion, from_two_unit_vectors)
 {
   Eigen::Vector3d v1, v2;
-  for (int i = 0; i < 100; i++)
+  for (int i = 0; i < NUM_ITERS; i++)
   {
     v1.setRandom();
     v2.setRandom();
@@ -150,7 +256,7 @@ TEST(Quaternion, from_R)
 {
   Quaternion q1 = Quaternion::Random();
   Eigen::Vector3d v;
-  for (int i = 0; i < 100; i++)
+  for (int i = 0; i < NUM_ITERS; i++)
   {
     Eigen::Matrix3d R = q1.R();
     Quaternion qR = Quaternion::from_R(R);
@@ -169,7 +275,7 @@ TEST(Quaternion, otimes)
 TEST(Quaternion, exp_log_axis_angle)
 {
   // Check that qexp is right by comparing with matrix exp and axis-angle
-  for (int i = 0; i < 100; i++)
+  for (int i = 0; i < NUM_ITERS; i++)
   {
     Eigen::Vector3d omega;
     omega.setRandom();
@@ -191,7 +297,7 @@ TEST(Quaternion, boxplus_and_boxminus)
 {
   Eigen::Vector3d delta1, delta2, zeros;
   zeros.setZero();
-  for (int i = 0; i < 100; i++)
+  for (int i = 0; i < NUM_ITERS; i++)
   {
     Quaternion q = Quaternion::Random();
     Quaternion q2 = Quaternion::Random();
@@ -209,7 +315,7 @@ TEST(Quaternion, inplace_add_and_mul)
 {
   Eigen::Vector3d delta1, delta2, zeros;
   zeros.setZero();
-  for (int i = 0; i < 100; i++)
+  for (int i = 0; i < NUM_ITERS; i++)
   {
     Quaternion q = Quaternion::Random();
     Quaternion q2 = Quaternion::Random();
@@ -226,15 +332,9 @@ TEST(Quaternion, inplace_add_and_mul)
   }
 }
 
-double random(double max, double min)
-{
-  double f = (double)rand() / RAND_MAX;
-  return min + f * (max - min);
-}
-
 TEST(Quaternion, euler)
 {
-  for (int i =0; i < 100; i++)
+  for (int i =0; i < NUM_ITERS; i++)
   {
     double roll = random(-M_PI, M_PI);
     double pitch = random(-M_PI/2.0, M_PI/2.0);
@@ -249,7 +349,7 @@ TEST(Quaternion, euler)
 TEST(math_helper, T_zeta)
 {
   Eigen::Vector3d v2;
-  for (int i = 0; i < 100; i++)
+  for (int i = 0; i < NUM_ITERS; i++)
   {
     v2.setRandom();
     v2 /= v2.norm();
@@ -261,7 +361,7 @@ TEST(math_helper, T_zeta)
 
 TEST(math_helper, d_dTdq)
 {
-  for (int j = 0; j < 100; j++)
+  for (int j = 0; j < NUM_ITERS; j++)
   {
     Eigen::Matrix2d d_dTdq;
     d_dTdq.setZero();
@@ -288,7 +388,7 @@ TEST(math_helper, d_dTdq)
 
 TEST(math_helper, dqzeta_dqzeta)
 {
-  for(int j = 0; j < 100; j++)
+  for(int j = 0; j < NUM_ITERS; j++)
   {
     Eigen::Matrix2d d_dqdq;
     quat::Quaternion q = quat::Quaternion::Random();
@@ -312,7 +412,7 @@ TEST(math_helper, manifold_operations)
   Eigen::Vector3d omega, omega2;
   Eigen::Vector2d dx, zeros;
   zeros.setZero();
-  for (int i = 0; i < 100; i++)
+  for (int i = 0; i < NUM_ITERS; i++)
   {
     omega.setRandom();
     omega2.setRandom();
@@ -327,52 +427,6 @@ TEST(math_helper, manifold_operations)
     EXPECT_VECTOR3_EQUALS( q_feat_boxplus( x, q_feat_boxminus(y, x)).rot(e_z), y.rot(e_z));
     EXPECT_VECTOR2_EQUALS( q_feat_boxminus(q_feat_boxplus(x, dx), x), dx);
   }
-}
-
-VIEKF init_jacobians_test(xVector& x0, uVector& u0)
-{
-  // Configure initial State
-  x0.setZero();
-  x0(VIEKF::xATT) = 1.0;
-  x0(VIEKF::xMU) = 0.2;
-  x0.block<3,1>((int)VIEKF::xPOS, 0) += Eigen::Vector3d::Random() * 100.0;
-  x0.block<3,1>((int)VIEKF::xVEL, 0) += Eigen::Vector3d::Random() * 10.0;
-  x0.block<4,1>((int)VIEKF::xATT, 0) = (Quaternion(x0.block<4,1>((int)VIEKF::xATT, 0)) + Eigen::Vector3d::Random() * 0.5).elements();
-  x0.block<3,1>((int)VIEKF::xB_A, 0) += Eigen::Vector3d::Random() * 1.0;
-  x0.block<3,1>((int)VIEKF::xB_G, 0) += Eigen::Vector3d::Random() * 0.5;
-  x0((int)VIEKF::xMU, 0) += (static_cast <double> (rand()) / (static_cast <double> (RAND_MAX)))*0.05;
-  
-  // Create VIEKF
-  VIEKF ekf;
-  Eigen::Matrix<double, vi_ekf::VIEKF::dxZ, 1> P0, Qx, gamma;
-  uVector Qu;
-  Eigen::Vector3d P0feat, Qxfeat, gammafeat;
-  Eigen::Vector2d cam_center = Eigen::Vector2d::Random();
-  cam_center << 320-25+std::rand()%50, 240-25+std::rand()%50;
-  Eigen::Vector2d focal_len;
-  focal_len << static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/100.0)),
-      static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/100.0));
-  Eigen::Vector4d q_b_c = Quaternion::Random().elements();
-  Eigen::Vector3d p_b_c = Eigen::Vector3d::Random() * 0.5;
-  ekf.init(x0.block<17, 1>(0,0), P0, Qx, gamma, Qu, P0feat, Qxfeat, gammafeat, cam_center, focal_len, q_b_c, p_b_c, 2.0, "~", true, true, true);
-  
-  // Initialize Random Features
-  for (int i = 0; i < NUM_FEATURES; i++)
-  {
-    Eigen::Vector2d l;
-    l << std::rand()%640, std::rand()%480;
-    double depth = static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/10.0));
-    ekf.init_feature(l, i, depth);
-  }
-  // Recover the new state to return
-  x0 = ekf.get_state();
-  
-  // Initialize Inputs
-  u0.setZero();
-  u0.block<3,1>((int)VIEKF::uA, 0) += Eigen::Vector3d::Random() * 1.0;
-  u0.block<3,1>((int)VIEKF::uG, 0) += Eigen::Vector3d::Random() * 1.0;
-  
-  return ekf;
 }
 
 TEST(VI_EKF, dfdx_test)
@@ -390,7 +444,7 @@ TEST(VI_EKF, dfdx_test)
   dxVector dx0;
   dxuMatrix a_dfdu;
   dxMatrix a_dfdx;
-  for (int j = 0; j < 100; j++)
+  for (int j = 0; j < NUM_ITERS; j++)
   {
     vi_ekf::VIEKF ekf = init_jacobians_test(x0, u0);
     
@@ -446,7 +500,7 @@ TEST(VI_EKF, dfdu_test)
   dxVector dx0;
   dxMatrix a_dfdx;
   dxuMatrix a_dfdu;
-  for (int j = 0; j < 100; j++)
+  for (int j = 0; j < NUM_ITERS; j++)
   {
     vi_ekf::VIEKF ekf = init_jacobians_test(x0, u0);
     
@@ -475,100 +529,11 @@ TEST(VI_EKF, dfdu_test)
   }
 }
 
-TEST(VI_EKF, KF_reset_test)
-{
-  uVector u0;
-  dxMatrix d_dxpdxm;
-  dxMatrix a_dxpdxm;
-  xVector xm;
-  xVector xp;
-  dxMatrix dummy;
-  dxMatrix I_dx = dxMatrix::Identity();
-  xVector xm_prime;    
-  xVector xp_prime;    
-  dxVector d_xp;
-  
-  for (int j = 0; j < 100; j++)
-  {
-    vi_ekf::VIEKF ekf = init_jacobians_test(xm, u0);
-    ekf.keyframe_reset(xm, xp, a_dxpdxm);
-    
-    d_dxpdxm.setZero();
-    double epsilon = 1e-6;
-
-    // Perform Numerical Differentiation
-    for (int i = 0; i < d_dxpdxm.cols(); i++)
-    {
-      ekf.boxplus(xm, (I_dx.col(i) * epsilon), xm_prime);
-      ekf.keyframe_reset(xm_prime, xp_prime, dummy);
-      ekf.boxminus(xp_prime, xp, d_xp);
-      d_dxpdxm.row(i) =  d_xp / epsilon;
-    }
-    
-//    EXPECT_FALSE(check_block("dxPOS", "dxPOS", a_dxpdxm, d_dxpdxm));
-//    EXPECT_FALSE(check_block("dxATT", "dxATT", a_dxpdxm, d_dxpdxm, 1e-1));
-  }
-//  EXPECT_FALSE(check_all(a_dxpdxm, d_dxpdxm, "dfdx", 1e-1));
-}
-
-int htest(measurement_function_ptr fn, VIEKF& ekf, const VIEKF::measurement_type_t type, const int id, const int dim, double tol=1e-3)
-{
-  int num_errors = 0;
-  xVector x0 = ekf.get_state();
-  zVector z0;
-  hMatrix a_dhdx;
-  a_dhdx.setZero();
-  
-  // Call the Measurement function
-  CALL_MEMBER_FN(ekf, fn)(x0, z0, a_dhdx, id);
-  
-  hMatrix d_dhdx;
-  d_dhdx.setZero();
-  
-  Eigen::Matrix<double, MAX_DX, MAX_DX> I = Eigen::Matrix<double, MAX_DX, MAX_DX>::Identity();
-  double epsilon = 1e-6;
-  
-  zVector z_prime;
-  hMatrix dummy_H;
-  xVector x_prime;
-  for (int i = 0; i < a_dhdx.cols(); i++)
-  {
-    ekf.boxplus(ekf.get_state(), (I.col(i) * epsilon), x_prime);
-    
-    CALL_MEMBER_FN(ekf, fn)(x_prime, z_prime, dummy_H, id);
-    
-    if (type == VIEKF::QZETA)
-      d_dhdx.block(0, i, dim, 1) = q_feat_boxminus(Quaternion(z_prime), Quaternion(z0))/epsilon;
-    else if (type == VIEKF::ATT)
-      d_dhdx.col(i) = (Quaternion(z_prime) - Quaternion(z0))/epsilon;
-    else
-      d_dhdx.block(0, i, dim, 1) = (z_prime.topRows(dim) - z0.topRows(dim))/epsilon;
-  }
-  
-  Eigen::MatrixXd error = (a_dhdx - d_dhdx).topRows(dim);
-  double err_threshold = std::max(tol * a_dhdx.norm(), tol);
-  
-  for (std::map<std::string, std::vector<int>>::iterator it=indexes.begin(); it!=indexes.end(); ++it)
-  {
-    if(it->second[0] + it->second[1] > error.cols())
-      continue;
-    Eigen::MatrixXd block_error = error.block(0, it->second[0], error.rows(), it->second[1]);    
-    if ((block_error.array().abs() > err_threshold).any())
-    {
-      num_errors += 1;
-      std::cout << FONT_FAIL << "Error in Measurement " << measurement_names[type] << "_" << id << ", " << it->first << ": (thresh = " << err_threshold << " mean = " << a_dhdx.norm() << ")\n";
-      std::cout << "ERR:\n" << block_error << "\nA:\n" << a_dhdx.block(0, it->second[0], error.rows(), it->second[1]) << "\n";
-      std::cout << "FD:\n" << d_dhdx.block(0, it->second[0], error.rows(), it->second[1]) << ENDC <<  "\n";
-    }
-  }
-  return num_errors;
-}
-
 TEST(VI_EKF, h_test)
 {
   xVector x0;
   uVector u0;
-  for (int j = 0; j < 100; j++)
+  for (int j = 0; j < NUM_ITERS; j++)
   {
     vi_ekf::VIEKF ekf = init_jacobians_test(x0, u0);
     
@@ -588,6 +553,42 @@ TEST(VI_EKF, h_test)
   }
 }
 
+
+TEST(VI_EKF, KF_reset_test)
+{
+  uVector u0;
+  dxMatrix d_dxpdxm;
+  dxMatrix a_dxpdxm;
+  xVector xm;
+  xVector xp;
+  dxMatrix dummy;
+  dxMatrix I_dx = dxMatrix::Identity();
+  xVector xm_prime;    
+  xVector xp_prime;    
+  dxVector d_xp;
+  
+  for (int j = 0; j < NUM_ITERS; j++)
+  {
+    vi_ekf::VIEKF ekf = init_jacobians_test(xm, u0);
+    ekf.keyframe_reset(xm, xp, a_dxpdxm);
+    
+    d_dxpdxm.setZero();
+    double epsilon = 1e-6;
+
+    // Perform Numerical Differentiation
+    for (int i = 0; i < d_dxpdxm.cols(); i++)
+    {
+      ekf.boxplus(xm, (I_dx.col(i) * epsilon), xm_prime);
+      ekf.keyframe_reset(xm_prime, xp_prime, dummy);
+      ekf.boxminus(xp_prime, xp, d_xp);
+      d_dxpdxm.row(i) =  d_xp / epsilon;
+    }
+    
+    EXPECT_FALSE(check_block("dxPOS", "dxPOS", a_dxpdxm, d_dxpdxm));
+    EXPECT_FALSE(check_block("dxATT", "dxATT", a_dxpdxm, d_dxpdxm, 1e-1));
+  }
+  EXPECT_FALSE(check_all(a_dxpdxm, d_dxpdxm, "dfdx", 1e-1));
+}
 
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);

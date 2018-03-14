@@ -3,7 +3,7 @@
 //#ifndef NDEBUG
 #define NAN_CHECK if (NaNsInTheHouse()) { std::cout << "NaNs In The House at line " << __LINE__ << "!!!\n"; exit(0); }
 #define NEGATIVE_DEPTH if (NegativeDepth()) std::cout << "Negative Depth " << __LINE__ << "!!!\n"
-#define CHECK_MAT_FOR_NANS(mat) if ((K_.array() != K_.array()).any()) { std::cout << "NaN detected in " << #mat << " at line " << __LINE__ << "!!!\n"; exit(0); }
+#define CHECK_MAT_FOR_NANS(mat) if ((K_.array() != K_.array()).any()) { std::cout << "NaN detected in " << #mat << " at line " << __LINE__ << "!!!\n" << mat << "\n"; exit(0); }
 //#else
 //#define NAN_CHECK {}
 //#define NEGATIVE_DEPTH {}
@@ -22,7 +22,7 @@ void VIEKF::init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P
                  Eigen::Matrix<double, dxZ,1> &lambda, uVector &Qu, Eigen::Vector3d& P0_feat, Eigen::Vector3d& Qx_feat,
                  Eigen::Vector3d& lambda_feat, Eigen::Vector2d &cam_center, Eigen::Vector2d &focal_len, Eigen::Vector4d &q_b_c,
                  Eigen::Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, bool partial_update,
-                 bool keyframe_reset)
+                 bool keyframe_reset, double keyframe_overlap)
 {
   x_.block<(int)xZ, 1>(0,0) = x0;
   P_.block<(int)dxZ, (int)dxZ>(0,0) = P0.asDiagonal();
@@ -57,13 +57,14 @@ void VIEKF::init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P
   
   use_drag_term_ = use_drag_term;
   partial_update_ = partial_update;
-//  keyframe_reset_ = keyframe_reset;
+  keyframe_reset_ = keyframe_reset;
   prev_t_ = 0.0;
   
   min_depth_ = min_depth;
   
-//  keyframe_features_.clear();
-//  edges_.clear();
+  keyframe_overlap_threshold_ = keyframe_overlap;
+  keyframe_features_.clear();
+  edges_.clear();
   
   if (log_directory.compare("~") != 0)
   {
@@ -255,7 +256,7 @@ void VIEKF::clear_feature(const int id)
 void VIEKF::keep_only_features(const vector<int> features)
 {
   std::vector<int> features_to_remove;
-//  int num_overlapping_features = 0;
+  int num_overlapping_features = 0;
   for (int local_id = 0; local_id < current_feature_ids_.size(); local_id++)
   {
     // See if we should keep this feature
@@ -265,18 +266,18 @@ void VIEKF::keep_only_features(const vector<int> features)
       if (current_feature_ids_[local_id] == features[i])
       {
         keep_feature = true;
-//        if (keyframe_reset_)
-//        {
-//          // See if it overlaps with our keyframe features
-//          for (int j = 0; j < keyframe_features_.size(); j++)
-//          {
-//            if (keyframe_features_[j] == features[i])
-//            {
-//              num_overlapping_features++;
-//              break;
-//            }
-//          }
-//        }
+        if (keyframe_reset_)
+        {
+          // See if it overlaps with our keyframe features
+          for (int j = 0; j < keyframe_features_.size(); j++)
+          {
+            if (keyframe_features_[j] == features[i])
+            {
+              num_overlapping_features++;
+              break;
+            }
+          }
+        }
         break;
       }
     }
@@ -290,18 +291,33 @@ void VIEKF::keep_only_features(const vector<int> features)
     clear_feature(features_to_remove[i]);
   }
   
-//  if (keyframe_reset_ && keyframe_features_.size() > 0 
-//      && (float)num_overlapping_features / (float)keyframe_features_.size() < keyframe_overlap_threshold_)
-//  {
-//    // perform keyframe reset
-//    keyframe_reset();
-//    // rebuild the list of features for overlap detection
-//    keyframe_features_.resize(features.size());
-//    for (int i = 0; i < features.size(); i++)
-//    {
-//      keyframe_features_[i] = features[i];
-//    }
-//  }
+  if (keyframe_reset_ && keyframe_features_.size() > 0 
+      && (double)num_overlapping_features / (double)keyframe_features_.size() < keyframe_overlap_threshold_)
+  {
+    std::cout << "time to perform reset!\n";
+    // perform keyframe reset
+    keyframe_reset();
+    // rebuild the list of features for overlap detection
+    keyframe_features_.resize(features.size());
+    for (int i = 0; i < features.size(); i++)
+    {
+      keyframe_features_[i] = features[i];
+    }
+  }
+  else if (keyframe_reset_ && keyframe_features_.size() == 0)
+  {
+    std::cout << "building reset vector\n";
+    // build the list of features for overlap detection
+    keyframe_features_.resize(features.size());
+    for (int i = 0; i < features.size(); i++)
+    {
+      keyframe_features_[i] = features[i];
+    }
+  }
+  else
+  {
+    std::cout << "overlapping features = " << num_overlapping_features << "/" << keyframe_features_.size() << "\n";
+  }
   
   NAN_CHECK;
 }
@@ -568,44 +584,44 @@ void VIEKF::keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N)
 
 
 void VIEKF::keyframe_reset()
-{   
-//  // Save off current position into the new edge
-//  edge_SE2_t edge;
-//  edge.transform.block<2,1>(0,0) = x_.block<2,1>(xPOS,0);
-//  edge.cov.block<2,2>((int)xPOS, (int)xPOS) = P_.block<2,2>((int)xPOS, (int)xPOS);
+{
+  // Save off current position into the new edge
+  edge_SE2_t edge;
+  edge.transform.block<2,1>(0,0) = x_.block<2,1>(xPOS,0);
+  edge.cov.block<2,2>((int)xPOS, (int)xPOS) = P_.block<2,2>((int)xPOS, (int)xPOS);
   
-//  // reset global xy position
-//  x_(xPOS, 0) = 0;
-//  x_(xPOS+1, 0) = 0;
+  // reset global xy position
+  x_(xPOS, 0) = 0;
+  x_(xPOS+1, 0) = 0;
   
-//  // precalculate some things
-//  Quaternion qm(x_.block<4,1>((int)xATT, 0));
-//  Eigen::Vector3d u_rot = qm.rot(khat);
-//  Eigen::Vector3d v = khat.cross(u_rot); // Axis of rotation (without rotation about khat)
-//  double theta = khat.transpose() * u_rot; // Angle of rotation
-//  Eigen::Matrix3d sk_tv = skew(theta*v);
-//  Eigen::Matrix3d sk_u = skew(khat);
-//  Eigen::Matrix3d qmR = qm.R();
+  // precalculate some things
+  Quaternion qm(x_.block<4,1>((int)xATT, 0));
+  Eigen::Vector3d u_rot = qm.rot(khat);
+  Eigen::Vector3d v = khat.cross(u_rot); // Axis of rotation (without rotation about khat)
+  double theta = khat.transpose() * u_rot; // Angle of rotation
+  Eigen::Matrix3d sk_tv = skew(theta*v);
+  Eigen::Matrix3d sk_u = skew(khat);
+  Eigen::Matrix3d qmR = qm.R();
   
-//  // Save off yaw and covariance /// TODO - do this right
-//  edge.transform(2,0) = qm.yaw();
-//  edge.cov(2,2) = P_(xATT+2, xATT+2);
+  // Save off yaw and covariance /// TODO - do this right
+  edge.transform(2,0) = qm.yaw();
+  edge.cov(2,2) = P_(xATT+2, xATT+2);
   
-//  // reset yaw
-//  x_.block<4,1>((int)(xATT), 0) = Quaternion::exp(theta * v).elements();    
+  // reset yaw
+  x_.block<4,1>((int)(xATT), 0) = Quaternion::exp(theta * v).elements();    
   
-//  NAN_CHECK;
+  NAN_CHECK;
   
-//  // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
-//  A_ = I_big_;
-//  A_((int)xPOS, (int)xPOS) = 0;
-//  A_((int)xPOS+1, (int)xPOS+1) = 0;
-//  A_.block<3,3>((int)dxATT, (int)dxATT) = (sk_u * qmR * khat)*v.transpose() + theta * (sk_u * qmR * sk_u.transpose())
-//      * (I_3x3 + ((1.-cos(theta))*sk_tv)/(theta*theta) + ((theta - sin(theta))*sk_tv*sk_tv)/(theta*theta*theta));
+  // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
+  A_ = I_big_;
+  A_((int)xPOS, (int)xPOS) = 0;
+  A_((int)xPOS+1, (int)xPOS+1) = 0;
+  A_.block<3,3>((int)dxATT, (int)dxATT) = (sk_u * qmR * khat)*v.transpose() + theta * (sk_u * qmR * sk_u.transpose())
+      * (I_3x3 + ((1.-cos(theta))*sk_tv)/(theta*theta) + ((theta - sin(theta))*sk_tv*sk_tv)/(theta*theta*theta));
   
-//  P_ = A_ * P_ * A_.transpose();
+  P_ = A_ * P_ * A_.transpose();
   
-//  NAN_CHECK;
+  NAN_CHECK;
 }
 
 

@@ -119,6 +119,10 @@ pose_cov = True
 plot_side_by_side('x_pos', 0, 3, h.t.xhat, h.xhat, cov=h.cov if pose_cov else None, truth_t=h.t.pos, truth=h.pos, labels=['x', 'y', 'z'], start_t=start, end_t=end)
 plot_side_by_side('x_vel', 3, 6, h.t.xhat, h.xhat, cov=h.cov if plot_cov else None, truth_t=v_t, truth=vel_data, labels=['x', 'y', 'z'], start_t=start, end_t=end)
 plot_side_by_side('x_att', 6, 10, h.t.xhat, h.xhat, cov=None, truth_t=h.t.att, truth=h.att, labels=['w','x', 'y', 'z'], start_t=start, end_t=end)
+true_euler, est_euler = np.zeros((len(h.att),3)), np.zeros((len(h.xhat),3))
+for i, true_quat in enumerate(h.att): true_euler[i,:,None] = Quaternion(true_quat[:,None]).euler
+for i, est_quat in enumerate(h.xhat[:,6:10]): est_euler[i,:,None] = (Quaternion(est_quat[:,None]).euler)
+plot_side_by_side('euler', 0, 3, h.t.xhat, est_euler, truth_t=h.t.att, truth=true_euler, start_t=start, end_t=end, labels=[r'$\phi$', r'$\theta$', r'$\psi$'])
 plot_side_by_side('z_acc', 0, 2, h.t.acc, h.acc, labels=['x', 'y'], start_t=start, end_t=end)
 plot_side_by_side('bias', 10, 17, h.t.xhat, h.xhat, labels=['ax', 'ay', 'az', 'gx', 'gy', 'gz', 'mu'], start_t=start, end_t=end, cov=h.cov if plot_cov else None, cov_bounds=(9,16))
 

@@ -125,14 +125,14 @@ private:
   int len_features_;
   int next_feature_id_;
   std::vector<int> current_feature_ids_;
-//  std::vector<int> keyframe_features_;
-//  double keyframe_overlap_threshold_;
+  std::vector<int> keyframe_features_;
+  double keyframe_overlap_threshold_;
   
-//  typedef struct{
-//    Eigen::Vector3d transform;
-//    Eigen::Matrix3d cov;    
-//  } edge_SE2_t;
-//  std::deque<edge_SE2_t> edges_;
+  typedef struct{
+    Eigen::Vector3d transform;
+    Eigen::Matrix3d cov;    
+  } edge_SE2_t;
+  std::deque<edge_SE2_t> edges_;
 
   // Matrix Workspace
   dxMatrix A_;
@@ -148,7 +148,7 @@ private:
 
   // EKF Configuration Parameters
   bool use_drag_term_;
-//  bool keyframe_reset_;
+  bool keyframe_reset_;
   bool partial_update_;
   double min_depth_;
 
@@ -179,7 +179,7 @@ public:
             Eigen::Matrix<double, dxZ,1> &lambda, uVector &Qu, Eigen::Vector3d& P0_feat, Eigen::Vector3d& Qx_feat,
             Eigen::Vector3d& lambda_feat, Eigen::Vector2d& cam_center, Eigen::Vector2d& focal_len,
             Eigen::Vector4d& q_b_c, Eigen::Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, 
-            bool partial_update, bool keyframe_reset);
+            bool partial_update, bool keyframe_reset, double keyframe_overlap);
   void init_logger(std::string root_filename);
 
   inline double now() const

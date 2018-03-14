@@ -66,11 +66,11 @@ use_alt: true,
 invert_image: true,
 drag_term: true,
 partial_update: false,
-keyframe_reset: false,
+keyframe_reset: true,
 
 min_depth: 1.5,
-
-num_features: 10,
+keyframe_overlap: 0.81,
+num_features: 25,
 
 
 }

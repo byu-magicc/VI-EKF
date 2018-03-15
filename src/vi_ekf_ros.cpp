@@ -45,6 +45,7 @@ VIEKF_ROS::VIEKF_ROS() :
   importMatrixFromParamServer(nh_private_, pos_r_diag, "pos_R");
   importMatrixFromParamServer(nh_private_, vel_r_diag, "vel_R");
   double depth_r, alt_r, min_depth, keyframe_overlap;
+  int feature_radius, EKF_iterations;
   bool partial_update, drag_term, keyframe_reset;
   ROS_FATAL_COND(!nh_private_.getParam("depth_R", depth_r), "you need to specify the 'depth_R' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("alt_R", alt_r), "you need to specify the 'alt_R' parameter");
@@ -56,6 +57,8 @@ VIEKF_ROS::VIEKF_ROS() :
   ROS_FATAL_COND(!nh_private_.getParam("drag_term", drag_term), "you need to specify the 'drag_term' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("keyframe_reset", keyframe_reset), "you need to specify the 'keyframe_reset' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("keyframe_overlap", keyframe_overlap), "you need to specify the 'keyframe_overlap' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("feature_radius", feature_radius), "you need to specify the 'feature_radius' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("EKF_iterations", EKF_iterations), "you need to specify the 'EKF_iterations' parameter");
 
   num_features_ = (num_features_ > NUM_FEATURES) ? NUM_FEATURES : num_features_;
 
@@ -64,9 +67,9 @@ VIEKF_ROS::VIEKF_ROS() :
   ekf_mtx_.lock();
   ekf_.init(x0, P0diag, Qxdiag, lambda, Qudiag, P0feat, Qxfeat, lambdafeat,
             cam_center, focal_len, q_b_c, p_b_c, min_depth, log_directory, 
-            drag_term, partial_update, keyframe_reset, keyframe_overlap);
+            drag_term, partial_update, keyframe_reset, keyframe_overlap, EKF_iterations);
   ekf_mtx_.unlock();
-  klt_tracker_.init(num_features_, false, 30);
+  klt_tracker_.init(num_features_, false, feature_radius);
 
   // Initialize the depth image to all NaNs
   depth_image_ = cv::Mat(640, 480, CV_32FC1, cv::Scalar(NAN));

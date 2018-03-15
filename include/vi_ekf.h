@@ -10,6 +10,7 @@
 #include <fstream>
 #include <chrono>
 #include <iostream>
+#include <iomanip>
 
 #include "quat.h"
 #include "math_helper.h"
@@ -26,6 +27,15 @@
 #define MAX_X 17+NUM_FEATURES*5
 #define MAX_DX 16+NUM_FEATURES*3
 #define AVG_DEPTH 1.5
+
+#define HEADER "\033[95m"
+#define OKBLUE "\033[94m"
+#define OKGREEN "\033[92m"
+#define WARNING "\033[93m"
+#define FONT_FAIL "\033[91m"
+#define ENDC "\033[0m"
+#define BOLD "\033[1m"
+#define UNDERLINE "\033[4m"
 
 typedef Eigen::Matrix<double, MAX_X, 1> xVector;
 typedef Eigen::Matrix<double, MAX_DX, 1> dxVector;
@@ -151,6 +161,7 @@ private:
   bool keyframe_reset_;
   bool partial_update_;
   double min_depth_;
+  int EKF_iterations_;
 
   // Camera Intrinsics and Extrinsics
   Eigen::Vector2d cam_center_;
@@ -179,7 +190,7 @@ public:
             Eigen::Matrix<double, dxZ,1> &lambda, uVector &Qu, Eigen::Vector3d& P0_feat, Eigen::Vector3d& Qx_feat,
             Eigen::Vector3d& lambda_feat, Eigen::Vector2d& cam_center, Eigen::Vector2d& focal_len,
             Eigen::Vector4d& q_b_c, Eigen::Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, 
-            bool partial_update, bool keyframe_reset, double keyframe_overlap);
+            bool partial_update, bool keyframe_reset, double keyframe_overlap, int EKF_iterations);
   void init_logger(std::string root_filename);
 
   inline double now() const
@@ -187,17 +198,32 @@ public:
     std::chrono::microseconds now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
     return (double)now.count()*1e-6;
   }
-
+  
   inline bool NaNsInTheHouse() const
   {
-    if( ( (x_).array() != (x_).array()).any() || ((P_).array() != (P_).array()).any() )
+    bool NaNsPresent = false;
+    for (int i = 0; i < xZ + 5*len_features_; i++)
     {
-      std::cout << "x:\n" << x_.block(0,0, xZ + len_features_, 1) << "\n";
-      std::cout << "P:\n" << P_.block(0, 0,xZ + len_features_, xZ + len_features_) << "\n";
-      return true;
+      if (x_(i) != x_(i))
+      {
+        NaNsPresent = true;
+        std::cout << BOLD << FONT_FAIL;
+        std::cout << "x[" << i << "]: " << std::fixed << std::setprecision(5) << x_(i) << ENDC <<"\n";        
+      }
     }
-    else
-      return false;
+    for (int i = 0; i < dxZ + 3*len_features_; i++)
+    {
+      for (int j = 0; j < dxZ + 3*len_features_; j++)
+      {
+        if (P_(i,j) != P_(i,j))
+        {
+          // std::cout << BOLD << FONT_FAIL << "P[" << i << "," << j << "]: ";
+          // std::cout << std::fixed << std::setprecision(5) << P_(i,j) << "\n" << ENDC;
+          NaNsPresent = true;
+        }
+      }
+    }
+    return NaNsPresent;
   }
 
   inline bool BlowingUp() const
@@ -275,7 +301,7 @@ public:
   void keyframe_reset();
 
   // Inequality Constraint on Depth
-  void fix_depth();
+  void fix_features();
 };
 
 static std::map<VIEKF::measurement_type_t, std::string> measurement_names = [] {

@@ -4,10 +4,10 @@ import numpy as np
 
 # for i in range(100):
 # q = Quaternion.random()
-q = Quaternion.from_euler(np.pi/4., 0, np.pi/4.)
+q = Quaternion.from_euler(np.pi/4., 0, np.pi/8.)
 yaw_true = q.yaw
+v = np.array([[0,0,1]]).T
 
-k = np.array([[0, 0, 1]]).T
 
 u = Quaternion.log(q)
 alpha = norm(u)
@@ -17,7 +17,10 @@ beta = u/norm(u)
 # beta = np.arccos(q.elements[1:]/np.sin(alpha/2.0))*2.0
 # beta /= norm(beta)
 
-yaw_test = (alpha * k.T.dot(beta))[0,0]
+# From stack overflow
+# yaw_test = np.arctan(beta.T.dot(v)*np.tan(alpha/2.0))
+
+yaw_test = alpha * beta.T.dot(v)
 print q
 print yaw_test
 print yaw_true

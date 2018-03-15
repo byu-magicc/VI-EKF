@@ -1,13 +1,28 @@
 #include "vi_ekf.h"
 
+
+#define NANS(mat) (((mat).array() != (mat).array()).any())
+
 //#ifndef NDEBUG
-#define NAN_CHECK if (NaNsInTheHouse()) { std::cout << "NaNs In The House at line " << __LINE__ << "!!!\n"; exit(0); }
-#define NEGATIVE_DEPTH if (NegativeDepth()) std::cout << "Negative Depth " << __LINE__ << "!!!\n"
-#define CHECK_MAT_FOR_NANS(mat) if ((K_.array() != K_.array()).any()) { std::cout << "NaN detected in " << #mat << " at line " << __LINE__ << "!!!\n" << mat << "\n"; exit(0); }
+#define ASSERT_NO_NANS if (NaNsInTheHouse()) { std::cout << "NaNs In The House at line " << __LINE__ << "!!!\n"; exit(0); }
+#define ASSERT_POSITIVE_DEPTH if (NegativeDepth()) std::cout << "Negative Depth " << __LINE__ << "!!!\n"
+#define ASSERT_MATRIX_NO_NANS(mat) if (NAN(mat)) \
+{ \
+  std::cout << "NaN detected in " << #mat << " at line " << __LINE__ << "!!!\n" << (mat) << "\n"; \
+  for (int djfh = 0; djfh < (mat).rows(); djfh++) { \
+  for (int ehwk = 0; ehwk < (mat).cols(); ehwk++) { \
+  if ((mat)(djfh, ehwk) != (mat)(djfh, ehwk)) { \
+  std::cout << "(" << djfh << ", " << ehwk << "), "; \
+  } \
+  } \
+  } \
+  std:: cout << "\n"; \
+  exit(0); \
+  }
 //#else
-//#define NAN_CHECK {}
-//#define NEGATIVE_DEPTH {}
-//#define CHECK_MAT_FOR_NANS(mat) {}
+//#define ASSERT_NO_NANS {}
+//#define ASSERT_POSITIVE_DEPTH {}
+//#define ASSERT_MATRIX_NO_NANS(mat) {}
 //#endif
 
 using namespace quat;
@@ -22,7 +37,7 @@ void VIEKF::init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P
                  Eigen::Matrix<double, dxZ,1> &lambda, uVector &Qu, Eigen::Vector3d& P0_feat, Eigen::Vector3d& Qx_feat,
                  Eigen::Vector3d& lambda_feat, Eigen::Vector2d &cam_center, Eigen::Vector2d &focal_len, Eigen::Vector4d &q_b_c,
                  Eigen::Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, bool partial_update,
-                 bool keyframe_reset, double keyframe_overlap)
+                 bool keyframe_reset, double keyframe_overlap, int EKF_iterations)
 {
   x_.block<(int)xZ, 1>(0,0) = x0;
   P_.block<(int)dxZ, (int)dxZ>(0,0) = P0.asDiagonal();
@@ -53,7 +68,7 @@ void VIEKF::init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P
   // set camera intrinsics
   cam_center_ = cam_center;
   cam_F_ << focal_len(0), 0, 0,
-            0, focal_len(1), 0;
+      0, focal_len(1), 0;
   
   use_drag_term_ = use_drag_term;
   partial_update_ = partial_update;
@@ -65,6 +80,7 @@ void VIEKF::init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P
   keyframe_overlap_threshold_ = keyframe_overlap;
   keyframe_features_.clear();
   edges_.clear();
+  EKF_iterations_ = EKF_iterations;
   
   if (log_directory.compare("~") != 0)
   {
@@ -226,7 +242,7 @@ bool VIEKF::init_feature(const Eigen::Vector2d& l, const int id, const double de
   P_.block(0, dx_max-3, dx_max-3, 3).setZero();
   P_.block<3,3>(dx_max-3, dx_max-3) = P0_feat_;
   
-  NAN_CHECK;
+  ASSERT_NO_NANS;
   
   return true;
 }
@@ -249,7 +265,7 @@ void VIEKF::clear_feature(const int id)
     P_.block(0, dxZETA_i, P_.rows(), (P_.cols() - (dxZETA_i+3))) = P_.rightCols(P_.cols() - (dxZETA_i+3));
   }
   
-  NAN_CHECK;
+  ASSERT_NO_NANS;
 }
 
 
@@ -294,7 +310,6 @@ void VIEKF::keep_only_features(const vector<int> features)
   if (keyframe_reset_ && keyframe_features_.size() > 0 
       && (double)num_overlapping_features / (double)keyframe_features_.size() < keyframe_overlap_threshold_)
   {
-    std::cout << "time to perform reset!\n";
     // perform keyframe reset
     keyframe_reset();
     // rebuild the list of features for overlap detection
@@ -306,7 +321,6 @@ void VIEKF::keep_only_features(const vector<int> features)
   }
   else if (keyframe_reset_ && keyframe_features_.size() == 0)
   {
-    std::cout << "building reset vector\n";
     // build the list of features for overlap detection
     keyframe_features_.resize(features.size());
     for (int i = 0; i < features.size(); i++)
@@ -314,12 +328,8 @@ void VIEKF::keep_only_features(const vector<int> features)
       keyframe_features_[i] = features[i];
     }
   }
-  else
-  {
-    std::cout << "overlapping features = " << num_overlapping_features << "/" << keyframe_features_.size() << "\n";
-  }
   
-  NAN_CHECK;
+  ASSERT_NO_NANS;
 }
 
 void VIEKF::propagate(const uVector &u, const double t)
@@ -337,16 +347,9 @@ void VIEKF::propagate(const uVector &u, const double t)
   prev_t_ = t;
   
   dynamics(x_, u);
-  NAN_CHECK;
   boxplus(x_, dx_*dt, x_);
-  NAN_CHECK;
   P_ += (A_ * P_ + P_ * A_.transpose() + G_ * Qu_ * G_.transpose() + Qx_)*dt;
-  NAN_CHECK;
-  
-  fix_depth();
-  
-  NAN_CHECK;
-  NEGATIVE_DEPTH;
+  fix_features();
   
   log_.prop_time += 0.1 * (now() - start - log_.prop_time);
   log_.count++;
@@ -499,62 +502,59 @@ bool VIEKF::update(const Eigen::VectorXd& z, const measurement_type_t& meas_type
   
   int z_dim = z.rows();
   
-  NAN_CHECK;
+  ASSERT_NO_NANS;
   
   zhat_.setZero();
   H_.setZero();
   
-  (this->*(measurement_functions[meas_type]))(x_, zhat_, H_, id);
-  
-  NAN_CHECK;
-  
-  zVector residual;
-  if (meas_type == QZETA)
+  for (int iters_remaining = EKF_iterations_; iters_remaining > 0; iters_remaining--)
   {
-    residual.topRows(2) = q_feat_boxminus(Quaternion(z), Quaternion(zhat_));
-    z_dim = 2;
-  }
-  else if (meas_type == ATT)
-  {
-    residual.topRows(3) = Quaternion(z) - Quaternion(zhat_);
-    z_dim = 3;
-  }
-  else
-  {
-    residual.topRows(z_dim) = z - zhat_.topRows(z_dim);
-  }
-  
-  NAN_CHECK;
-  
-  if (active)
-  {
-    K_.leftCols(z_dim) = P_ * H_.topRows(z_dim).transpose() * (R + H_.topRows(z_dim)*P_ * H_.topRows(z_dim).transpose()).inverse();
-    NAN_CHECK;
-    xp_ = x_;
+    (this->*(measurement_functions[meas_type]))(x_, zhat_, H_, id);
     
-    CHECK_MAT_FOR_NANS(H_);
-    CHECK_MAT_FOR_NANS(K_);
-    
-    if (partial_update_)
+    zVector residual;
+    if (meas_type == QZETA)
     {
-      // Apply Fixed Gain Partial update per
-      // "Partial-Update Schmidt-Kalman Filter" by Brink
-      // Modified to operate inline and on the manifold 
-      boxplus(xp_, lambda_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
-      P_ -= (Lambda_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*P_);
+      residual.topRows(2) = q_feat_boxminus(Quaternion(z), Quaternion(zhat_));
+      z_dim = 2;
+    }
+    else if (meas_type == ATT)
+    {
+      residual.topRows(3) = Quaternion(z) - Quaternion(zhat_);
+      z_dim = 3;
     }
     else
     {
-      boxplus(xp_, K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
-      P_ -= K_.leftCols(z_dim) * H_.topRows(z_dim)*P_;
+      residual.topRows(z_dim) = z - zhat_.topRows(z_dim);
     }
-    NAN_CHECK;
+    
+    if (active)
+    {
+      //    ASSERT_MATRIX_NO_NANS(H_);    
+      K_.leftCols(z_dim) = P_ * H_.topRows(z_dim).transpose() * (R + H_.topRows(z_dim)*P_ * H_.topRows(z_dim).transpose()).inverse();
+      //    ASSERT_MATRIX_NO_NANS(K_);
+      xp_ = x_;
+      
+      if (partial_update_ && !NANS(K_))
+      {
+        // Apply Fixed Gain Partial update per
+        // "Partial-Update Schmidt-Kalman Filter" by Brink
+        // Modified to operate inline and on the manifold 
+        boxplus(xp_, lambda_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
+        if (iters_remaining == 1)
+          P_ -= (Lambda_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*P_);
+      }
+      else
+      {
+        boxplus(xp_, K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
+        if (iters_remaining == 1)
+          P_ -= K_.leftCols(z_dim) * H_.topRows(z_dim)*P_;
+      }
+      fix_features();
+    }
   }
   
-  fix_depth();
-  
-  NAN_CHECK;
-  NEGATIVE_DEPTH;
+  ASSERT_NO_NANS;
+  ASSERT_POSITIVE_DEPTH;
   
   log_.update_count[(int)meas_type]++;
   if (log_.stream && log_.update_count[(int)meas_type] > 10)
@@ -610,8 +610,6 @@ void VIEKF::keyframe_reset()
   // reset yaw
   x_.block<4,1>((int)(xATT), 0) = Quaternion::exp(theta * v).elements();    
   
-  NAN_CHECK;
-  
   // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
   A_ = I_big_;
   A_((int)xPOS, (int)xPOS) = 0;
@@ -621,7 +619,7 @@ void VIEKF::keyframe_reset()
   
   P_ = A_ * P_ * A_.transpose();
   
-  NAN_CHECK;
+  ASSERT_NO_NANS;
 }
 
 
@@ -728,7 +726,7 @@ void VIEKF::h_pixel_vel(const xVector& x, zVector& h, hMatrix& H, const int id) 
   ///TODO:
 }
 
-void VIEKF::fix_depth()
+void VIEKF::fix_features()
 {
   // Apply an Inequality Constraint per
   // "Avoiding Negative Depth in Inverse Depth Bearing-Only SLAM"
@@ -737,6 +735,19 @@ void VIEKF::fix_depth()
   {
     int xRHO_i = xZ + 5*i + 4;
     int dxRHO_i = dxZ + 3*i + 2;
+    
+    // If the covariance has gone NaN, reset it
+    if (P_(dxRHO_i, dxRHO_i) > 1e5)
+    {
+      std::cout << "Fixing feature " << i << "\n";
+      int dxZETA_i = dxZ + 3*i;
+      int dx_max = dxZ+3*len_features_;
+      P_.block(0, dxZETA_i, dx_max, 3).setZero();
+      P_.block(dxZETA_i, 0, 3, dx_max).setZero();
+      P_.block<3,3>(dxZETA_i, dxZETA_i) = P0_feat_;
+      x_(xRHO_i, 0) = AVG_DEPTH;
+      continue;
+    }
     if (x_(xRHO_i, 0) != x_(xRHO_i, 0))
     {
       // if a depth state has gone NaN, reset it
@@ -756,6 +767,8 @@ void VIEKF::fix_depth()
       x_(xRHO_i, 0) = AVG_DEPTH;
     }
   }
+  ASSERT_POSITIVE_DEPTH;
+  ASSERT_NO_NANS;
 }
 
 void VIEKF::init_logger(string root_filename)

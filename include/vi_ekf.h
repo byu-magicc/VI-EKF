@@ -238,7 +238,7 @@ public:
   Eigen::VectorXd get_zeta(const int i) const;
   Eigen::Vector2d get_feat(const int id) const;
   const xVector& get_state() const;
-  const dxMatrix& get_covariance() const;
+  const Eigen::MatrixXd get_covariance() const;
   double get_depth(const int id) const;
   inline int get_len_features() const { return len_features_; }
 

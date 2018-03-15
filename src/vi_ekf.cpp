@@ -103,9 +103,10 @@ const xVector& VIEKF::get_state() const
   return x_;
 }
 
-const dxMatrix& VIEKF::get_covariance() const
+const Eigen::MatrixXd VIEKF::get_covariance() const
 {
-  return P_;
+  Eigen::MatrixXd ret = P_.topLeftCorner(dxZ+3*len_features_, dxZ+3*len_features_);
+  return ret;
 }
 
 
@@ -340,7 +341,11 @@ void VIEKF::propagate(const uVector &u, const double t)
   NAN_CHECK;
   boxplus(x_, dx_*dt, x_);
   NAN_CHECK;
-  P_ += (A_ * P_ + P_ * A_.transpose() + G_ * Qu_ * G_.transpose() + Qx_)*dt;
+  int dx = dxZ+3*len_features_;
+  P_.topLeftCorner(dx, dx) += (A_.topLeftCorner(dx, dx) * P_.topLeftCorner(dx, dx) 
+                                       + P_.topLeftCorner(dx, dx) * A_.topLeftCorner(dx, dx).transpose() 
+                                       + G_.topRows(dx) * Qu_ * G_.topRows(dx).transpose() 
+                                       + Qx_.topLeftCorner(dx, dx) ) * dt;
   NAN_CHECK;
   
   fix_depth();

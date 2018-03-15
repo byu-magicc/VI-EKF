@@ -70,7 +70,7 @@ keyframe_reset: true,
 
 min_depth: 1.5,
 keyframe_overlap: 0.81,
-num_features: 25,
+num_features: 35,
 
 
 }

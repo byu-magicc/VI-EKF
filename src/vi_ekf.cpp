@@ -295,7 +295,6 @@ void VIEKF::keep_only_features(const vector<int> features)
   if (keyframe_reset_ && keyframe_features_.size() > 0 
       && (double)num_overlapping_features / (double)keyframe_features_.size() < keyframe_overlap_threshold_)
   {
-    std::cout << "time to perform reset!\n";
     // perform keyframe reset
     keyframe_reset();
     // rebuild the list of features for overlap detection
@@ -306,18 +305,13 @@ void VIEKF::keep_only_features(const vector<int> features)
     }
   }
   else if (keyframe_reset_ && keyframe_features_.size() == 0)
-  {
-    std::cout << "building reset vector\n";
+  {    
     // build the list of features for overlap detection
     keyframe_features_.resize(features.size());
     for (int i = 0; i < features.size(); i++)
     {
       keyframe_features_[i] = features[i];
     }
-  }
-  else
-  {
-    std::cout << "overlapping features = " << num_overlapping_features << "/" << keyframe_features_.size() << "\n";
   }
   
   NAN_CHECK;

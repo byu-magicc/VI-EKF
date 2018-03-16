@@ -49,7 +49,7 @@ VIEKF_ROS::VIEKF_ROS() :
   ROS_FATAL_COND(!nh_private_.getParam("depth_R", depth_r), "you need to specify the 'depth_R' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("alt_R", alt_r), "you need to specify the 'alt_R' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("min_depth", min_depth), "you need to specify the 'min_depth' parameter");
-  ROS_FATAL_COND(!nh_private_.getParam("imu_LPF", imu_LPF_), "you need to specify the 'imu_LPF' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("imu_LPF", IMU_LPF_), "you need to specify the 'imu_LPF' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("num_features", num_features_), "you need to specify the 'num_features' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("invert_image", invert_image_), "you need to specify the 'invert_image' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("partial_update", partial_update), "you need to specify the 'partial_update' parameter");
@@ -111,12 +111,15 @@ VIEKF_ROS::~VIEKF_ROS()
 
 void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
 {
-  imu_(0) = msg->linear_acceleration.x;
-  imu_(1) = msg->linear_acceleration.y;
-  imu_(2) = msg->linear_acceleration.z;
-  imu_(3) = msg->angular_velocity.x;
-  imu_(4) = msg->angular_velocity.y;
-  imu_(5) = msg->angular_velocity.z;
+  uVector u;
+  u << msg->linear_acceleration.x,
+       msg->linear_acceleration.y,
+       msg->linear_acceleration.z,
+       msg->angular_velocity.x,
+       msg->angular_velocity.y,
+       msg->angular_velocity.z;
+
+  imu_ = IMU_LPF_ * u + (1. - IMU_LPF_) * imu_;
 
   if (got_init_truth_ && !initialized_)
   {
@@ -125,6 +128,7 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
 //    init_b_a << msg->linear_acceleration.x, msg->linear_acceleration.y, msg->linear_acceleration.z + 9.80665;
 //    ekf_.set_imu_bias(init_b_g, init_b_a);
     initialized_ = true;
+    imu_ = u;
     return;
   }
 

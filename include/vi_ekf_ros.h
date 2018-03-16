@@ -69,7 +69,7 @@ private:
   bool use_acc_;
   bool use_imu_att_;
   bool use_alt_;
-  double imu_LPF_;
+  double IMU_LPF_;
   double imu_skip_;
 
   Vector6d imu_;

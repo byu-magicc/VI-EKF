@@ -17,6 +17,7 @@ public:
   void set_num_features(int _num_features) {num_features_ = _num_features;}
   void set_radius(int _radius) {feature_nearby_radius_ = _radius;}
   void set_show_image(bool _show_image) {plot_matches_= _show_image;}
+  bool drop_feature(int feature_id);
 
   void load_image(Mat img, double t, std::vector<Point2f>& features, std::vector<int>& ids, OutputArray &output = noArray());
 

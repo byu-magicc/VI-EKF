@@ -23,6 +23,8 @@ void KLT_Tracker::init(int _num_features, bool _show_image, int _radius)
   {
     colors_.push_back(Scalar(std::rand()/(RAND_MAX/255), std::rand()/(RAND_MAX/255), std::rand()/(RAND_MAX/255)));
   }
+  mask_ = cv::Mat(cv::Size(640,480), CV_8UC1);
+  mask_ = 255;
 }
 
 bool KLT_Tracker::drop_feature(int feature_id)
@@ -41,6 +43,10 @@ bool KLT_Tracker::drop_feature(int feature_id)
   }
 }
 
+void KLT_Tracker::set_feature_mask(std::string filename)
+{
+  cv::threshold(cv::imread(filename, IMREAD_GRAYSCALE), mask_, 1, 255, CV_8UC1);
+}
 
 void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, std::vector<int> &ids, OutputArray& output)
 {
@@ -57,7 +63,7 @@ void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, 
   {
     double quality_level = 0.3;
     int block_size = 7;
-    goodFeaturesToTrack(grey_img, new_features_, num_features_, quality_level, feature_nearby_radius_, noArray(), block_size);
+    goodFeaturesToTrack(grey_img, new_features_, num_features_, quality_level, feature_nearby_radius_, mask_, block_size);
     for (int i = 0; i < new_features_.size(); i++)
     {
       ids_.push_back(next_feature_id_++);
@@ -74,7 +80,6 @@ void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, 
     calcOpticalFlowPyrLK(prev_image_, grey_img, prev_features_, new_features_, status, err);
     
     // Keep only good points
-    deque<int> good_ids;
     int offscreen_points_removed = 0;
     int tooclose_points_removed = 0;
     for (int i = prev_features_.size()-1; i >= 0; i--)
@@ -82,7 +87,9 @@ void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, 
       // If we found a match and the match is in the image
       double new_x = new_features_[i].x;
       double new_y = new_features_[i].y;
-      if (status[i] == 0 || new_x <= 1.0 || new_y <= 1.0 || new_x >= img.cols-1.0 || new_y >= img.rows-1.0)
+//      std::printf("%d\t", mask_.at<uint8_t>(new_x, new_y));
+//      cv::imshow("mask", mask_);1
+      if (status[i] == 0 || new_x <= 1.0 || new_y <= 1.0 || new_x >= img.cols-1.0 || new_y >= img.rows-1.0 || mask_.at<uint8_t>(cv::Point(round(new_x), round(new_y))) != 255)
       {
         offscreen_points_removed++;
         new_features_.erase(new_features_.begin() + i);
@@ -91,6 +98,7 @@ void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, 
       }
       
       // Make sure that it's not too close to other points
+      deque<int> good_ids;
       bool good_point = true;
       for (auto it = good_ids.begin(); it != good_ids.end(); it++)
       {
@@ -108,13 +116,14 @@ void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, 
       if (good_point)
         good_ids.push_back(i);
     }
+//    std::cout << "offcreen " << offscreen_points_removed << " tooclose " << tooclose_points_removed << "\n";
     
     // If we are missing points, collect new ones
     if (new_features_.size() < num_features_)
     {
       // create a mask around current points
-      Mat point_mask(grey_img.size(), CV_8UC1);
-      point_mask = 255;
+      Mat point_mask;
+      mask_.copyTo(point_mask);
       for (int i = 0; i < new_features_.size(); i++)
       {
         circle(point_mask, new_features_[i], feature_nearby_radius_, 0, -1, 0);
@@ -130,6 +139,7 @@ void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, 
         new_features_.push_back(new_corners[i]);
         ids_.push_back(next_feature_id_++);
       }
+//      cv::imshow("mask", point_mask);
     }
   }
   
@@ -144,9 +154,7 @@ void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, 
       circle(color_img, new_features_[i], 5, color, -1);
       putText(color_img, to_string(ids_[i]), new_features_[i], FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 0));
     }
-    //    imshow("Tracker Output", color_img);
     color_img.copyTo(output);
-    //    waitKey(1);
   }
   
   // Save off measurements for output

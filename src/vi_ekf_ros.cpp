@@ -5,7 +5,7 @@ VIEKF_ROS::VIEKF_ROS() :
   nh_private_("~"),
   it_(nh_)
 {
-  imu_sub_ = nh_.subscribe("imu/data", 500, &VIEKF_ROS::imu_callback, this);
+  imu_sub_ = nh_.subscribe("imu", 500, &VIEKF_ROS::imu_callback, this);
   truth_sub_ = nh_.subscribe("vrpn/Leo/pose", 10, &VIEKF_ROS::truth_callback, this);
   odometry_pub_ = nh_.advertise<nav_msgs::Odometry>("odom", 1);
 
@@ -13,9 +13,10 @@ VIEKF_ROS::VIEKF_ROS() :
   depth_sub_ = it_.subscribe("camera/depth/image_rect_raw", 10, &VIEKF_ROS::depth_image_callback, this);
   output_pub_ = it_.advertise("tracked", 1);
 
-  std::string log_directory;
+  std::string log_directory, feature_mask;
   std::string default_log_folder = ros::package::getPath("vi_ekf") + "/logs/" + to_string(ros::Time::now().sec) + "/";
   nh_private_.param<std::string>("log_directory", log_directory, default_log_folder );
+  nh_private_.param<std::string>("feature_mask", feature_mask, "");
   
 
   Eigen::Matrix<double, vi_ekf::VIEKF::xZ, 1> x0;
@@ -44,6 +45,7 @@ VIEKF_ROS::VIEKF_ROS() :
   importMatrixFromParamServer(nh_private_, att_r_diag, "att_R");
   importMatrixFromParamServer(nh_private_, pos_r_diag, "pos_R");
   importMatrixFromParamServer(nh_private_, vel_r_diag, "vel_R");
+  importMatrixFromParamServer(nh_private_, R_IMU_body_, "R_IMU_body");
   double depth_r, alt_r, min_depth, keyframe_overlap;
   bool partial_update, drag_term, keyframe_reset;
   ROS_FATAL_COND(!nh_private_.getParam("depth_R", depth_r), "you need to specify the 'depth_R' parameter");
@@ -65,8 +67,17 @@ VIEKF_ROS::VIEKF_ROS() :
   ekf_.init(x0, P0diag, Qxdiag, lambda, Qudiag, P0feat, Qxfeat, lambdafeat,
             cam_center, focal_len, q_b_c, p_b_c, min_depth, log_directory, 
             drag_term, partial_update, keyframe_reset, keyframe_overlap);
+  ekf_.register_keyframe_reset_callback(std::bind(&VIEKF_ROS::keyframe_reset_callback, this));
   ekf_mtx_.unlock();
   klt_tracker_.init(num_features_, false, 30);
+  if (!feature_mask.empty())
+  {
+    klt_tracker_.set_feature_mask(feature_mask);
+  }
+  
+  // Initialize keyframe variables
+  kf_yaw_ = 0;
+  kf_pos_.setZero();
 
   // Initialize the depth image to all NaNs
   depth_image_ = cv::Mat(640, 480, CV_32FC1, cv::Scalar(NAN));
@@ -89,12 +100,17 @@ VIEKF_ROS::VIEKF_ROS() :
   ROS_FATAL_COND(!nh_private_.getParam("use_imu_att", use_imu_att_), "you need to specify the 'use_imu_att' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("use_alt", use_alt_), "you need to specify the 'use_alt' parameter");
 
-  cout << "truth:" << use_truth_ << "\n";
-  cout << "depth:" << use_depth_ << "\n";
-  cout << "features:" << use_features_ << "\n";
-  cout << "acc:" << use_acc_ << "\n";
-  cout << "imu_att:" << use_imu_att_ << "\n";
-  cout << "imu_alt:" << use_alt_ << "\n";
+  cout << "\nMEASUREMENTS\n==============================\n";
+  cout << "truth: " << use_truth_ << "\n";
+  cout << "depth: " << use_depth_ << "\n";
+  cout << "features: " << use_features_ << "\n";
+  cout << "acc: " << use_acc_ << "\n";
+  cout << "imu_att: " << use_imu_att_ << "\n";
+  cout << "imu_alt: " << use_alt_ << "\n";
+  cout << "\nFEATURES\n=================================\n";
+  cout << "partial update: " << partial_update << "\n";
+  cout << "drag_term: " << drag_term << "\n";
+  cout << "keyframe_reset: " << keyframe_reset << "\n";
 
   // Wait for truth to initialize pose
   initialized_ = false;
@@ -104,6 +120,8 @@ VIEKF_ROS::VIEKF_ROS() :
 //  initialized_ = true;
 
   odom_msg_.header.frame_id = "body";
+  
+  video_.open(log_directory + "video.avi", cv::VideoWriter::fourcc('M','J','P','G'), 30, cv::Size(640,480), true);
 }
 
 VIEKF_ROS::~VIEKF_ROS()
@@ -118,17 +136,15 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
        msg->angular_velocity.x,
        msg->angular_velocity.y,
        msg->angular_velocity.z;
+  u.block<3,1>(0,0) = R_IMU_body_ * u.block<3,1>(0,0);
+  u.block<3,1>(3,0) = R_IMU_body_ * u.block<3,1>(3,0);
 
   imu_ = IMU_LPF_ * u + (1. - IMU_LPF_) * imu_;
 
   if (got_init_truth_ && !initialized_)
   {
-//    Vector3d init_b_a, init_b_g;  
-//    init_b_g << msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z;
-//    init_b_a << msg->linear_acceleration.x, msg->linear_acceleration.y, msg->linear_acceleration.z + 9.80665;
-//    ekf_.set_imu_bias(init_b_g, init_b_a);
-    initialized_ = true;
     imu_ = u;
+    initialized_ = true;
     return;
   }
 
@@ -166,6 +182,12 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
   odom_msg_.twist.twist.angular.y = imu_(4);
   odom_msg_.twist.twist.angular.z = imu_(5);
   odometry_pub_.publish(odom_msg_);
+}
+
+void VIEKF_ROS::keyframe_reset_callback()
+{
+  kf_pos_ = truth_pos_;
+  kf_yaw_ = quat::Quaternion(truth_att_).yaw();  
 }
 
 void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
@@ -239,6 +261,7 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
   cv::Mat cov;
   cv::eigen2cv(ekf_.get_covariance(), cov);
   cv::imshow("covariance", cov);
+  video_ << img;
   waitKey(1);
 }
 
@@ -263,6 +286,7 @@ void VIEKF_ROS::depth_image_callback(const sensor_msgs::ImageConstPtr &msg)
 
 void VIEKF_ROS::truth_callback(const geometry_msgs::PoseStampedConstPtr &msg)
 {
+
   if (!got_init_truth_)
   {
     xVector x0;
@@ -278,17 +302,27 @@ void VIEKF_ROS::truth_callback(const geometry_msgs::PoseStampedConstPtr &msg)
   }
   Vector3d z_pos;
   z_pos << msg->pose.position.z, -msg->pose.position.x, -msg->pose.position.y;
+  truth_pos_ = z_pos;
 
   Vector4d z_att;
   z_att << -msg->pose.orientation.w, -msg->pose.orientation.z, msg->pose.orientation.x, msg->pose.orientation.y;
+  truth_att_ = z_att;
 
-  Eigen::Matrix<double, 1, 1> z_alt;
+  Matrix<double, 1, 1> z_alt;
   z_alt << msg->pose.position.y;
+  
+  ekf_.log_global_position(z_pos, z_att);
+  
+  // Convert truth measurement into current node frame
+  z_pos.topRows(2) -= kf_pos_.topRows(2); // position offset
+  quat::Quaternion node_quat = quat::Quaternion::from_axis_angle(Eigen::Vector3d(0,0,1), kf_yaw_);
+  z_att = (quat::Quaternion(z_att) * node_quat).elements();  
 
   ekf_mtx_.lock();
   ekf_.update(z_pos, vi_ekf::VIEKF::POS, pos_R_, use_truth_);
   ekf_.update(z_alt, vi_ekf::VIEKF::ALT, alt_R_, (use_truth_) ? false : use_alt_);
   ekf_mtx_.unlock();
+  
 
   ekf_mtx_.lock();
   if (!use_imu_att_)
@@ -309,5 +343,6 @@ int main(int argc, char* argv[])
 
   return 0;
 }
+
 
 

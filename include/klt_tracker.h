@@ -16,6 +16,7 @@ public:
 
   void set_num_features(int _num_features) {num_features_ = _num_features;}
   void set_radius(int _radius) {feature_nearby_radius_ = _radius;}
+  void set_feature_mask(std::string filename);
   void set_show_image(bool _show_image) {plot_matches_= _show_image;}
   bool drop_feature(int feature_id);
 
@@ -27,6 +28,8 @@ private:
   bool plot_matches_;
   int num_features_;
   int feature_nearby_radius_;
+  
+  Mat mask_;
 
   vector<int> ids_;
   vector<Point2f> prev_features_;

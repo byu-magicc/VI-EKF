@@ -2944,10 +2944,7 @@ and this expression
 \begin{eqnarray*}
 \frac{\partial}{\partial q^{-}}\theta v & = & \frac{\partial}{\partial q^{-}}\left(\left(u^{\top}\left(R\left(q^{-}\right)^{\top}u\right)\right)\left(\left\lfloor u\right\rfloor \left(R\left(q^{-}\right)^{\top}u\right)\right)\right)\\
  & = & \frac{\partial}{\partial q^{-}}\left(u^{\top}\left(R\left(q^{-}\right)^{\top}u\right)\right)v^{\top}+\theta\frac{\partial}{\partial q^{-}}\left(\left\lfloor u\right\rfloor \left(R\left(q^{-}\right)^{\top}u\right)\right)\\
- & = & \left(\left\lfloor u\right\rfloor R\left(q^{-}\right)u\right)v^{\top}+\theta\left(\left\lfloor u\right\rfloor R\left(q^{-}\right)\left\lfloor u\right\rfloor ^{\top}\right)\\
- & = & \left(\left\lfloor u\right\rfloor R\left(q^{-}\right)u\right)v^{\top}+\theta\left(\left\lfloor u\right\rfloor R\left(q^{-}\right)\left\lfloor u\right\rfloor ^{\top}\right)\\
- & = & \left(\left\lfloor u\right\rfloor R\left(q^{-}\right)u\right)v^{\top}+\theta\left(\left\lfloor u\right\rfloor R\left(q^{-}\right)\left\lfloor u\right\rfloor ^{\top}\right)\\
- & = & vv^{\top}+\theta\left\lfloor u\right\rfloor R\left(q^{-}\right)\left\lfloor u\right\rfloor ^{\top}
+ & = & \left(\left\lfloor u\right\rfloor R\left(q^{-}\right)u\right)v^{\top}+\theta\left(\left\lfloor u\right\rfloor R\left(q^{-}\right)\left\lfloor u\right\rfloor ^{\top}\right)
 \end{eqnarray*}
 
 \end_inset

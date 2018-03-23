@@ -1,4 +1,4 @@
-#pragma once
+  #pragma once
 
 #include "Eigen/Core"
 #include "Eigen/Geometry"
@@ -104,6 +104,7 @@ private:
     LOG_MEAS,
     LOG_PERF,
     LOG_CONF,
+    LOG_KF,
   } log_type_t;
 
   // State and Covariance and Process Noise Matrices
@@ -157,19 +158,22 @@ private:
   Eigen::Matrix<double, 2, 3> cam_F_;
   quat::Quaternion q_b_c_;
   Eigen::Vector3d p_b_c_;
+  
+  Eigen::Vector3d current_node_global_pose_;
+  
+  std::function<void(void)> keyframe_reset_callback_;
 
   // Log Stuff
   typedef struct
   {
     std::map<log_type_t, std::ofstream>* stream = nullptr;
-    double update_times[10] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-    int update_count[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    double prop_time = 0.0;
-    int prop_log_count = 0;
-    int count = 0;
+    double update_times[12];
+    int update_count[12];
+    double prop_time;
+    int prop_log_count;
+    int count;
   } log_t;
-  log_t log_;
-
+  log_t log_ = {};
 
 public:
 
@@ -179,7 +183,7 @@ public:
             Eigen::Matrix<double, dxZ,1> &lambda, uVector &Qu, Eigen::Vector3d& P0_feat, Eigen::Vector3d& Qx_feat,
             Eigen::Vector3d& lambda_feat, Eigen::Vector2d& cam_center, Eigen::Vector2d& focal_len,
             Eigen::Vector4d& q_b_c, Eigen::Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, 
-            bool partial_update, bool keyframe_reset, double keyframe_overlap);
+            bool partial_update, bool use_keyframe_reset, double keyframe_overlap);
   void init_logger(std::string root_filename);
 
   inline double now() const
@@ -237,6 +241,7 @@ public:
   Eigen::MatrixXd get_qzetas() const;
   Eigen::VectorXd get_zeta(const int i) const;
   Eigen::Vector2d get_feat(const int id) const;
+  const Eigen::Vector3d& get_current_node_global_pose() const;
   const xVector& get_state() const;
   const Eigen::MatrixXd get_covariance() const;
   double get_depth(const int id) const;
@@ -273,6 +278,8 @@ public:
   // Keyframe Reset
   void keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N);
   void keyframe_reset();
+  void register_keyframe_reset_callback(std::function<void(void)> cb);
+  void log_global_position(const Eigen::Vector3d pos, const Eigen::Vector4d att);
 
   // Inequality Constraint on Depth
   void fix_depth();

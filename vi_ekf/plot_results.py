@@ -48,7 +48,10 @@ for line in perf_file:
 ids = []
 for line in meas_file:
     meas_type = line.split()[0]
-    line_arr = np.array([float(item) for item in line.split()[2:]])
+    try:
+        line_arr = np.array([float(item) for item in line.split()[2:]])
+    except:
+        pass
     t = float(line.split()[1])
 
     if meas_type == 'ACC':
@@ -57,9 +60,15 @@ for line in meas_file:
     elif meas_type == 'ATT':
         if len(line_arr) < 8: continue
         h.store(t, att=line_arr[0:4], att_hat=line_arr[4:8])
+    elif meas_type == 'GLOBAL_ATT':
+        if len(line_arr) < 8: continue
+        h.store(t, global_att=line_arr[0:4], global_att_hat=line_arr[4:8])
     elif meas_type == 'POS':
         if len(line_arr) < 7: continue
         h.store(t, pos=line_arr[0:3], pos_hat=line_arr[3:6])
+    elif meas_type == 'GLOBAL_POS':
+        if len(line_arr) < 6: continue
+        h.store(t, global_pos=line_arr[0:3], global_pos_hat=line_arr[3:6])
     elif meas_type == 'FEAT':
         if len(line_arr) < 5: continue
         id = line_arr[4]
@@ -83,19 +92,20 @@ h.tonumpy()
 
 # Calculate body-fixed velocity by differentiating position and rotating
 # into the body frame
-b, a = scipy.signal.butter(8, 0.03)  # Create a Butterworth Filter
+b, a = scipy.signal.butter(3, 0.08)  # Create a Butterworth Filter
 # differentiate Position
 delta_t = np.diff(h.t.pos)
-good_ids = delta_t != 0
+good_ids = delta_t > 0.001
 delta_t = delta_t[good_ids]
 v_t = h.t.pos[np.hstack((good_ids, False))]
 delta_x = np.diff(h.pos, axis=0)
 delta_x = delta_x[good_ids]
-unfiltered_inertial_velocity = np.vstack((np.zeros((1, 3)), delta_x / delta_t[:, None]))
+unfiltered_inertial_velocity = np.vstack(delta_x / delta_t[:, None])
 # Filter
 v_inertial = scipy.signal.filtfilt(b, a, unfiltered_inertial_velocity, axis=0)
 # Rotate into Body Frame
 vel_data = []
+# filter the attitude
 try:
     att = h.att[np.hstack((good_ids))]
 except:
@@ -107,7 +117,8 @@ for i in range(len(v_t)):
 vel_data = np.array(vel_data).squeeze()
 
 # Shift truth timestamp
-offset = -0.7
+offset = -0.5
+# offset = 0.0
 
 start = h.t.xhat[0]
 # end = h.t.xhat[-1]
@@ -119,15 +130,29 @@ init_plots(start, end, fig_dir)
 plot_cov = True
 pose_cov = True
 
-plot_side_by_side('x_pos', 0, 3, h.t.xhat, h.xhat, cov=h.cov if pose_cov else None, truth_t=h.t.pos, truth=h.pos, labels=['x', 'y', 'z'], start_t=start, end_t=end, truth_offset=offset)
+plot_side_by_side('relative_pos', 0, 3, h.t.xhat, h.xhat, cov=h.cov if pose_cov else None, truth_t=h.t.pos, truth=h.pos, labels=['x', 'y', 'z'], start_t=start, end_t=end, truth_offset=offset)
+plot_side_by_side('global_pos', 0, 3, h.t.global_pos_hat, h.global_pos_hat, cov=h.cov if pose_cov else None, truth_t=h.t.global_pos, truth=h.global_pos, labels=['x', 'y', 'z'], start_t=start, end_t=end, truth_offset=offset)
 plot_side_by_side('x_vel', 3, 6, h.t.xhat, h.xhat, cov=h.cov if plot_cov else None, truth_t=v_t, truth=vel_data, labels=['x', 'y', 'z'], start_t=start, end_t=end, truth_offset=offset)
-plot_side_by_side('x_att', 6, 10, h.t.xhat, h.xhat, cov=None, truth_t=h.t.att, truth=h.att, labels=['w','x', 'y', 'z'], start_t=start, end_t=end, truth_offset=offset)
+plot_side_by_side('relative_att', 6, 10, h.t.xhat, h.xhat, cov=None, truth_t=h.t.att, truth=h.att, labels=['w','x', 'y', 'z'], start_t=start, end_t=end, truth_offset=offset)
+plot_side_by_side('global_att', 0, 4, h.t.global_att_hat, h.global_att_hat, cov=None, truth_t=h.t.global_att, truth=h.global_att, labels=['w','x', 'y', 'z'], start_t=start, end_t=end, truth_offset=offset)
+# Convert relative attitude to euler angles
 true_euler, est_euler = np.zeros((len(h.att),3)), np.zeros((len(h.xhat),3))
 for i, true_quat in enumerate(h.att): true_euler[i,:,None] = Quaternion(true_quat[:,None]).euler
 for i, est_quat in enumerate(h.xhat[:,6:10]): est_euler[i,:,None] = (Quaternion(est_quat[:,None]).euler)
-plot_side_by_side('euler', 0, 3, h.t.xhat, est_euler, truth_t=h.t.att, truth=true_euler, start_t=start, end_t=end, labels=[r'$\phi$', r'$\theta$', r'$\psi$'], truth_offset=offset)
+plot_side_by_side('relative_euler', 0, 3, h.t.xhat, est_euler, truth_t=h.t.att, truth=true_euler, start_t=start, end_t=end, labels=[r'$\phi$', r'$\theta$', r'$\psi$'], truth_offset=offset)
+# Convert global attitude to euler angles
+true_euler, est_euler = np.zeros((len(h.global_att),3)), np.zeros((len(h.global_att_hat),3))
+for i, true_quat in enumerate(h.global_att): true_euler[i,:,None] = Quaternion(true_quat[:,None]).euler
+for i, est_quat in enumerate(h.global_att_hat): est_euler[i,:,None] = (Quaternion(est_quat[:,None]).euler)
+plot_side_by_side('global_euler', 0, 3, h.t.global_att_hat, est_euler, truth_t=h.t.global_att, truth=true_euler, start_t=start, end_t=end, labels=[r'$\phi$', r'$\theta$', r'$\psi$'], truth_offset=offset)
 plot_side_by_side('z_acc', 0, 2, h.t.acc, h.acc, labels=['x', 'y'], start_t=start, end_t=end, truth_offset=offset)
 plot_side_by_side('bias', 10, 17, h.t.xhat, h.xhat, labels=['ax', 'ay', 'az', 'gx', 'gy', 'gz', 'mu'], start_t=start, end_t=end, cov=h.cov if plot_cov else None, cov_bounds=(9,16), truth_offset=offset)
+
+
+# print Final States for baiases for tuning
+print "Accel", h.xhat[-1, 10:13]
+print "Gyro", h.xhat[-1, 13:16]
+print "Drag", h.xhat[-1, 16]
 
 
 for i in tqdm(ids):
@@ -137,6 +162,7 @@ for i in tqdm(ids):
     plot_side_by_side('rho/x_{}'.format(i), 0, 1, h.t.depth_hat[i], h.depth_hat[i][:, None], truth_t=h.t.depth[i],
                       truth=h.depth[i][:, None], labels=[r'$\frac{1}{\rho}$'], start_t=start, end_t=end,
                       cov=h.depth_cov[i] if plot_cov else None, truth_offset=offset)
+
 
 
 

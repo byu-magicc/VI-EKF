@@ -1,5 +1,7 @@
 #pragma once
 
+#include "math.h"
+
 #include "quat.h"
 
 #include <Eigen/Core>
@@ -99,4 +101,29 @@ inline Eigen::Vector2d q_feat_boxminus(quat::Quaternion q0, quat::Quaternion q1)
 inline quat::Quaternion q_feat_boxplus(quat::Quaternion q, Eigen::Vector2d dq)
 {
   return quat::Quaternion::exp(T_zeta(q) * dq) * q;
+}
+
+
+void concatenate_SE2(Eigen::Vector3d& T1, Eigen::Vector3d& T2, Eigen::Vector3d& Tout)
+{
+  double cs = std::cos(T1(2,0));
+  double ss = std::sin(T1(2,0));
+  Tout(0) = T1(0) + T2(0) * cs - T2(1) * ss;
+  Tout(1) = T1(1) + T2(0) * ss + T2(1) * cs;
+  double psi= T1(2) + T2(2);
+  if (psi > M_PI)
+      psi -= 2.*M_PI;
+  else if (psi < -M_PI)
+      psi += 2.*M_PI;
+  Tout(2) = psi;
+}
+
+
+void invert_SE2(Eigen::Vector3d& T, Eigen::Vector3d& Tout)
+{
+  double cs = std::cos(T(2));
+  double ss = std::sin(T(2));
+  Tout(0) = -(T(0) * cs + T(1) * ss);
+  Tout(1) = -(- T(0) * ss + T(1) * cs);
+  Tout(2) = -T(2);
 }

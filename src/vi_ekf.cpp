@@ -1,5 +1,7 @@
 #include "vi_ekf.h"
 
+#define NO_NANS(mat) (mat.array() == mat.array()).all()
+
 //#ifndef NDEBUG
 #define NAN_CHECK if (NaNsInTheHouse()) { std::cout << "NaNs In The House at line " << __LINE__ << "!!!\n"; exit(0); }
 #define NEGATIVE_DEPTH if (NegativeDepth()) std::cout << "Negative Depth " << __LINE__ << "!!!\n"
@@ -22,7 +24,7 @@ void VIEKF::init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P
                  Eigen::Matrix<double, dxZ,1> &lambda, uVector &Qu, Eigen::Vector3d& P0_feat, Eigen::Vector3d& Qx_feat,
                  Eigen::Vector3d& lambda_feat, Eigen::Vector2d &cam_center, Eigen::Vector2d &focal_len, Eigen::Vector4d &q_b_c,
                  Eigen::Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, bool partial_update,
-                 bool keyframe_reset, double keyframe_overlap)
+                 bool use_keyframe_reset, double keyframe_overlap)
 {
   x_.block<(int)xZ, 1>(0,0) = x0;
   P_.block<(int)dxZ, (int)dxZ>(0,0) = P0.asDiagonal();
@@ -57,7 +59,7 @@ void VIEKF::init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P
   
   use_drag_term_ = use_drag_term;
   partial_update_ = partial_update;
-  keyframe_reset_ = keyframe_reset;
+  keyframe_reset_ = use_keyframe_reset;
   prev_t_ = 0.0;
   
   min_depth_ = min_depth;
@@ -65,6 +67,8 @@ void VIEKF::init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P
   keyframe_overlap_threshold_ = keyframe_overlap;
   keyframe_features_.clear();
   edges_.clear();
+  keyframe_reset_callback_ = nullptr;
+  keyframe_reset();
   
   if (log_directory.compare("~") != 0)
   {
@@ -72,11 +76,17 @@ void VIEKF::init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P
   }
   K_.setZero();
   H_.setZero();
+  
 }
 
 void VIEKF::set_x0(const Eigen::VectorXd& _x0)
 {
   x_ = _x0;
+}
+
+void VIEKF::register_keyframe_reset_callback(std::function<void(void)> cb)
+{
+  keyframe_reset_callback_ = cb;
 }
 
 
@@ -101,6 +111,11 @@ void VIEKF::set_imu_bias(const Eigen::Vector3d& b_g, const Eigen::Vector3d& b_a)
 const xVector& VIEKF::get_state() const
 {
   return x_;
+}
+
+const Eigen::Vector3d& VIEKF::get_current_node_global_pose() const
+{
+  return current_node_global_pose_;
 }
 
 const Eigen::MatrixXd VIEKF::get_covariance() const
@@ -350,7 +365,7 @@ void VIEKF::propagate(const uVector &u, const double t)
   log_.prop_time += 0.1 * (now() - start - log_.prop_time);
   log_.count++;
   
-  if (log_.count > 1000 && log_.stream)
+  if (log_.count > 10 && log_.stream)
   {
     (*log_.stream)[LOG_PERF] << t-start_t_ << "\t" << log_.prop_time;
     for (int i = 0; i < 10; i++)
@@ -531,10 +546,10 @@ bool VIEKF::update(const Eigen::VectorXd& z, const measurement_type_t& meas_type
     NAN_CHECK;
     xp_ = x_;
     
-    CHECK_MAT_FOR_NANS(H_);
-    CHECK_MAT_FOR_NANS(K_);
+//    CHECK_MAT_FOR_NANS(H_);
+//    CHECK_MAT_FOR_NANS(K_);
     
-    if (partial_update_)
+    if (partial_update_ && NO_NANS(K_))
     {
       // Apply Fixed Gain Partial update per
       // "Partial-Update Schmidt-Kalman Filter" by Brink
@@ -620,7 +635,14 @@ void VIEKF::keyframe_reset()
   
   P_ = A_ * P_ * A_.transpose();
   
+  // Build Global Node Frame Position
+  concatenate_SE2(current_node_global_pose_, edge.transform, current_node_global_pose_);
+  
   NAN_CHECK;
+  
+  // call callback
+  if (keyframe_reset_callback_ != nullptr)
+    keyframe_reset_callback_();
 }
 
 
@@ -757,6 +779,25 @@ void VIEKF::fix_depth()
   }
 }
 
+void VIEKF::log_global_position(const Eigen::Vector3d pos, const Eigen::Vector4d att)
+{ 
+  double start = now();
+  // Log Global Position Estimate
+  int meas_type = 10;
+  Eigen::Vector3d pos_hat;
+  pos_hat.topRows(2) = current_node_global_pose_.topRows(2) + x_.block<2,1>((int)xPOS, 0);
+  (*log_.stream)[LOG_MEAS] << "GLOBAL_POS" << "\t" << prev_t_-start_t_ << "\t"
+                           << pos.transpose() << "\t" << pos_hat.transpose() << "\n";
+  
+  // Log Global Attitude Estimate
+  meas_type = 11;
+  Eigen::Vector4d att_hat;
+  att_hat = (quat::Quaternion(x_.block<4,1>((int)xATT,0)) * quat::Quaternion::from_axis_angle(Eigen::Vector3d(0, 0, 1.), current_node_global_pose_(2))).elements();
+  log_.update_count[(int)meas_type] > 10;
+  (*log_.stream)[LOG_MEAS] << "GLOBAL_ATT" << "\t" << prev_t_-start_t_ << "\t"
+                           << att.transpose() << "\t" << att_hat.transpose() << "\n";
+}
+
 void VIEKF::init_logger(string root_filename)
 {
   log_.stream = new std::map<log_type_t, std::ofstream>;
@@ -770,18 +811,24 @@ void VIEKF::init_logger(string root_filename)
   (*log_.stream)[LOG_MEAS].open(root_filename + "meas.txt", std::ofstream::out | std::ofstream::trunc);
   (*log_.stream)[LOG_PERF].open(root_filename + "perf.txt", std::ofstream::out | std::ofstream::trunc);
   (*log_.stream)[LOG_CONF].open(root_filename + "conf.txt", std::ofstream::out | std::ofstream::trunc);
+  (*log_.stream)[LOG_KF].open(root_filename + "kf.txt", std::ofstream::out | std::ofstream::trunc);
   
   // Save configuration
   (*log_.stream)[LOG_CONF] << "Test Num: " << root_filename << "\n";
-  (*log_.stream)[LOG_CONF] << "Using Drag Term: " << use_drag_term_ << "\n";
-  (*log_.stream)[LOG_CONF] << "num features: " << NUM_FEATURES << "\n";
+  (*log_.stream)[LOG_CONF] << "x0" << x_.block<(int)xZ, 1>(0,0).transpose() << "\n";
   (*log_.stream)[LOG_CONF] << "P0: " << P_.diagonal().block<(int)xZ, 1>(0,0).transpose() << "\n";
   (*log_.stream)[LOG_CONF] << "P0_feat: " << P0_feat_.diagonal().transpose() << "\n";
   (*log_.stream)[LOG_CONF] << "Qx: " << Qx_.diagonal().transpose() << "\n";
   (*log_.stream)[LOG_CONF] << "Qu: " << Qu_.diagonal().transpose() << "\n";
-  (*log_.stream)[LOG_CONF] << "gamma: " << lambda_.transpose() << "\n";
+  (*log_.stream)[LOG_CONF] << "lambda: " << lambda_.block<(int)dxZ,1>(0,0).transpose() << "\n";
+  (*log_.stream)[LOG_CONF] << "lambda_feat: " << lambda_.block<3,1>((int)dxZ,0).transpose() << "\n";  
+  (*log_.stream)[LOG_CONF] << "partial_update: " << partial_update_ << "\n";
+  (*log_.stream)[LOG_CONF] << "keyframe reset: " << keyframe_reset_ << "\n";
+  (*log_.stream)[LOG_CONF] << "Using Drag Term: " << use_drag_term_ << "\n";
+  (*log_.stream)[LOG_CONF] << "keyframe overlap: " << keyframe_overlap_threshold_ << std::endl;
+  (*log_.stream)[LOG_CONF] << "num features: " << NUM_FEATURES << "\n";
+  (*log_.stream)[LOG_CONF] << "min_depth: " << min_depth_ << "\n";
 }
-
 
 }
 

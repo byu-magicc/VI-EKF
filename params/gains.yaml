@@ -29,7 +29,7 @@ lambda: [1.0, 1.0, 1.0,     # POS
 P0_feat: [0.15, 0.15, 1.0],
 Qx_feat: [0.05, 0.05, 0.15],
 
-lambda_feat: [1.0, 1.0, 0.75],
+lambda_feat: [1.0, 1.0, 0.80],
 cam_center: [316.680559, 230.660661],
 focal_len: [533.013144, 533.503964],
 q_b_c: [0.5, 0.5, 0.5, 0.5],
@@ -73,10 +73,10 @@ use_alt: true,
 invert_image: true,
 drag_term: true,
 partial_update: true,
-keyframe_reset: false,
+keyframe_reset: true,
 
 min_depth: 1.5,
-keyframe_overlap: 0.70,
+keyframe_overlap: 0.75,
 num_features: 30,
 
 

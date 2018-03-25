@@ -20,9 +20,11 @@ def init_plots(start, end, fig_directory="plots/"):
     if fig_directory:
         global figure_directory
         figure_directory = fig_directory
-    os.system("rm " + fig_directory + "*.png")
-    os.system("rm " + fig_directory + "lambda/*.png")
-    os.system("rm " + fig_directory + "rho/*.png")
+    os.system("mkdir " + fig_directory + r"/lambda")
+    os.system("mkdir " + fig_directory + r"/rho")
+    os.system("rm " + fig_directory + r"/" + r"*.svg")
+    os.system("rm " + fig_directory + r"/lambda/*.svg")
+    os.system("rm " + fig_directory + r"/rho/*.svg")
 
     global plot_start, plot_end
     plot_start = start
@@ -52,7 +54,7 @@ def plot_3d_side_by_side(h, p_b_c, q_b_c):
     plt.show()
 
 
-def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None, truth=None, labels=None, skip=1, save=True, cov_bounds=None, start_t=None, end_t=None, truth_offset=None):
+def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None, truth=None, labels=None, skip=1, save=True, cov_bounds=None, start_t=None, end_t=None, truth_offset=None, subdir=None):
     estimate = estimate[:, start:end]
     if cov_bounds == None:
         cov_bounds = (start,end)
@@ -74,18 +76,18 @@ def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None
     if isinstance(truth, np.ndarray):
         truth_copy = truth[(truth_t > start_t) & (truth_t < end_t)].copy()
 
-    plt.figure(figsize=(24, 18))
-    colormap = plt.cm.jet
-
-    plt.gca().set_prop_cycle(cycler('color', [colormap(i) for i in np.linspace(0, 0.9, 2)]))
+    plt.figure(figsize=(16, 10))
+    colors = get_colors(2, plt.cm.jet)
 
     for i in range(end - start):
         plt.subplot(end-start, 1, i + 1)
         if isinstance(truth, np.ndarray):
-            plt.plot(truth_t_copy[::skip], truth_copy[::skip, i], label=labels[i])
+            plt.plot(truth_t_copy[::skip], truth_copy[::skip, i], label=r'$'+labels[i]+r'$', color=colors[1])
 
-        plt.plot(est_t[::skip], estimate[::skip, i], label=labels[i] + 'hat')
-
+        if "_" in labels[i]:
+            plt.plot(est_t[::skip], estimate[::skip, i], label=r'$\hat{' + labels[i].split("_")[0] + r'}' + r'_' + labels[i].split("_")[1] + r'$', color=colors[0])
+        else:
+            plt.plot(est_t[::skip], estimate[::skip, i], label=r'$\hat{' + labels[i] + r'}$', color=colors[0])
         if isinstance(cov, np.ndarray):
             try:
                 plt.plot(est_t[::skip], estimate[::skip, i].flatten() + 2 * cov_copy[::skip, i, i].flatten(), 'k-', alpha=0.5)
@@ -99,8 +101,13 @@ def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None
             plt.title(title)
 
     if save:
+        title = title.translate(None, r'!@#${}/\\')
         global figure_directory
-        plt.savefig(figure_directory+title+'.png')
+        if subdir is not None:
+            filename = figure_directory + '/' + subdir + '/' + title + '.svg'
+        else:
+            filename = figure_directory + '/' + title + '.svg'
+        plt.savefig(filename , bbox_inches='tight')
         plt.close()
 
 def plot_cube(q_I_b, zetas, zeta_truth):

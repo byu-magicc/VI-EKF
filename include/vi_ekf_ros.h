@@ -19,6 +19,7 @@
 
 
 using namespace Eigen;
+using namespace quat;
 
 typedef Matrix<double, 1, 1> Matrix1d;
 typedef Matrix<double, 6, 1> Vector6d;
@@ -39,7 +40,6 @@ public:
 private:
 
   int num_features_;
-  Vector6d u_prev_;
   ros::Time last_imu_update_;
 
   ros::NodeHandle nh_;
@@ -61,9 +61,9 @@ private:
   bool got_depth_;
   bool invert_image_;
 
-  bool initialized_ = false;
-  bool got_init_truth_ = false;
-
+  bool imu_init_ = false;
+  bool truth_init_ = false;
+  
   bool use_truth_;
   bool use_depth_;
   bool use_features_;
@@ -71,13 +71,13 @@ private:
   bool use_imu_att_;
   bool use_alt_;
   double IMU_LPF_;
-  double imu_skip_;
+  double truth_LPF_;
 
   Vector6d imu_;
   Vector3d kf_pos_;
   double kf_yaw_;
   Vector3d truth_pos_;
-  Vector4d truth_att_;
+  Quat truth_att_;
   
   Matrix3d R_IMU_body_;
 

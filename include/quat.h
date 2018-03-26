@@ -2,24 +2,26 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-#include <unsupported/Eigen/CXX11/Tensor>
 #include <math.h>
 #include <iostream>
+
+using namespace Eigen;
 
 namespace quat {
 
 
-class Quaternion
+class Quat
 {
 
 
 private:
-  Eigen::Vector4d arr_;
 
 public:
-  Quaternion() {}
-  Quaternion(Eigen::Vector4d arr) : arr_(arr) {}
+  Quat() {}
+  Quat(Vector4d arr) : arr_(arr) {}
 
+  Vector4d arr_;
+  
   inline double w() const { return arr_(0); }
   inline double x() const { return arr_(1); }
   inline double y() const { return arr_(2); }
@@ -28,10 +30,10 @@ public:
   inline void setX(double x) { arr_(1) = x; }
   inline void setY(double y) { arr_(2) = y; }
   inline void setZ(double z) { arr_(3) = z; }
-  inline Eigen::Vector4d elements() const { return arr_;}
+  inline const Vector4d& elements() const { return arr_;}
 
-  Quaternion operator* (const Quaternion q) { return otimes(q); }
-  Quaternion& operator *= (const Quaternion q)
+  Quat operator* (const Quat q) { return otimes(q); }
+  Quat& operator *= (const Quat q)
   {
     arr_ <<  w() * q.w() - x() *q.x() - y() * q.y() - z() * q.z(),
              w() * q.x() + x() *q.w() + y() * q.z() - z() * q.y(),
@@ -39,16 +41,16 @@ public:
              w() * q.z() + x() *q.y() - y() * q.x() + z() * q.w();
   }
 
-  Quaternion& operator= (const Quaternion q) { arr_ = q.elements(); }
-  Quaternion& operator= (const Eigen::Vector4d in) {arr_ = in; }
+  Quat& operator= (const Quat q) { arr_ = q.elements(); }
+  Quat& operator= (const Vector4d in) {arr_ = in; }
 
-  Quaternion operator+ (const Eigen::Vector3d v) { return boxplus(v); }
-  Quaternion& operator+= (const Eigen::Vector3d v)
+  Quat operator+ (const Vector3d v) { return boxplus(v); }
+  Quat& operator+= (const Vector3d v)
   {
     double norm_v = v.norm();
-    Eigen::Vector3d tmp = v;
+    Vector3d tmp = v;
 
-    Eigen::Vector4d q_new;
+    Vector4d q_new;
     if (norm_v > 1e-4)
     {
         tmp *= std::sin(norm_v / 2.)/norm_v;
@@ -72,30 +74,30 @@ public:
     }
   }
 
-  Eigen::Vector3d operator- (const Quaternion q)
+  Vector3d operator- (const Quat q)
   {
-    Quaternion dq = q.inverse().otimes(*this);
+    Quat dq = q.inverse().otimes(*this);
     if (dq.w() < 0.0)
     {
-      dq.elements() *= -1.0;
+      dq.arr_ *= -1.0;
     }
     return log(dq);
   }
 
-  static Eigen::Matrix3d skew(const Eigen::Vector3d v)
+  static Matrix3d skew(const Vector3d v)
   {
-    static Eigen::Matrix3d skew_mat;
+    static Matrix3d skew_mat;
     skew_mat << 0.0, -v(2), v(1),
                 v(2), 0.0, -v(0),
                 -v(1), v(0), 0.0;
     return skew_mat;
   }
 
-  static Quaternion exp(const Eigen::Vector3d v)
+  static Quat exp(const Vector3d v)
   {
     double norm_v = v.norm();
 
-    Eigen::Vector4d q_arr;
+    Vector4d q_arr;
     if (norm_v > 1e-4)
     {
       double v_scale = std::sin(norm_v/2.0)/norm_v;
@@ -106,16 +108,16 @@ public:
       q_arr << 1.0, v(0)/2.0, v(1)/2.0, v(2)/2.0;
       q_arr /= q_arr.norm();
     }
-    return Quaternion(q_arr);
+    return Quat(q_arr);
   }
 
-  static Eigen::Vector3d log(const Quaternion q)
+  static Vector3d log(const Quat q)
   {
-    Eigen::Vector3d v = q.elements().block<3,1>(1, 0);
+    Vector3d v = q.elements().block<3,1>(1, 0);
     double w = q.elements()(0,0);
     double norm_v = v.norm();
 
-    Eigen::Vector3d out;
+    Vector3d out;
     if (norm_v < 1e-8)
     {
       out.setZero();
@@ -127,9 +129,9 @@ public:
     return out;
   }
 
-  static Quaternion from_R(const Eigen::Matrix3d m)
+  static Quat from_R(const Matrix3d m)
   {
-    Eigen::Vector4d q;
+    Vector4d q;
     double tr = m.trace();
 
     if (tr > 0)
@@ -164,19 +166,19 @@ public:
            (m(2,1) + m(1,2)) / S,
            0.25 * S;
     }
-    return Quaternion(q);
+    return Quat(q);
   }
 
-  static Quaternion from_axis_angle(const Eigen::Vector3d axis, const double angle)
+  static Quat from_axis_angle(const Vector3d axis, const double angle)
   {
     double alpha_2 = angle/2.0;
-    Eigen::Vector4d arr;
+    Vector4d arr;
     arr << std::cos(alpha_2), axis(0)*alpha_2, axis(1)*alpha_2, axis(2)*alpha_2;
     arr /= arr.norm();
-    return Quaternion(arr);
+    return Quat(arr);
   }
 
-  static Quaternion from_euler(const double roll, const double pitch, const double yaw)
+  static Quat from_euler(const double roll, const double pitch, const double yaw)
   {
     double cp = std::cos(roll/2.0);
     double ct = std::cos(pitch/2.0);
@@ -185,23 +187,23 @@ public:
     double st = std::sin(pitch/2.0);
     double ss = std::sin(yaw/2.0);
 
-    Eigen::Vector4d arr;
+    Vector4d arr;
     arr << cp*ct*cs + sp*st*ss,
            sp*ct*cs - cp*st*ss,
            cp*st*cs + sp*ct*ss,
            cp*ct*ss - sp*st*cs;
-    return Quaternion(arr);
+    return Quat(arr);
   }
 
-  static Quaternion from_two_unit_vectors(const Eigen::Vector3d u, const Eigen::Vector3d v)
+  static Quat from_two_unit_vectors(const Vector3d u, const Vector3d v)
   {
-    Eigen::Vector4d q_arr;
+    Vector4d q_arr;
 
     double d = u.dot(v);
     if (d < 1.0)
     {
       double invs = 1.0/std::sqrt((2.0*(1.0+d)));
-      Eigen::Vector3d xyz = skew(u)*v*invs;
+      Vector3d xyz = skew(u)*v*invs;
       q_arr(0) = 0.5/invs;
       q_arr.block<3,1>(1,0)=xyz;
       q_arr /= q_arr.norm();
@@ -210,27 +212,27 @@ public:
     {
       q_arr << 1, 0, 0, 0;
     }
-    return Quaternion(q_arr);
+    return Quat(q_arr);
   }
 
-  static Quaternion Identity()
+  static Quat Identity()
   {
-    Eigen::Vector4d q_arr;
+    Vector4d q_arr;
     q_arr << 1.0, 0, 0, 0;
-    return Quaternion(q_arr);
+    return Quat(q_arr);
   }
 
-  static Quaternion Random()
+  static Quat Random()
   {
-    Eigen::Vector4d q_arr;
+    Vector4d q_arr;
     q_arr.setRandom();
     q_arr /= q_arr.norm();
-    return Quaternion(q_arr);
+    return Quat(q_arr);
   }
 
-  Eigen::Vector3d euler()
+  Vector3d euler()
   {
-    Eigen::Vector3d out;
+    Vector3d out;
     out << std::atan2(2.0*(w()*x()+y()*z()), 1.0-2.0*(x()*x() + y()*y())),
         std::asin(2.0*(w()*y() - z()*x())),
         std::atan2(2.0*(w()*z()+x()*y()), 1.0-2.0*(y()*y() + z()*z()));
@@ -252,7 +254,7 @@ public:
     return std::atan2(2.0*(w()*z()+x()*y()), 1.0-2.0*(y()*y() + z()*z()));
   }
 
-  Eigen::Matrix3d R()
+  Matrix3d R()
   {
     double wx = w()*x();
     double wy = w()*y();
@@ -263,17 +265,17 @@ public:
     double yy = y()*y();
     double yz = y()*z();
     double zz = z()*z();
-    Eigen::Matrix3d out;
+    Matrix3d out;
     out << 1. - 2.*yy - 2.*zz, 2.*xy + 2.*wz, 2.*xz - 2.*wy,
         2.*xy - 2.*wz, 1. - 2.*xx - 2.*zz, 2.*yz + 2.*wx,
         2.*xz + 2.*wy, 2.*yz - 2.*wx, 1. - 2.*xx - 2.*yy;
     return out;
   }
 
-  Quaternion copy()
+  Quat copy()
   {
-    Eigen::Vector4d tmp = arr_;
-    return Quaternion(tmp);
+    Vector4d tmp = arr_;
+    return Quat(tmp);
   }
 
   void normalize()
@@ -281,9 +283,9 @@ public:
     arr_ /= arr_.norm();
   }
 
-  Eigen::Matrix<double, 3, 2> doublerot(Eigen::Matrix<double, 3, 2> v)
+  Matrix<double, 3, 2> doublerot(Matrix<double, 3, 2> v)
   {
-    Eigen::Matrix<double, 3, 2> out(3, v.cols());
+    Matrix<double, 3, 2> out(3, v.cols());
     for (int i = 0; i < v.cols(); i++)
     {
        out.block<3,1>(0,i) = v.block<3,1>(0,i) + w() * (2.0 * arr_.block<3,1>(1,0).cross(v.block<3,1>(0,i))) + arr_.block<3,1>(1,0).cross((2.0 * arr_.block<3,1>(1,0).cross(v.block<3,1>(0,i))));
@@ -291,10 +293,10 @@ public:
     return out;
   }
 
-  Eigen::Matrix<double, 3, 2> doubleinvrot(Eigen::Matrix<double, 3, 2> v)
+  Matrix<double, 3, 2> doubleinvrot(Matrix<double, 3, 2> v)
   {
-    Eigen::Matrix<double, 3, 2> out(3, v.cols());
-    Eigen::Vector3d t;
+    Matrix<double, 3, 2> out(3, v.cols());
+    Vector3d t;
     for (int i = 0; i < v.cols(); i++)
     {
        t = 2.0 * arr_.block<3,1>(1,0).cross(v.block<3,1>(0,i));
@@ -304,47 +306,47 @@ public:
   }
 
 
-  Eigen::Vector3d rot(Eigen::Vector3d v)
+  Vector3d rot(Vector3d v)
   {
-    Eigen::Vector3d t = 2.0 * arr_.block<3,1>(1,0).cross(v);
+    Vector3d t = 2.0 * arr_.block<3,1>(1,0).cross(v);
     return v + w() * t + arr_.block<3,1>(1,0).cross(t);
   }
 
-  Eigen::Vector3d invrot(Eigen::Vector3d v)
+  Vector3d invrot(Vector3d v)
   {
-    Eigen::Vector3d t = 2.0 * arr_.block<3,1>(1,0).cross(v);
+    Vector3d t = 2.0 * arr_.block<3,1>(1,0).cross(v);
     return v - w() * t + arr_.block<3,1>(1,0).cross(t);
   }
 
-  Quaternion& inv()
+  Quat& inv()
   {
     arr_(0,0) *= -1.0;
   }
 
-  Quaternion inverse() const
+  Quat inverse() const
   {
-    Eigen::Vector4d tmp = arr_;
+    Vector4d tmp = arr_;
     tmp.block<3,1>(1,0) *= -1.0;
-    return Quaternion(tmp);
+    return Quat(tmp);
   }
 
-  Quaternion otimes(const Quaternion q)
+  Quat otimes(const Quat q)
   {
-    Eigen::Vector4d new_arr;
+    Vector4d new_arr;
     new_arr <<  w() * q.w() - x() *q.x() - y() * q.y() - z() * q.z(),
                 w() * q.x() + x() *q.w() + y() * q.z() - z() * q.y(),
                 w() * q.y() - x() *q.z() + y() * q.w() + z() * q.x(),
                 w() * q.z() + x() *q.y() - y() * q.x() + z() * q.w();
-    return Quaternion(new_arr);
+    return Quat(new_arr);
   }
 
-  Quaternion boxplus(Eigen::Vector3d delta)
+  Quat boxplus(Vector3d delta)
   {
     return otimes(exp(delta));
   }
 };
 
-inline std::ostream& operator<< (std::ostream& os, const Quaternion& q)
+inline std::ostream& operator<< (std::ostream& os, const Quat& q)
 {
   os << "[ " << q.w() << ", " << q.x() << "i, " << q.y() << "j, " << q.z() << "k]";
   return os;

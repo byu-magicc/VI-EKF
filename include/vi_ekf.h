@@ -14,6 +14,9 @@
 #include "quat.h"
 #include "math_helper.h"
 
+using namespace quat;
+using namespace std;
+using namespace Eigen;
 
 #ifndef NUM_FEATURES
 #ifndef NDEBUG
@@ -27,14 +30,14 @@
 #define MAX_DX 16+NUM_FEATURES*3
 #define AVG_DEPTH 1.5
 
-typedef Eigen::Matrix<double, MAX_X, 1> xVector;
-typedef Eigen::Matrix<double, MAX_DX, 1> dxVector;
-typedef Eigen::Matrix<double, MAX_X, MAX_X> xMatrix;
-typedef Eigen::Matrix<double, MAX_DX, MAX_DX> dxMatrix;
-typedef Eigen::Matrix<double, MAX_DX, 6> dxuMatrix;
-typedef Eigen::Matrix<double, 6, 1> uVector;
-typedef Eigen::Matrix<double, 4, 1> zVector;
-typedef Eigen::Matrix<double, 3, MAX_DX> hMatrix;
+typedef Matrix<double, MAX_X, 1> xVector;
+typedef Matrix<double, MAX_DX, 1> dxVector;
+typedef Matrix<double, MAX_X, MAX_X> xMatrix;
+typedef Matrix<double, MAX_DX, MAX_DX> dxMatrix;
+typedef Matrix<double, MAX_DX, 6> dxuMatrix;
+typedef Matrix<double, 6, 1> uVector;
+typedef Matrix<double, 4, 1> zVector;
+typedef Matrix<double, 3, MAX_DX> hMatrix;
 
 namespace vi_ekf
 {
@@ -43,14 +46,14 @@ class VIEKF;
 
 typedef void (VIEKF::*measurement_function_ptr)(const xVector& x, zVector& h, hMatrix& H, const int id) const;
 
-static const Eigen::Vector3d gravity = [] {
-  Eigen::Vector3d tmp;
+static const Vector3d gravity = [] {
+  Vector3d tmp;
   tmp << 0, 0, 9.80665;
   return tmp;
 }();
 
-static const Eigen::Vector3d khat = [] {
-  Eigen::Vector3d tmp;
+static const Vector3d khat = [] {
+  Vector3d tmp;
   tmp << 0, 0, 1.0;
   return tmp;
 }();
@@ -111,14 +114,14 @@ private:
   xVector x_;
   dxMatrix P_;
   dxMatrix Qx_;
-  Eigen::Matrix<double, 6, 6> Qu_;
+  Matrix<double, 6, 6> Qu_;
 
   // Partial Update Gains
   dxVector lambda_;
   dxMatrix Lambda_;
   
   // Initial uncertainty on features
-  Eigen::Matrix3d P0_feat_;
+  Matrix3d P0_feat_;
 
   // Internal bookkeeping variables
   double prev_t_;
@@ -130,8 +133,8 @@ private:
   double keyframe_overlap_threshold_;
   
   typedef struct{
-    Eigen::Vector3d transform;
-    Eigen::Matrix3d cov;    
+    Vector3d transform;
+    Matrix3d cov;    
   } edge_SE2_t;
   std::deque<edge_SE2_t> edges_;
 
@@ -143,7 +146,7 @@ private:
   const dxMatrix Ones_big_ = dxMatrix::Constant(1.0);
   const dxVector dx_ones_ = dxVector::Constant(1.0);
   xVector xp_;
-  Eigen::Matrix<double, MAX_DX, 3>  K_;
+  Matrix<double, MAX_DX, 3>  K_;
   zVector zhat_;
   hMatrix H_;
 
@@ -154,12 +157,12 @@ private:
   double min_depth_;
 
   // Camera Intrinsics and Extrinsics
-  Eigen::Vector2d cam_center_;
-  Eigen::Matrix<double, 2, 3> cam_F_;
-  quat::Quaternion q_b_c_;
-  Eigen::Vector3d p_b_c_;
+  Vector2d cam_center_;
+  Matrix<double, 2, 3> cam_F_;
+  Quat q_b_c_;
+  Vector3d p_b_c_;
   
-  Eigen::Vector3d current_node_global_pose_;
+  Vector3d current_node_global_pose_;
   
   std::function<void(void)> keyframe_reset_callback_;
 
@@ -179,10 +182,10 @@ public:
 
   VIEKF();
   ~VIEKF();
-  void init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P0, Eigen::Matrix<double, dxZ,1> &Qx,
-            Eigen::Matrix<double, dxZ,1> &lambda, uVector &Qu, Eigen::Vector3d& P0_feat, Eigen::Vector3d& Qx_feat,
-            Eigen::Vector3d& lambda_feat, Eigen::Vector2d& cam_center, Eigen::Vector2d& focal_len,
-            Eigen::Vector4d& q_b_c, Eigen::Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, 
+  void init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<double, dxZ,1> &Qx,
+            Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,
+            Vector3d& lambda_feat, Vector2d& cam_center, Vector2d& focal_len,
+            Vector4d& q_b_c, Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, 
             bool partial_update, bool use_keyframe_reset, double keyframe_overlap);
   void init_logger(std::string root_filename);
 
@@ -236,21 +239,21 @@ public:
     }
   }
 
-  Eigen::VectorXd get_depths() const;
-  Eigen::MatrixXd get_zetas() const;
-  Eigen::MatrixXd get_qzetas() const;
-  Eigen::VectorXd get_zeta(const int i) const;
-  Eigen::Vector2d get_feat(const int id) const;
-  const Eigen::Vector3d& get_current_node_global_pose() const;
+  VectorXd get_depths() const;
+  MatrixXd get_zetas() const;
+  MatrixXd get_qzetas() const;
+  VectorXd get_zeta(const int i) const;
+  Vector2d get_feat(const int id) const;
+  const Vector3d& get_current_node_global_pose() const;
   const xVector& get_state() const;
-  const Eigen::MatrixXd get_covariance() const;
+  const MatrixXd get_covariance() const;
   double get_depth(const int id) const;
   inline int get_len_features() const { return len_features_; }
 
-  void set_x0(const Eigen::VectorXd& _x0);
-  void set_imu_bias(const Eigen::Vector3d& b_g, const Eigen::Vector3d& b_a);
+  void set_x0(const VectorXd& _x0);
+  void set_imu_bias(const Vector3d& b_g, const Vector3d& b_a);
 
-  bool init_feature(const Eigen::Vector2d &l, const int id, const double depth=-1.0);
+  bool init_feature(const Vector2d &l, const int id, const double depth=-1.0);
   void clear_feature(const int id);
   void keep_only_features(const std::vector<int> features);
 
@@ -263,7 +266,7 @@ public:
   void dynamics(const xVector &x, const uVector& u);
 
   // Measurement Updates
-  bool update(const Eigen::VectorXd& z, const measurement_type_t& meas_type, const Eigen::MatrixXd& R, const bool active=false, const int id=-1, const double depth=NAN);
+  bool update(const VectorXd& z, const measurement_type_t& meas_type, const MatrixXd& R, const bool active=false, const int id=-1, const double depth=NAN);
   void h_acc(const xVector& x, zVector& h, hMatrix& H, const int id) const;
   void h_alt(const xVector& x, zVector& h, hMatrix& H, const int id) const;
   void h_att(const xVector& x, zVector& h, hMatrix& H, const int id) const;
@@ -279,7 +282,7 @@ public:
   void keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N);
   void keyframe_reset();
   void register_keyframe_reset_callback(std::function<void(void)> cb);
-  void log_global_position(const Eigen::Vector3d pos, const Eigen::Vector4d att);
+  void log_global_position(const Vector3d pos, const Vector4d att);
 
   // Inequality Constraint on Depth
   void fix_depth();

@@ -113,11 +113,7 @@ VIEKF_ROS::VIEKF_ROS() :
   cout << "keyframe_reset: " << keyframe_reset << "\n";
 
   // Wait for truth to initialize pose
-  initialized_ = false;
-
-  u_prev_.setZero();
-
-//  initialized_ = true;
+  imu_init_ = false;
 
   odom_msg_.header.frame_id = "body";
   
@@ -141,10 +137,12 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
 
   imu_ = IMU_LPF_ * u + (1. - IMU_LPF_) * imu_;
 
-  if (got_init_truth_ && !initialized_)
+  if (!truth_init_)
+    return;
+  else if (!imu_init_)
   {
     imu_ = u;
-    initialized_ = true;
+    imu_init_ = true;
     return;
   }
 
@@ -187,12 +185,12 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
 void VIEKF_ROS::keyframe_reset_callback()
 {
   kf_pos_ = truth_pos_;
-  kf_yaw_ = quat::Quaternion(truth_att_).yaw();  
+  kf_yaw_ = truth_att_.yaw();  
 }
 
 void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
 {
-  if (!initialized_)
+  if (!imu_init_)
     return;
 
   cv_bridge::CvImagePtr cv_ptr;
@@ -286,27 +284,22 @@ void VIEKF_ROS::depth_image_callback(const sensor_msgs::ImageConstPtr &msg)
 
 void VIEKF_ROS::truth_callback(const geometry_msgs::PoseStampedConstPtr &msg)
 {
-
-  if (!got_init_truth_)
-  {
-    xVector x0;
-    x0.setZero();
-    x0.block<3,1>(vi_ekf::VIEKF::xPOS, 0) << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z;
-    x0.block<4,1>(vi_ekf::VIEKF::xATT, 0) << msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
-    x0(vi_ekf::VIEKF::xMU, 0) = 0.2;
-    ekf_mtx_.lock();
-//    ekf_.set_x0(x0);
-    ekf_mtx_.unlock();
-    got_init_truth_ = true;
-    return;
-  }
   Vector3d z_pos;
   z_pos << msg->pose.position.z, -msg->pose.position.x, -msg->pose.position.y;
   truth_pos_ = z_pos;
 
   Vector4d z_att;
   z_att << -msg->pose.orientation.w, -msg->pose.orientation.z, msg->pose.orientation.x, msg->pose.orientation.y;
-  truth_att_ = z_att;
+  
+  if (!truth_init_)
+  {
+    truth_att_ = Quat(z_att);
+    truth_init_ = true;
+    return;
+  }
+  
+  Quat y_t(z_att); 
+  truth_att_ = y_t + truth_LPF_ * (truth_att_ - y_t);
 
   Matrix<double, 1, 1> z_alt;
   z_alt << msg->pose.position.y;
@@ -315,8 +308,8 @@ void VIEKF_ROS::truth_callback(const geometry_msgs::PoseStampedConstPtr &msg)
   
   // Convert truth measurement into current node frame
   z_pos.topRows(2) -= kf_pos_.topRows(2); // position offset
-  quat::Quaternion node_quat = quat::Quaternion::from_axis_angle(Eigen::Vector3d(0,0,1), kf_yaw_);
-  z_att = (quat::Quaternion(z_att) * node_quat).elements();  
+  Quat node_quat = Quat::from_axis_angle(Eigen::Vector3d(0,0,1), kf_yaw_);
+  z_att = (Quat(z_att) * node_quat).elements();  
 
   ekf_mtx_.lock();
   ekf_.update(z_pos, vi_ekf::VIEKF::POS, pos_R_, use_truth_);

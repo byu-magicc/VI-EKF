@@ -12,18 +12,15 @@
 //#define CHECK_MAT_FOR_NANS(mat) {}
 //#endif
 
-using namespace quat;
-using namespace std;
-
 namespace vi_ekf
 {
 
 VIEKF::VIEKF(){}
 
-void VIEKF::init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P0, Eigen::Matrix<double, dxZ,1> &Qx,
-                 Eigen::Matrix<double, dxZ,1> &lambda, uVector &Qu, Eigen::Vector3d& P0_feat, Eigen::Vector3d& Qx_feat,
-                 Eigen::Vector3d& lambda_feat, Eigen::Vector2d &cam_center, Eigen::Vector2d &focal_len, Eigen::Vector4d &q_b_c,
-                 Eigen::Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, bool partial_update,
+void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<double, dxZ,1> &Qx,
+                 Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,
+                 Vector3d& lambda_feat, Vector2d &cam_center, Vector2d &focal_len, Vector4d &q_b_c,
+                 Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, bool partial_update,
                  bool use_keyframe_reset, double keyframe_overlap)
 {
   x_.block<(int)xZ, 1>(0,0) = x0;
@@ -50,7 +47,7 @@ void VIEKF::init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P
   
   // set cam-to-body
   p_b_c_ = p_b_c;
-  q_b_c_ = Quaternion(q_b_c);
+  q_b_c_ = Quat(q_b_c);
   
   // set camera intrinsics
   cam_center_ = cam_center;
@@ -68,7 +65,8 @@ void VIEKF::init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P
   keyframe_features_.clear();
   edges_.clear();
   keyframe_reset_callback_ = nullptr;
-  keyframe_reset();
+  if (keyframe_reset_)
+    keyframe_reset();
   
   if (log_directory.compare("~") != 0)
   {
@@ -79,7 +77,7 @@ void VIEKF::init(Eigen::Matrix<double, xZ,1> x0, Eigen::Matrix<double, dxZ,1> &P
   
 }
 
-void VIEKF::set_x0(const Eigen::VectorXd& _x0)
+void VIEKF::set_x0(const VectorXd& _x0)
 {
   x_ = _x0;
 }
@@ -101,7 +99,7 @@ VIEKF::~VIEKF()
   }
 }
 
-void VIEKF::set_imu_bias(const Eigen::Vector3d& b_g, const Eigen::Vector3d& b_a)
+void VIEKF::set_imu_bias(const Vector3d& b_g, const Vector3d& b_a)
 {
   x_.block<3,1>((int)xB_G,0) = b_g;
   x_.block<3,1>((int)xB_A,0) = b_a;
@@ -113,21 +111,21 @@ const xVector& VIEKF::get_state() const
   return x_;
 }
 
-const Eigen::Vector3d& VIEKF::get_current_node_global_pose() const
+const Vector3d& VIEKF::get_current_node_global_pose() const
 {
   return current_node_global_pose_;
 }
 
-const Eigen::MatrixXd VIEKF::get_covariance() const
+const MatrixXd VIEKF::get_covariance() const
 {
-  Eigen::MatrixXd ret = P_.topLeftCorner(dxZ+3*len_features_, dxZ+3*len_features_);
+  MatrixXd ret = P_.topLeftCorner(dxZ+3*len_features_, dxZ+3*len_features_);
   return ret;
 }
 
 
-Eigen::VectorXd VIEKF::get_depths() const
+VectorXd VIEKF::get_depths() const
 {
-  Eigen::VectorXd out(len_features_);
+  VectorXd out(len_features_);
   for (int i = 0; i < len_features_; i++)
   {
     out[i] = 1.0/x_((int)xZ + 4 + 5*i);
@@ -135,20 +133,20 @@ Eigen::VectorXd VIEKF::get_depths() const
   return out;
 }
 
-Eigen::MatrixXd VIEKF::get_zetas() const
+MatrixXd VIEKF::get_zetas() const
 {
-  Eigen::MatrixXd out(3, len_features_);
+  MatrixXd out(3, len_features_);
   for (int i = 0; i < len_features_; i++)
   {
-    Eigen::Vector4d qzeta = x_.block<4,1>(xZ + 5*i,0);
-    out.block<3,1>(0,i) = Quaternion(qzeta).rot(e_z);
+    Vector4d qzeta = x_.block<4,1>(xZ + 5*i,0);
+    out.block<3,1>(0,i) = Quat(qzeta).rot(e_z);
   }
   return out;
 }
 
-Eigen::MatrixXd VIEKF::get_qzetas() const
+MatrixXd VIEKF::get_qzetas() const
 {
-  Eigen::MatrixXd out(4, len_features_);
+  MatrixXd out(4, len_features_);
   for (int i = 0; i < len_features_; i++)
   {
     out.block<4,1>(0,i) = x_.block<4,1>(xZ + 5*i,0);
@@ -156,10 +154,10 @@ Eigen::MatrixXd VIEKF::get_qzetas() const
   return out;
 }
 
-Eigen::VectorXd VIEKF::get_zeta(const int i) const
+VectorXd VIEKF::get_zeta(const int i) const
 {
-  Eigen::Vector4d qzeta_i = x_.block<4,1>(xZ + 5*i,0);
-  return Quaternion(qzeta_i).rot(e_z);
+  Vector4d qzeta_i = x_.block<4,1>(xZ + 5*i,0);
+  return Quat(qzeta_i).rot(e_z);
 }
 
 double VIEKF::get_depth(const int id) const
@@ -168,11 +166,11 @@ double VIEKF::get_depth(const int id) const
   return 1.0/x_((int)xZ + 4 + 5*i);
 }
 
-Eigen::Vector2d VIEKF::get_feat(const int id) const
+Vector2d VIEKF::get_feat(const int id) const
 {
   int i = global_to_local_feature_id(id);
-  Quaternion q_zeta(x_.block<4,1>(xZ+i*5, 0));
-  Eigen::Vector3d zeta = q_zeta.rot(e_z);
+  Quat q_zeta(x_.block<4,1>(xZ+i*5, 0));
+  Vector3d zeta = q_zeta.rot(e_z);
   double ezT_zeta = e_z.transpose() * zeta;
   return cam_F_ * zeta / ezT_zeta + cam_center_;
 }
@@ -180,12 +178,12 @@ Eigen::Vector2d VIEKF::get_feat(const int id) const
 void VIEKF::boxplus(const xVector& x, const dxVector& dx, xVector& out) const
 {
   out.block<6,1>((int)xPOS, 0) = x.block<6,1>((int)xPOS, 0) + dx.block<6,1>((int)dxPOS, 0);
-  out.block<4,1>((int)xATT, 0) = (Quaternion(x.block<4,1>((int)xATT, 0)) + dx.block<3,1>((int)dxATT, 0)).elements();
+  out.block<4,1>((int)xATT, 0) = (Quat(x.block<4,1>((int)xATT, 0)) + dx.block<3,1>((int)dxATT, 0)).elements();
   out.block<7,1>((int)xB_A, 0) = x.block<7,1>((int)xB_A, 0) + dx.block<7,1>((int)dxB_A, 0);
   
   for (int i = 0; i < len_features_; i++)
   {
-    out.block<4,1>(xZ+i*5,0) = q_feat_boxplus(Quaternion(x.block<4,1>(xZ+i*5,0)), dx.block<2,1>(dxZ+3*i,0)).elements();
+    out.block<4,1>(xZ+i*5,0) = q_feat_boxplus(Quat(x.block<4,1>(xZ+i*5,0)), dx.block<2,1>(dxZ+3*i,0)).elements();
     out(xZ+i*5+4) = x(xZ+i*5+4) + dx(dxZ+3*i+2);
   }
 }
@@ -193,31 +191,31 @@ void VIEKF::boxplus(const xVector& x, const dxVector& dx, xVector& out) const
 void VIEKF::boxminus(const xVector &x1, const xVector &x2, dxVector &out) const
 {
   out.block<6,1>((int)dxPOS, 0) = x1.block<6,1>((int)xPOS, 0) - x2.block<6,1>((int)xPOS, 0);
-  out.block<3,1>((int)dxATT, 0) = (Quaternion(x1.block<4,1>((int)xATT, 0)) - Quaternion(x2.block<4,1>((int)xATT, 0)));
+  out.block<3,1>((int)dxATT, 0) = (Quat(x1.block<4,1>((int)xATT, 0)) - Quat(x2.block<4,1>((int)xATT, 0)));
   out.block<7,1>((int)dxB_A, 0) = x1.block<7,1>((int)xB_A, 0) - x2.block<7,1>((int)xB_A, 0);
   
   for (int i = 0; i < len_features_; i++)
   {
-    out.block<2,1>(dxZ+i*3,0) = q_feat_boxminus(Quaternion(x1.block<4,1>(xZ+i*5,0)), Quaternion(x2.block<4,1>(xZ+i*5,0)));
+    out.block<2,1>(dxZ+i*3,0) = q_feat_boxminus(Quat(x1.block<4,1>(xZ+i*5,0)), Quat(x2.block<4,1>(xZ+i*5,0)));
     out(dxZ+i*3+2) = x1(xZ+i*5+4) - x2(xZ+i*5+4);
   }
 }
 
 
-bool VIEKF::init_feature(const Eigen::Vector2d& l, const int id, const double depth)
+bool VIEKF::init_feature(const Vector2d& l, const int id, const double depth)
 {
   // If we already have a full set of features, we can't do anything about this new one
   if (len_features_ >= NUM_FEATURES)
     return false;
   
   // Adjust lambdas to be with respect to image center
-  Eigen::Vector2d l_centered = l - cam_center_;
+  Vector2d l_centered = l - cam_center_;
   
   // Calculate Quaternion to Feature
-  Eigen::Vector3d zeta;
+  Vector3d zeta;
   zeta << l_centered(0), l_centered(1)*(cam_F_(1,1)/cam_F_(0,0)), cam_F_(0,0);
   zeta.normalize();
-  Eigen::Vector4d qzeta = Quaternion::from_two_unit_vectors(e_z, zeta).elements();
+  Vector4d qzeta = Quat::from_two_unit_vectors(e_z, zeta).elements();
   
   // If depth is NAN (default argument)
   double init_depth = depth;
@@ -399,18 +397,18 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
   A_.setZero();
   G_.setZero();
   
-  Eigen::Vector3d vel = x.block<3, 1>((int)xVEL, 0);
-  Quaternion q_I_b(x.block<4,1>((int)xATT,0));
+  Vector3d vel = x.block<3, 1>((int)xVEL, 0);
+  Quat q_I_b(x.block<4,1>((int)xATT,0));
   
-  Eigen::Vector3d omega = u.block<3,1>((int)uG, 0) - x.block<3,1>((int)xB_G, 0);
-  Eigen::Vector3d acc = u.block<3,1>((int)uA, 0) - x.block<3,1>((int)xB_A, 0);
-  Eigen::Vector3d acc_z;
+  Vector3d omega = u.block<3,1>((int)uG, 0) - x.block<3,1>((int)xB_G, 0);
+  Vector3d acc = u.block<3,1>((int)uA, 0) - x.block<3,1>((int)xB_A, 0);
+  Vector3d acc_z;
   acc_z << 0, 0, acc(2,0);
   double mu = x((int)xMU);
   
-  Eigen::Vector3d gravity_B = q_I_b.invrot(gravity);
-  Eigen::Vector3d vel_I = q_I_b.invrot(vel);
-  Eigen::Vector3d vel_xy;
+  Vector3d gravity_B = q_I_b.invrot(gravity);
+  Vector3d vel_I = q_I_b.invrot(vel);
+  Vector3d vel_xy;
   vel_xy << vel(0), vel(1), 0.0;
   
   // Calculate State Dynamics
@@ -445,18 +443,18 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
   G_.block<3,3>((int)dxATT, (int)uG) = I_3x3;
   
   // Camera Dynamics
-  Eigen::Vector3d vel_c_i = q_b_c_.invrot(vel - omega.cross(p_b_c_));
-  Eigen::Vector3d omega_c_i = q_b_c_.invrot(omega);
+  Vector3d vel_c_i = q_b_c_.invrot(vel - omega.cross(p_b_c_));
+  Vector3d omega_c_i = q_b_c_.invrot(omega);
   
   
-  Quaternion q_zeta;
+  Quat q_zeta;
   double rho;
-  Eigen::Vector3d zeta;
-  Eigen::Matrix<double, 3, 2> T_z;
-  Eigen::Matrix3d skew_zeta;
-  Eigen::Matrix3d skew_vel_c = skew(vel_c_i);
-  Eigen::Matrix3d skew_p_b_c = skew(p_b_c_);
-  Eigen::Matrix3d R_b_c = q_b_c_.R();
+  Vector3d zeta;
+  Matrix<double, 3, 2> T_z;
+  Matrix3d skew_zeta;
+  Matrix3d skew_vel_c = skew(vel_c_i);
+  Matrix3d skew_p_b_c = skew(p_b_c_);
+  Matrix3d R_b_c = q_b_c_.R();
   int xZETA_i, xRHO_i, dxZETA_i, dxRHO_i;
   for (int i = 0; i < len_features_; i++)
   {
@@ -493,8 +491,8 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
   }
 }
 
-bool VIEKF::update(const Eigen::VectorXd& z, const measurement_type_t& meas_type,
-                   const Eigen::MatrixXd& R, const bool active, const int id, const double depth)
+bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
+                   const MatrixXd& R, const bool active, const int id, const double depth)
 {
   double start = now();
   
@@ -525,12 +523,12 @@ bool VIEKF::update(const Eigen::VectorXd& z, const measurement_type_t& meas_type
   zVector residual;
   if (meas_type == QZETA)
   {
-    residual.topRows(2) = q_feat_boxminus(Quaternion(z), Quaternion(zhat_));
+    residual.topRows(2) = q_feat_boxminus(Quat(z), Quat(zhat_));
     z_dim = 2;
   }
   else if (meas_type == ATT)
   {
-    residual.topRows(3) = Quaternion(z) - Quaternion(zhat_);
+    residual.topRows(3) = Quat(z) - Quat(zhat_);
     z_dim = 3;
   }
   else
@@ -609,20 +607,20 @@ void VIEKF::keyframe_reset()
   x_(xPOS+1, 0) = 0;
   
   // precalculate some things
-  Quaternion qm(x_.block<4,1>((int)xATT, 0));
-  Eigen::Vector3d u_rot = qm.rot(khat);
-  Eigen::Vector3d v = khat.cross(u_rot); // Axis of rotation (without rotation about khat)
+  Quat qm(x_.block<4,1>((int)xATT, 0));
+  Vector3d u_rot = qm.rot(khat);
+  Vector3d v = khat.cross(u_rot); // Axis of rotation (without rotation about khat)
   double theta = khat.transpose() * u_rot; // Angle of rotation
-  Eigen::Matrix3d sk_tv = skew(theta*v);
-  Eigen::Matrix3d sk_u = skew(khat);
-  Eigen::Matrix3d qmR = qm.R();
+  Matrix3d sk_tv = skew(theta*v);
+  Matrix3d sk_u = skew(khat);
+  Matrix3d qmR = qm.R();
   
   // Save off yaw and covariance /// TODO - do this right
   edge.transform(2,0) = qm.yaw();
   edge.cov(2,2) = P_(xATT+2, xATT+2);
   
   // reset yaw
-  x_.block<4,1>((int)(xATT), 0) = Quaternion::exp(theta * v).elements();    
+  x_.block<4,1>((int)(xATT), 0) = Quat::exp(theta * v).elements();    
   
   NAN_CHECK;
   
@@ -649,8 +647,8 @@ void VIEKF::keyframe_reset()
 void VIEKF::h_acc(const xVector& x, zVector& h, hMatrix& H, const int id) const
 {
   (void)id;
-  Eigen::Vector3d vel = x.block<3,1>((int)xVEL,0);
-  Eigen::Vector3d b_a = x.block<3,1>((int)xB_A,0);
+  Vector3d vel = x.block<3,1>((int)xVEL,0);
+  Vector3d b_a = x.block<3,1>((int)xB_A,0);
   double mu = x(xMU,0);
   
   h.topRows(2) = I_2x3 * (-mu * vel + b_a);
@@ -709,11 +707,11 @@ void VIEKF::h_qzeta(const xVector& x, zVector& h, hMatrix &H, const int id) cons
 void VIEKF::h_feat(const xVector& x, zVector& h, hMatrix& H, const int id) const
 {
   int i = global_to_local_feature_id(id);
-  Quaternion q_zeta(x.block<4,1>(xZ+i*5, 0));
-  Eigen::Vector3d zeta = q_zeta.rot(e_z);
-  Eigen::Matrix3d sk_zeta = skew(zeta);
+  Quat q_zeta(x.block<4,1>(xZ+i*5, 0));
+  Vector3d zeta = q_zeta.rot(e_z);
+  Matrix3d sk_zeta = skew(zeta);
   double ezT_zeta = e_z.transpose() * zeta;
-  Eigen::MatrixXd T_z = T_zeta(q_zeta);
+  MatrixXd T_z = T_zeta(q_zeta);
   
   h.topRows(2) = cam_F_ * zeta / ezT_zeta + cam_center_;
   
@@ -779,20 +777,20 @@ void VIEKF::fix_depth()
   }
 }
 
-void VIEKF::log_global_position(const Eigen::Vector3d pos, const Eigen::Vector4d att)
+void VIEKF::log_global_position(const Vector3d pos, const Vector4d att)
 { 
   double start = now();
   // Log Global Position Estimate
   int meas_type = 10;
-  Eigen::Vector3d pos_hat;
+  Vector3d pos_hat;
   pos_hat.topRows(2) = current_node_global_pose_.topRows(2) + x_.block<2,1>((int)xPOS, 0);
   (*log_.stream)[LOG_MEAS] << "GLOBAL_POS" << "\t" << prev_t_-start_t_ << "\t"
                            << pos.transpose() << "\t" << pos_hat.transpose() << "\n";
   
   // Log Global Attitude Estimate
   meas_type = 11;
-  Eigen::Vector4d att_hat;
-  att_hat = (quat::Quaternion(x_.block<4,1>((int)xATT,0)) * quat::Quaternion::from_axis_angle(Eigen::Vector3d(0, 0, 1.), current_node_global_pose_(2))).elements();
+  Vector4d att_hat;
+  att_hat = (quat::Quat(x_.block<4,1>((int)xATT,0)) * quat::Quat::from_axis_angle(Vector3d(0, 0, 1.), current_node_global_pose_(2))).elements();
   log_.update_count[(int)meas_type] > 10;
   (*log_.stream)[LOG_MEAS] << "GLOBAL_ATT" << "\t" << prev_t_-start_t_ << "\t"
                            << att.transpose() << "\t" << att_hat.transpose() << "\n";

@@ -43,9 +43,6 @@ void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<doub
   
   Lambda_ = dx_ones_ * lambda_.transpose() + lambda_*dx_ones_.transpose() - lambda_*lambda_.transpose();
   
-  if (log_directory.compare("~") != 0)
-    init_logger(log_directory);
-  
   len_features_ = 0;
   next_feature_id_ = 0;
   
@@ -74,6 +71,9 @@ void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<doub
   keyframe_features_.clear();
   edges_.clear();
   keyframe_reset_callback_ = nullptr;
+  
+  if (log_directory.compare("~") != 0)
+    init_logger(log_directory);
   
   K_.setZero();
   H_.setZero();
@@ -840,16 +840,17 @@ void VIEKF::init_logger(string root_filename)
   (*log_.stream)[LOG_CONF] << "x0" << x_.block<(int)xZ, 1>(0,0).transpose() << "\n";
   (*log_.stream)[LOG_CONF] << "P0: " << P_.diagonal().block<(int)xZ, 1>(0,0).transpose() << "\n";
   (*log_.stream)[LOG_CONF] << "P0_feat: " << P0_feat_.diagonal().transpose() << "\n";
-  (*log_.stream)[LOG_CONF] << "Qx: " << Qx_.diagonal().transpose() << "\n";
+  (*log_.stream)[LOG_CONF] << "Qx: " << Qx_.diagonal().block<(int)dxZ, 1>(0,0).transpose() << "\n";
+  (*log_.stream)[LOG_CONF] << "Qx_feat: " << Qx_.diagonal().block<3, 1>((int)dxZ,0).transpose() << "\n";
   (*log_.stream)[LOG_CONF] << "Qu: " << Qu_.diagonal().transpose() << "\n";
   (*log_.stream)[LOG_CONF] << "lambda: " << lambda_.block<(int)dxZ,1>(0,0).transpose() << "\n";
   (*log_.stream)[LOG_CONF] << "lambda_feat: " << lambda_.block<3,1>((int)dxZ,0).transpose() << "\n";  
   (*log_.stream)[LOG_CONF] << "partial_update: " << partial_update_ << "\n";
   (*log_.stream)[LOG_CONF] << "keyframe reset: " << keyframe_reset_ << "\n";
   (*log_.stream)[LOG_CONF] << "Using Drag Term: " << use_drag_term_ << "\n";
-  (*log_.stream)[LOG_CONF] << "keyframe overlap: " << keyframe_overlap_threshold_ << std::endl;
+  (*log_.stream)[LOG_CONF] << "keyframe overlap: " << keyframe_overlap_threshold_ << "\n";
   (*log_.stream)[LOG_CONF] << "num features: " << NUM_FEATURES << "\n";
-  (*log_.stream)[LOG_CONF] << "min_depth: " << min_depth_ << "\n";
+  (*log_.stream)[LOG_CONF] << "min_depth: " << min_depth_ << std::endl;
 }
 
 

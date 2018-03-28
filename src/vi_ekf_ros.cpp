@@ -49,6 +49,7 @@ VIEKF_ROS::VIEKF_ROS() :
   importMatrixFromParamServer(nh_private_, R_IMU_body_, "R_IMU_body");
   double depth_r, alt_r, min_depth, keyframe_overlap;
   bool partial_update, drag_term, keyframe_reset;
+  int feature_radius;
   ROS_FATAL_COND(!nh_private_.getParam("depth_R", depth_r), "you need to specify the 'depth_R' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("alt_R", alt_r), "you need to specify the 'alt_R' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("min_depth", min_depth), "you need to specify the 'min_depth' parameter");
@@ -60,6 +61,7 @@ VIEKF_ROS::VIEKF_ROS() :
   ROS_FATAL_COND(!nh_private_.getParam("drag_term", drag_term), "you need to specify the 'drag_term' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("keyframe_reset", keyframe_reset), "you need to specify the 'keyframe_reset' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("keyframe_overlap", keyframe_overlap), "you need to specify the 'keyframe_overlap' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("feature_radius", feature_radius), "you need to specify the 'feature_radius' parameter");
 
   num_features_ = (num_features_ > NUM_FEATURES) ? NUM_FEATURES : num_features_;
 
@@ -70,7 +72,7 @@ VIEKF_ROS::VIEKF_ROS() :
             drag_term, partial_update, keyframe_reset, keyframe_overlap);
   ekf_.register_keyframe_reset_callback(std::bind(&VIEKF_ROS::keyframe_reset_callback, this));
  
-  klt_tracker_.init(num_features_, false, 30);
+  klt_tracker_.init(num_features_, false, feature_radius);
   if (!feature_mask.empty())
   {
     klt_tracker_.set_feature_mask(feature_mask);

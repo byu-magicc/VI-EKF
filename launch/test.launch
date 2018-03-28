@@ -6,7 +6,7 @@
 <!--<node name="play" type="play" pkg="rosbag" args="/home/superjax/no_yaw.bag -s 18 -u 30 -d 1"/>-->
 <!-- <node name="play" type="play" pkg="rosbag" args="/home/superjax/rosbag/no_yaw_inertialsense.bag -d 1 -s 52 -u 20"> -->
 <!-- <node name="play" type="play" pkg="rosbag" args="/home/superjax/rosbag/no_yaw_inertialsense_shifted.bag -d 1 -s 52 -u 20"> -->
-<node name="play" type="play" pkg="rosbag" args="/home/superjax/rosbag/no_yaw_inertialsense_shifted2.bag -d 1 -s 8.5">
+<node name="play" type="play" pkg="rosbag" args="/home/superjax/rosbag/no_yaw_inertialsense_shifted2.bag -d 1 -s 9">
   <remap from="imu" to="imu"/>
 </node>
 

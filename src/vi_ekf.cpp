@@ -6,6 +6,9 @@
 #define NAN_CHECK if (NaNsInTheHouse()) { std::cout << "NaNs In The House at line " << __LINE__ << "!!!\n"; exit(0); }
 #define NEGATIVE_DEPTH if (NegativeDepth()) std::cout << "Negative Depth " << __LINE__ << "!!!\n"
 #define CHECK_MAT_FOR_NANS(mat) if ((K_.array() != K_.array()).any()) { std::cout << "NaN detected in " << #mat << " at line " << __LINE__ << "!!!\n" << mat << "\n"; exit(0); }
+#define CHECK_RESET if (std::abs(Quat(x_.block<4,1>((int)xATT, 0)).yaw()) > 0.0001 || \
+					    std::abs(x_(0,0)) > 0.0001 || std::abs(x_(1,0)))\
+						std::cout << "Improperly reset keyframe! x: " << x_(0,0) << " y: " << x_(1,0) << " psi: " << Quat(x_.block<4,1>((int)xATT, 0)).yaw() << "\n";
 //#else
 //#define NAN_CHECK {}
 //#define NEGATIVE_DEPTH {}
@@ -40,6 +43,9 @@ void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<doub
   
   Lambda_ = dx_ones_ * lambda_.transpose() + lambda_*dx_ones_.transpose() - lambda_*lambda_.transpose();
   
+  if (log_directory.compare("~") != 0)
+    init_logger(log_directory);
+  
   len_features_ = 0;
   next_feature_id_ = 0;
   
@@ -61,20 +67,16 @@ void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<doub
   
   min_depth_ = min_depth;
   
+  current_node_global_pose_.setZero();
+  current_node_global_pose_(eATT,0) = 1.0;
+  
   keyframe_overlap_threshold_ = keyframe_overlap;
   keyframe_features_.clear();
   edges_.clear();
   keyframe_reset_callback_ = nullptr;
-  if (keyframe_reset_)
-    keyframe_reset();
   
-  if (log_directory.compare("~") != 0)
-  {
-    init_logger(log_directory);
-  }
   K_.setZero();
   H_.setZero();
-  
 }
 
 void VIEKF::set_x0(const VectorXd& _x0)
@@ -111,7 +113,7 @@ const xVector& VIEKF::get_state() const
   return x_;
 }
 
-const Vector3d& VIEKF::get_current_node_global_pose() const
+const eVector& VIEKF::get_current_node_global_pose() const
 {
   return current_node_global_pose_;
 }
@@ -600,6 +602,7 @@ void VIEKF::keyframe_reset()
   // Save off current position into the new edge
   edge_SE2_t edge;
   edge.transform.block<2,1>(0,0) = x_.block<2,1>(xPOS,0);
+  edge.transform(2,0) = 0.0; // no altitude information in the edge
   edge.cov.block<2,2>((int)xPOS, (int)xPOS) = P_.block<2,2>((int)xPOS, (int)xPOS);
   
   // reset global xy position
@@ -614,16 +617,15 @@ void VIEKF::keyframe_reset()
   Matrix3d sk_tv = skew(theta*v);
   Matrix3d sk_u = skew(khat);
   Matrix3d qmR = qm.R();
+  Quat qp = Quat::exp(theta * v); // q+
   
-  // Save off yaw and covariance /// TODO - do this right
-  edge.transform(2,0) = qm.yaw();
+  // Save off quaternion and covariance /// TODO - do this right
+  edge.transform.block<4,1>((int)eATT,0) = (qm * qp.inverse()).elements();
   edge.cov(2,2) = P_(xATT+2, xATT+2);
   
-  // reset yaw
-  x_.block<4,1>((int)(xATT), 0) = Quat::exp(theta * v).elements();    
-  
-  NAN_CHECK;
-  
+  ////  Cool way to reset z-axis rotation
+  // reset rotation about z
+  x_.block<4,1>((int)(xATT), 0) = qp.elements();
   // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
   A_ = I_big_;
   A_((int)xPOS, (int)xPOS) = 0;
@@ -631,10 +633,32 @@ void VIEKF::keyframe_reset()
   A_.block<3,3>((int)dxATT, (int)dxATT) = (sk_u * qmR * khat)*v.transpose() + theta * (sk_u * qmR * sk_u.transpose())
       * (I_3x3 + ((1.-cos(theta))*sk_tv)/(theta*theta) + ((theta - sin(theta))*sk_tv*sk_tv)/(theta*theta*theta));
   
+  
+////// Old way to reset z-axis rotation
+//  double cp = std::cos(qm.roll());
+//  double ct = std::cos(qm.pitch());
+//  double sp = std::sin(qm.roll());
+//  double st = std::sin(qm.pitch());
+//  double tt = std::tan(qm.pitch());
+//  x_.block<4,1>((int)(xATT), 0) << ct*cp, ct*sp, st*cp, -st*sp;
+//  x_.block<4,1>((int)(xATT), 0) /= x_.block<4,1>((int)(xATT), 0).norm();
+//  // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
+//  // RMEKF paper Eq 81
+//  A_ = I_big_;
+//  A_((int)xPOS, (int)xPOS) = 0;
+//  A_((int)xPOS+1, (int)xPOS+1) = 0;
+//  A_.block<3,3>((int)dxATT, (int)dxATT) << 1, st*tt, cp*tt,
+//                                           0, cp*cp, -cp*sp,
+//                                           0, -cp*sp, sp*sp;
+  
+  NAN_CHECK;
+  
+  
+  
   P_ = A_ * P_ * A_.transpose();
   
   // Build Global Node Frame Position
-  concatenate_SE2(current_node_global_pose_, edge.transform, current_node_global_pose_);
+  concatenate_edges(current_node_global_pose_, edge.transform, current_node_global_pose_);
   
   NAN_CHECK;
   
@@ -777,23 +801,22 @@ void VIEKF::fix_depth()
   }
 }
 
-void VIEKF::log_global_position(const Vector3d pos, const Vector4d att)
+void VIEKF::log_global_position(const eVector global_transform) //Vector3d pos, const Vector4d att)
 { 
-  double start = now();
+//  WRT_DBG;
   // Log Global Position Estimate
-  int meas_type = 10;
-  Vector3d pos_hat;
-  pos_hat.topRows(2) = current_node_global_pose_.topRows(2) + x_.block<2,1>((int)xPOS, 0);
+  eVector global_pose;
+  eVector rel_pose;
+  rel_pose.block<3,1>((int)ePOS, 0) = x_.block<3,1>((int)xPOS, 0);
+  rel_pose.block<4,1>((int)eATT, 0) = x_.block<4,1>((int)xATT, 0);
+  concatenate_edges(current_node_global_pose_, rel_pose, global_pose);
   (*log_.stream)[LOG_MEAS] << "GLOBAL_POS" << "\t" << prev_t_-start_t_ << "\t"
-                           << pos.transpose() << "\t" << pos_hat.transpose() << "\n";
+                           << global_transform.topRows(3).transpose() << "\t" << global_pose.topRows(3).transpose() << "\n";
   
   // Log Global Attitude Estimate
-  meas_type = 11;
-  Vector4d att_hat;
-  att_hat = (quat::Quat(x_.block<4,1>((int)xATT,0)) * quat::Quat::from_axis_angle(Vector3d(0, 0, 1.), current_node_global_pose_(2))).elements();
-  log_.update_count[(int)meas_type] > 10;
   (*log_.stream)[LOG_MEAS] << "GLOBAL_ATT" << "\t" << prev_t_-start_t_ << "\t"
-                           << att.transpose() << "\t" << att_hat.transpose() << "\n";
+                           << global_transform.bottomRows(4).transpose() << "\t" << global_pose.bottomRows(4).transpose() << "\n";
+//  WRT_DBG;
 }
 
 void VIEKF::init_logger(string root_filename)
@@ -810,6 +833,7 @@ void VIEKF::init_logger(string root_filename)
   (*log_.stream)[LOG_PERF].open(root_filename + "perf.txt", std::ofstream::out | std::ofstream::trunc);
   (*log_.stream)[LOG_CONF].open(root_filename + "conf.txt", std::ofstream::out | std::ofstream::trunc);
   (*log_.stream)[LOG_KF].open(root_filename + "kf.txt", std::ofstream::out | std::ofstream::trunc);
+  (*log_.stream)[LOG_DEBUG].open(root_filename + "debug.txt", std::ofstream::out | std::ofstream::trunc);
   
   // Save configuration
   (*log_.stream)[LOG_CONF] << "Test Num: " << root_filename << "\n";
@@ -827,6 +851,7 @@ void VIEKF::init_logger(string root_filename)
   (*log_.stream)[LOG_CONF] << "num features: " << NUM_FEATURES << "\n";
   (*log_.stream)[LOG_CONF] << "min_depth: " << min_depth_ << "\n";
 }
+
 
 }
 

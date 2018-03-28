@@ -12,6 +12,7 @@ VIEKF_ROS::VIEKF_ROS() :
   image_sub_ = it_.subscribe("camera/color/image_raw", 10, &VIEKF_ROS::color_image_callback, this);
   depth_sub_ = it_.subscribe("camera/depth/image_rect_raw", 10, &VIEKF_ROS::depth_image_callback, this);
   output_pub_ = it_.advertise("tracked", 1);
+  cov_img_pub_ = it_.advertise("covariance", 1);
 
   std::string log_directory, feature_mask;
   std::string default_log_folder = ros::package::getPath("vi_ekf") + "/logs/" + to_string(ros::Time::now().sec) + "/";
@@ -52,6 +53,7 @@ VIEKF_ROS::VIEKF_ROS() :
   ROS_FATAL_COND(!nh_private_.getParam("alt_R", alt_r), "you need to specify the 'alt_R' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("min_depth", min_depth), "you need to specify the 'min_depth' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("imu_LPF", IMU_LPF_), "you need to specify the 'imu_LPF' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("truth_LPF", truth_LPF_), "you need to specify the 'truth_LPF' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("num_features", num_features_), "you need to specify the 'num_features' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("invert_image", invert_image_), "you need to specify the 'invert_image' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("partial_update", partial_update), "you need to specify the 'partial_update' parameter");
@@ -63,12 +65,11 @@ VIEKF_ROS::VIEKF_ROS() :
 
   P0feat(2,0) = 1.0/(16.0 * min_depth * min_depth);
 
-  ekf_mtx_.lock();
   ekf_.init(x0, P0diag, Qxdiag, lambda, Qudiag, P0feat, Qxfeat, lambdafeat,
             cam_center, focal_len, q_b_c, p_b_c, min_depth, log_directory, 
             drag_term, partial_update, keyframe_reset, keyframe_overlap);
   ekf_.register_keyframe_reset_callback(std::bind(&VIEKF_ROS::keyframe_reset_callback, this));
-  ekf_mtx_.unlock();
+ 
   klt_tracker_.init(num_features_, false, 30);
   if (!feature_mask.empty())
   {
@@ -76,7 +77,7 @@ VIEKF_ROS::VIEKF_ROS() :
   }
   
   // Initialize keyframe variables
-  kf_yaw_ = 0;
+  kf_att_ = Quat::Identity();
   kf_pos_.setZero();
 
   // Initialize the depth image to all NaNs
@@ -114,6 +115,7 @@ VIEKF_ROS::VIEKF_ROS() :
 
   // Wait for truth to initialize pose
   imu_init_ = false;
+  truth_init_ = false;
 
   odom_msg_.header.frame_id = "body";
   
@@ -185,7 +187,13 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
 void VIEKF_ROS::keyframe_reset_callback()
 {
   kf_pos_ = truth_pos_;
-  kf_yaw_ = truth_att_.yaw();  
+  Vector3d u_rot = truth_att_.rot(vi_ekf::khat);
+  Vector3d v = vi_ekf::khat.cross(u_rot); // Axis of rotation (without rotation about khat)
+  double theta = vi_ekf::khat.transpose() * u_rot; // Angle of rotation
+  Quat qp = Quat::exp(theta * v); // This is the same quaternion, but without rotation about z
+  
+  // Extract z-rotation only
+  kf_att_ = (truth_att_ * qp.inverse());  
 }
 
 void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
@@ -254,13 +262,9 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
     rectangle(img, Point(x-h_true, y-h_true), Point(x+h_true, y+h_true), Scalar(0, 255, 0));
     rectangle(img, Point(est_feat.x()-h_est, est_feat.y()-h_est), Point(est_feat.x()+h_est, est_feat.y()+h_est), Scalar(255, 0, 255));
   }
-  cv::imshow("tracked", img);
-
-  cv::Mat cov;
-  cv::eigen2cv(ekf_.get_covariance(), cov);
-  cv::imshow("covariance", cov);
   video_ << img;
-  waitKey(1);
+  sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img).toImageMsg();
+  output_pub_.publish(img_msg);
 }
 
 void VIEKF_ROS::depth_image_callback(const sensor_msgs::ImageConstPtr &msg)
@@ -293,33 +297,38 @@ void VIEKF_ROS::truth_callback(const geometry_msgs::PoseStampedConstPtr &msg)
   
   if (!truth_init_)
   {
+    ekf_mtx_.lock();
+    ekf_.keyframe_reset();
+    ekf_mtx_.unlock();
     truth_att_ = Quat(z_att);
     truth_init_ = true;
     return;
   }
   
   Quat y_t(z_att); 
-  truth_att_ = y_t + truth_LPF_ * (truth_att_ - y_t);
+  truth_att_ = y_t + (truth_LPF_ * (truth_att_ - y_t));
 
   Matrix<double, 1, 1> z_alt;
   z_alt << msg->pose.position.y;
   
-  ekf_.log_global_position(z_pos, z_att);
+  eVector global_transform;
+  global_transform.block<3,1>(0,0) = z_pos;
+  global_transform.block<4,1>(3,0) = truth_att_.elements();
+  ekf_mtx_.lock();
+  ekf_.log_global_position(global_transform);
+  ekf_mtx_.unlock();
   
   // Convert truth measurement into current node frame
   z_pos.topRows(2) -= kf_pos_.topRows(2); // position offset
-  Quat node_quat = Quat::from_axis_angle(Eigen::Vector3d(0,0,1), kf_yaw_);
-  z_att = (Quat(z_att) * node_quat).elements();  
+  z_att = (kf_att_.inverse() * truth_att_).elements();  
 
   ekf_mtx_.lock();
   ekf_.update(z_pos, vi_ekf::VIEKF::POS, pos_R_, use_truth_);
   ekf_.update(z_alt, vi_ekf::VIEKF::ALT, alt_R_, (use_truth_) ? false : use_alt_);
-  ekf_mtx_.unlock();
-  
-
-  ekf_mtx_.lock();
   if (!use_imu_att_)
+  {
     ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, use_truth_);
+  }
   ekf_mtx_.unlock();
 }
 
@@ -328,12 +337,19 @@ int main(int argc, char* argv[])
 {
   ros::init(argc, argv, "vi_ekf_node");
   VIEKF_ROS ekf;
-
-  ros::spin();
-  //  ros::AsyncSpinner spinner(0); // Use 4 threads
-  //  spinner.start();
-  //  ros::waitForShutdown();
-
+  
+  ros::NodeHandle nh("~");
+  int num_threads = nh.param<int>("num_threads", 0);
+  if (num_threads == 1)
+  {
+    ros::spin();
+  }
+  else
+  {
+    ros::AsyncSpinner spinner(num_threads);
+    spinner.start();
+    ros::waitForShutdown();
+  }
   return 0;
 }
 

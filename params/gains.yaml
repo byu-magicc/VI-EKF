@@ -60,6 +60,7 @@ vel_R: [0.1, 0.1, 0.1],
 alt_R: 0.5,
 
 imu_LPF: 0.5,
+truth_LPF: 0.75,
 
 drag_term: true,
 
@@ -73,11 +74,13 @@ use_alt: true,
 invert_image: true,
 drag_term: true,
 partial_update: true,
-keyframe_reset: true,
+keyframe_reset: false,
 
 min_depth: 1.5,
 keyframe_overlap: 0.75,
-num_features: 30,
+num_features: 35,
+
+num_threads: 2,
 
 
 }

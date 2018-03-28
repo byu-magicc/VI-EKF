@@ -8,6 +8,13 @@ from tqdm import tqdm
 import scipy.signal
 from pyquat import Quaternion
 
+# Shift truth timestamp
+# offset = -0.35
+offset = 0.35
+
+plot_cov = True
+pose_cov = True
+
 log_dir = os.path.dirname(os.path.realpath(__file__)) + "/../logs/"
 log_folders =  [int(name) for name in os.listdir(log_dir) if os.path.isdir(log_dir + name)]
 
@@ -17,15 +24,8 @@ prop_file = open(log_dir + str(latest_folder) + "/prop.txt")
 perf_file = open(log_dir + str(latest_folder) + "/perf.txt")
 meas_file = open(log_dir + str(latest_folder) + "/meas.txt")
 conf_file = open(log_dir + str(latest_folder) + "/conf.txt")
-
-conf = dict()
-# for line in conf_file:
-#     key = line.split(":")[0]
-#     item = line.split(":")[1]
-#     if key == 'Test Num' or key == 'Using Drag Term':
-#         conf[key] = line.split(":")[1]
-#     else:
-#         conf[key] = np.array([[float(it) for it in item.split()]])
+fig_dir = log_dir + str(latest_folder) + "/plots"
+os.system("mkdir " + fig_dir)
 
 h = History()
 len_prop_file = 0
@@ -50,9 +50,10 @@ for line in meas_file:
     meas_type = line.split()[0]
     try:
         line_arr = np.array([float(item) for item in line.split()[2:]])
+        t = float(line.split()[1])
     except:
         pass
-    t = float(line.split()[1])
+
 
     if meas_type == 'ACC':
         if len(line_arr) < 5: continue
@@ -90,10 +91,6 @@ for line in meas_file:
 
 h.tonumpy()
 
-# Smooth the attitude
-b_att, a_att = scipy.signal.butter(3, 0.08)  # Create a Butterworth Filter
-global_att_filt = scipy.signal.filtfilt(b_att, a_att, h.global_att, axis=0)
-
 # Calculate body-fixed velocity by differentiating position and rotating
 # into the body frame
 delta_t = np.diff(h.t.global_pos)
@@ -103,40 +100,32 @@ v_t = h.t.global_pos[np.hstack((good_ids, False))]
 delta_x = np.diff(h.global_pos, axis=0)
 delta_x = delta_x[good_ids]
 unfiltered_inertial_velocity = np.vstack(delta_x / delta_t[:, None]) # Differentiate Truth
-b_vel, a_vel = scipy.signal.butter(3, 0.08) # Smooth Differentiated Truth
+b_vel, a_vel = scipy.signal.butter(3, 0.50) # Smooth Differentiated Truth
 v_inertial = scipy.signal.filtfilt(b_vel, a_vel, unfiltered_inertial_velocity, axis=0)
 
 # Rotate into Body Frame
 vel_data = []
 try:
-    att = global_att_filt[np.hstack((good_ids))]
+    att = h.global_att[np.hstack((good_ids))]
 except:
-    att = global_att_filt[np.hstack((good_ids, False))]
+    att = h.global_att[np.hstack((good_ids, False))]
 for i in range(len(v_t)):
     q_I_b = Quaternion(att[i, :, None])
     vel_data.append(q_I_b.rot(v_inertial[i, None].T).T)
 
 vel_data = np.array(vel_data).squeeze()
 
-# Shift truth timestamp
-# offset = -0.35
-offset = 0.0
 
+# Create Plots
 start = h.t.xhat[0]
-# end = h.t.xhat[-1]
-end = 20
-fig_dir = os.path.dirname(os.path.realpath(__file__)) + "/../plots"
-
+end = h.t.xhat[-1]
 init_plots(start, end, fig_dir)
-
-plot_cov = True
-pose_cov = True
 
 plot_side_by_side(r'$p_{b/n}^n$', 0, 3, h.t.xhat, h.xhat, cov=h.cov if pose_cov else None, truth_t=h.t.pos, truth=h.pos, labels=['p_x', 'p_y', 'p_z'], start_t=start, end_t=end, truth_offset=offset)
 plot_side_by_side(r'$p_{b/I}^I$', 0, 3, h.t.global_pos_hat, h.global_pos_hat, cov=h.cov if pose_cov else None, truth_t=h.t.global_pos, truth=h.global_pos, labels=['p_x', 'p_y', 'p_z'], start_t=start, end_t=end, truth_offset=offset)
 plot_side_by_side(r'$v_{b/I}^b$', 3, 6, h.t.xhat, h.xhat, cov=h.cov if plot_cov else None, truth_t=v_t, truth=vel_data, labels=['v_x', 'v_y', 'v_z'], start_t=start, end_t=end, truth_offset=offset)
 plot_side_by_side(r'$q_n^b$', 6, 10, h.t.xhat, h.xhat, cov=None, truth_t=h.t.att, truth=h.att, labels=['q_w','q_x', 'q_y', 'q_z'], start_t=start, end_t=end, truth_offset=offset)
-plot_side_by_side(r'$q_I^b$', 0, 4, h.t.global_att_hat, h.global_att_hat, cov=None, truth_t=h.t.global_att, truth=global_att_filt, labels=['q_w','q_x', 'q_y', 'q_z'], start_t=start, end_t=end, truth_offset=offset)
+plot_side_by_side(r'$q_I^b$', 0, 4, h.t.global_att_hat, h.global_att_hat, cov=None, truth_t=h.t.global_att, truth=h.global_att, labels=['q_w','q_x', 'q_y', 'q_z'], start_t=start, end_t=end, truth_offset=offset)
 # Convert relative attitude to euler angles
 true_euler, est_euler = np.zeros((len(h.att),3)), np.zeros((len(h.xhat),3))
 for i, true_quat in enumerate(h.att): true_euler[i,:,None] = Quaternion(true_quat[:,None]).euler
@@ -144,7 +133,7 @@ for i, est_quat in enumerate(h.xhat[:,6:10]): est_euler[i,:,None] = (Quaternion(
 plot_side_by_side('relative_euler', 0, 3, h.t.xhat, est_euler, truth_t=h.t.att, truth=true_euler, start_t=start, end_t=end, labels=[r'\phi', r'\theta', r'\psi'], truth_offset=offset)
 # Convert global attitude to euler angles
 true_euler, est_euler = np.zeros((len(h.global_att),3)), np.zeros((len(h.global_att_hat),3))
-for i, true_quat in enumerate(global_att_filt): true_euler[i,:,None] = Quaternion(true_quat[:,None]).euler
+for i, true_quat in enumerate(h.global_att): true_euler[i,:,None] = Quaternion(true_quat[:,None]).euler
 for i, est_quat in enumerate(h.global_att_hat): est_euler[i,:,None] = (Quaternion(est_quat[:,None]).euler)
 plot_side_by_side('global_euler', 0, 3, h.t.global_att_hat, est_euler, truth_t=h.t.global_att, truth=true_euler, start_t=start, end_t=end, labels=[r'\phi', r'\theta', r'\psi'], truth_offset=offset)
 plot_side_by_side('$y_{a}$', 0, 2, h.t.acc, h.acc, labels=[r'y_{a,x}', r'y_{a,y}'], start_t=start, end_t=end, truth_offset=offset)

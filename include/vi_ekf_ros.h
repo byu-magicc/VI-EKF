@@ -46,6 +46,7 @@ private:
   ros::NodeHandle nh_private_;
   image_transport::ImageTransport it_;
   image_transport::Publisher output_pub_;
+  image_transport::Publisher cov_img_pub_;
   image_transport::Subscriber image_sub_;
   image_transport::Subscriber depth_sub_;
   ros::Subscriber imu_sub_;
@@ -75,7 +76,7 @@ private:
 
   Vector6d imu_;
   Vector3d kf_pos_;
-  double kf_yaw_;
+  Quat kf_att_;
   Vector3d truth_pos_;
   Quat truth_att_;
   
@@ -91,6 +92,7 @@ private:
   
   cv::VideoWriter video_;
 };
+
 
 
 

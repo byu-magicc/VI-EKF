@@ -157,7 +157,7 @@ class Quaternion():
 
         norm_delta = norm(delta)
 
-        if norm_delta > 1e-4:
+        if norm_delta > 1e-6:
             q_exp = np.vstack((np.array([[np.cos(norm_delta/2.0)]]), np.sin(norm_delta/2.0)*delta/norm_delta))
         else:
             q_exp = np.vstack((np.array([[1.0]]), delta/2.0))
@@ -222,6 +222,7 @@ class Quaternion():
     @property
     def yaw(self):
         return np.arctan2(2.0 * (self.w * self.z + self.x * self.y), 1.0 - 2.0 * (self.y * self.y + self.z * self.z))
+        # return 2*np.arccos(self.z)
 
     @property
     def inverse(self):

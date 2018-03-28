@@ -108,14 +108,23 @@ void concatenate_SE2(Eigen::Vector3d& T1, Eigen::Vector3d& T2, Eigen::Vector3d& 
 {
   double cs = std::cos(T1(2,0));
   double ss = std::sin(T1(2,0));
-  Tout(0) = T1(0) + T2(0) * cs - T2(1) * ss;
-  Tout(1) = T1(1) + T2(0) * ss + T2(1) * cs;
+  Tout(0) = T1(0) + T2(0) * cs + T2(1) * ss;
+  Tout(1) = T1(1) - T2(0) * ss + T2(1) * cs;
   double psi= T1(2) + T2(2);
   if (psi > M_PI)
       psi -= 2.*M_PI;
   else if (psi < -M_PI)
       psi += 2.*M_PI;
   Tout(2) = psi;
+}
+
+void concatenate_edges(const Eigen::Matrix<double,7,1>& T1, const Eigen::Matrix<double,7,1>& T2, Eigen::Matrix<double,7,1>& Tout)
+{
+  quat::Quat q1(T1.block<4,1>(3,0));
+  quat::Quat q2(T2.block<4,1>(3,0));
+
+  Tout.block<3,1>(0,0) = T1.block<3,1>(0,0) + q1.R()*T2.block<3,1>(0,0);
+  Tout.block<4,1>(3,0) = (q1 * q2).elements();
 }
 
 

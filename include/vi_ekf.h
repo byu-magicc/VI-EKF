@@ -20,7 +20,7 @@ using namespace Eigen;
 
 #ifndef NUM_FEATURES
 #ifndef NDEBUG
-#define NUM_FEATURES 3
+#define NUM_FEATURES 5
 #else
 #define NUM_FEATURES 35
 #endif
@@ -36,6 +36,7 @@ typedef Matrix<double, MAX_X, MAX_X> xMatrix;
 typedef Matrix<double, MAX_DX, MAX_DX> dxMatrix;
 typedef Matrix<double, MAX_DX, 6> dxuMatrix;
 typedef Matrix<double, 6, 1> uVector;
+typedef Matrix<double, 7, 1> eVector;
 typedef Matrix<double, 4, 1> zVector;
 typedef Matrix<double, 3, MAX_DX> hMatrix;
 
@@ -70,6 +71,11 @@ public:
     xB_G = 13,
     xMU = 16,
     xZ = 17
+  };
+  
+  enum : int{
+    ePOS = 0,
+    eATT = 3
   };
 
   enum : int{
@@ -108,6 +114,7 @@ private:
     LOG_PERF,
     LOG_CONF,
     LOG_KF,
+    LOG_DEBUG,
   } log_type_t;
 
   // State and Covariance and Process Noise Matrices
@@ -133,7 +140,7 @@ private:
   double keyframe_overlap_threshold_;
   
   typedef struct{
-    Vector3d transform;
+    eVector transform;
     Matrix3d cov;    
   } edge_SE2_t;
   std::deque<edge_SE2_t> edges_;
@@ -162,7 +169,7 @@ private:
   Quat q_b_c_;
   Vector3d p_b_c_;
   
-  Vector3d current_node_global_pose_;
+  eVector current_node_global_pose_;
   
   std::function<void(void)> keyframe_reset_callback_;
 
@@ -238,13 +245,15 @@ public:
          return -1;
     }
   }
+  
+  void handle_debug(int line_number);
 
   VectorXd get_depths() const;
   MatrixXd get_zetas() const;
   MatrixXd get_qzetas() const;
   VectorXd get_zeta(const int i) const;
   Vector2d get_feat(const int id) const;
-  const Vector3d& get_current_node_global_pose() const;
+  const eVector &get_current_node_global_pose() const;
   const xVector& get_state() const;
   const MatrixXd get_covariance() const;
   double get_depth(const int id) const;
@@ -282,7 +291,7 @@ public:
   void keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N);
   void keyframe_reset();
   void register_keyframe_reset_callback(std::function<void(void)> cb);
-  void log_global_position(const Vector3d pos, const Vector4d att);
+  void log_global_position(const eVector relative_transform);
 
   // Inequality Constraint on Depth
   void fix_depth();
@@ -319,6 +328,7 @@ static std::map<VIEKF::measurement_type_t, measurement_function_ptr> measurement
 }();
 
 }
+
 
 
 

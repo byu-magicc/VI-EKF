@@ -6,10 +6,14 @@
 <!--<node name="play" type="play" pkg="rosbag" args="/home/superjax/no_yaw.bag -s 18 -u 30 -d 1"/>-->
 <!-- <node name="play" type="play" pkg="rosbag" args="/home/superjax/rosbag/no_yaw_inertialsense.bag -d 1 -s 52 -u 20"> -->
 <!-- <node name="play" type="play" pkg="rosbag" args="/home/superjax/rosbag/no_yaw_inertialsense_shifted.bag -d 1 -s 52 -u 20"> -->
-<node name="play" type="play" pkg="rosbag" args="/home/superjax/rosbag/no_yaw_inertialsense_shifted2.bag -d 1 -s 9">
+<node name="play" type="play" pkg="rosbag" args="/home/superjax/rosbag/no_yaw_inertialsense_shifted2.bag -d 1 -s 8.5">
   <remap from="imu" to="imu"/>
 </node>
 
 <node name="vi_ekf_node" type="vi_ekf_node" pkg="vi_ekf" output="screen"/>
+
+<node name="tracked_veiw" type="image_view" pkg="image_view">
+	<remap from="image" to="tracked"/>
+</node>
 
 </launch>

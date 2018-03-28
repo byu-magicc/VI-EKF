@@ -8,6 +8,7 @@
 
 using namespace quat;
 using namespace vi_ekf;
+using namespace Eigen;
 
 #define NUM_ITERS 10
 
@@ -65,9 +66,9 @@ static std::map<std::string, std::vector<int>> indexes = [] {
 }();
 
 
-bool check_block(std::string row_id, std::string col_id, Eigen::MatrixXd analytical, Eigen::MatrixXd fd, double tolerance=1e-3)
+bool check_block(std::string row_id, std::string col_id, MatrixXd analytical, MatrixXd fd, double tolerance=1e-3)
 {
-  Eigen::MatrixXd error_mat = analytical - fd;
+  MatrixXd error_mat = analytical - fd;
   std::vector<int> row = indexes[row_id];
   std::vector<int> col = indexes[col_id];
   if ((error_mat.block(row[0], col[0], row[1], col[1]).array().abs() > tolerance).any())
@@ -81,9 +82,9 @@ bool check_block(std::string row_id, std::string col_id, Eigen::MatrixXd analyti
   return false;
 }
 
-int check_all(Eigen::MatrixXd analytical, Eigen::MatrixXd fd, std::string name, double tol = 1e-3)
+int check_all(MatrixXd analytical, MatrixXd fd, std::string name, double tol = 1e-3)
 {
-  Eigen::MatrixXd error_mat = analytical - fd;
+  MatrixXd error_mat = analytical - fd;
   if ((error_mat.array().abs() > tol).any())
   {
     std::cout << FONT_FAIL << "Error in total " << BOLD << name << ENDC << FONT_FAIL << " matrix" << ENDC << "\n";
@@ -108,38 +109,38 @@ VIEKF init_jacobians_test(xVector& x0, uVector& u0)
   x0.setZero();
   x0(VIEKF::xATT) = 1.0;
   x0(VIEKF::xMU) = 0.2;
-  x0.block<3,1>((int)VIEKF::xPOS, 0) += Eigen::Vector3d::Random() * 100.0;
-  x0.block<3,1>((int)VIEKF::xVEL, 0) += Eigen::Vector3d::Random() * 10.0;
-  x0.block<4,1>((int)VIEKF::xATT, 0) = (Quat(x0.block<4,1>((int)VIEKF::xATT, 0)) + Eigen::Vector3d::Random() * 0.5).elements();
-  x0.block<3,1>((int)VIEKF::xB_A, 0) += Eigen::Vector3d::Random() * 1.0;
-  x0.block<3,1>((int)VIEKF::xB_G, 0) += Eigen::Vector3d::Random() * 0.5;
+  x0.block<3,1>((int)VIEKF::xPOS, 0) += Vector3d::Random() * 100.0;
+  x0.block<3,1>((int)VIEKF::xVEL, 0) += Vector3d::Random() * 10.0;
+  x0.block<4,1>((int)VIEKF::xATT, 0) = (Quat(x0.block<4,1>((int)VIEKF::xATT, 0)) + Vector3d::Random() * 0.5).elements();
+  x0.block<3,1>((int)VIEKF::xB_A, 0) += Vector3d::Random() * 1.0;
+  x0.block<3,1>((int)VIEKF::xB_G, 0) += Vector3d::Random() * 0.5;
   x0((int)VIEKF::xMU, 0) += (static_cast <double> (rand()) / (static_cast <double> (RAND_MAX)))*0.05;
   
   // Create VIEKF
   VIEKF ekf;
-  Eigen::Matrix<double, vi_ekf::VIEKF::dxZ, 1> P0, Qx, gamma;
+  Matrix<double, vi_ekf::VIEKF::dxZ, 1> P0, Qx, gamma;
   P0.setOnes();
   Qx.setOnes();
   gamma.setOnes();
   uVector Qu;
   Qu.setOnes();
-  Eigen::Vector3d P0feat, Qxfeat, gammafeat;
+  Vector3d P0feat, Qxfeat, gammafeat;
   P0feat.setOnes();
   Qxfeat.setOnes();
   gammafeat.setOnes();
-  Eigen::Vector2d cam_center = Eigen::Vector2d::Random();
+  Vector2d cam_center = Vector2d::Random();
   cam_center << 320-25+std::rand()%50, 240-25+std::rand()%50;
-  Eigen::Vector2d focal_len;
+  Vector2d focal_len;
   focal_len << static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/100.0)),
       static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/100.0));
-  Eigen::Vector4d q_b_c = Quat::Random().elements();
-  Eigen::Vector3d p_b_c = Eigen::Vector3d::Random() * 0.5;
+  Vector4d q_b_c = Quat::Random().elements();
+  Vector3d p_b_c = Vector3d::Random() * 0.5;
   ekf.init(x0.block<17, 1>(0,0), P0, Qx, gamma, Qu, P0feat, Qxfeat, gammafeat, cam_center, focal_len, q_b_c, p_b_c, 2.0, "~", true, true, true, 0.0);
   
   // Initialize Random Features
   for (int i = 0; i < NUM_FEATURES; i++)
   {
-    Eigen::Vector2d l;
+    Vector2d l;
     l << std::rand()%640, std::rand()%480;
     double depth = static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/10.0));
     ekf.init_feature(l, i, depth);
@@ -149,8 +150,8 @@ VIEKF init_jacobians_test(xVector& x0, uVector& u0)
   
   // Initialize Inputs
   u0.setZero();
-  u0.block<3,1>((int)VIEKF::uA, 0) += Eigen::Vector3d::Random() * 1.0;
-  u0.block<3,1>((int)VIEKF::uG, 0) += Eigen::Vector3d::Random() * 1.0;
+  u0.block<3,1>((int)VIEKF::uA, 0) += Vector3d::Random() * 1.0;
+  u0.block<3,1>((int)VIEKF::uG, 0) += Vector3d::Random() * 1.0;
   
   return ekf;
 }
@@ -175,7 +176,7 @@ int htest(measurement_function_ptr fn, VIEKF& ekf, const VIEKF::measurement_type
   hMatrix d_dhdx;
   d_dhdx.setZero(); 
   
-  Eigen::Matrix<double, MAX_DX, MAX_DX> I = Eigen::Matrix<double, MAX_DX, MAX_DX>::Identity();
+  Matrix<double, MAX_DX, MAX_DX> I = Matrix<double, MAX_DX, MAX_DX>::Identity();
   double epsilon = 1e-6;
   
   zVector z_prime;
@@ -195,14 +196,14 @@ int htest(measurement_function_ptr fn, VIEKF& ekf, const VIEKF::measurement_type
       d_dhdx.block(0, i, dim, 1) = (z_prime.topRows(dim) - z0.topRows(dim))/epsilon;
   }
   
-  Eigen::MatrixXd error = (a_dhdx - d_dhdx).topRows(dim);
+  MatrixXd error = (a_dhdx - d_dhdx).topRows(dim);
   double err_threshold = std::max(tol * a_dhdx.norm(), tol);
   
   for (std::map<std::string, std::vector<int>>::iterator it=indexes.begin(); it!=indexes.end(); ++it)
   {
     if(it->second[0] + it->second[1] > error.cols())
       continue;
-    Eigen::MatrixXd block_error = error.block(0, it->second[0], error.rows(), it->second[1]);    
+    MatrixXd block_error = error.block(0, it->second[0], error.rows(), it->second[1]);    
     if ((block_error.array().abs() > err_threshold).any())
     {
       num_errors += 1;
@@ -217,7 +218,7 @@ int htest(measurement_function_ptr fn, VIEKF& ekf, const VIEKF::measurement_type
 TEST(Quat, rotation_direction)
 {
   // Compare against a known active and passive rotation
-  Eigen::Vector3d v, beta, v_active_rotated, v_passive_rotated;
+  Vector3d v, beta, v_active_rotated, v_passive_rotated;
   v << 0, 0, 1;
   v_active_rotated << 0, std::pow(-0.5,0.5), std::pow(0.5,0.5);
   beta << 1, 0, 0;
@@ -231,7 +232,7 @@ TEST(Quat, rotation_direction)
 
 TEST(Quat, rot_invrot_R)
 {
-  Eigen::Vector3d v;
+  Vector3d v;
   Quat q1 = Quat::Random();
   for (int i = 0; i < NUM_ITERS; i++)
   {
@@ -246,7 +247,7 @@ TEST(Quat, rot_invrot_R)
 
 TEST(Quat, from_two_unit_vectors)
 {
-  Eigen::Vector3d v1, v2;
+  Vector3d v1, v2;
   for (int i = 0; i < NUM_ITERS; i++)
   {
     v1.setRandom();
@@ -262,10 +263,10 @@ TEST(Quat, from_two_unit_vectors)
 TEST(Quat, from_R)
 {
   Quat q1 = Quat::Random();
-  Eigen::Vector3d v;
+  Vector3d v;
   for (int i = 0; i < NUM_ITERS; i++)
   {
-    Eigen::Matrix3d R = q1.R();
+    Matrix3d R = q1.R();
     Quat qR = Quat::from_R(R);
     v.setRandom();
     EXPECT_VECTOR3_EQUALS(qR.rot(v), R.T.dot(v));
@@ -284,9 +285,9 @@ TEST(Quat, exp_log_axis_angle)
   // Check that qexp is right by comparing with matrix exp and axis-angle
   for (int i = 0; i < NUM_ITERS; i++)
   {
-    Eigen::Vector3d omega;
+    Vector3d omega;
     omega.setRandom();
-    Eigen::Matrix3d R_omega_exp = Quat::skew(omega).exp();
+    Matrix3d R_omega_exp = Quat::skew(omega).exp();
     Quat q_R_omega_exp = Quat::from_R(R_omega_exp);
     Quat q_omega = Quat::from_axis_angle(omega/omega.norm(), omega.norm());
     Quat q_omega_exp = Quat::exp(omega);
@@ -302,7 +303,7 @@ TEST(Quat, exp_log_axis_angle)
 
 TEST(Quat, boxplus_and_boxminus)
 {
-  Eigen::Vector3d delta1, delta2, zeros;
+  Vector3d delta1, delta2, zeros;
   zeros.setZero();
   for (int i = 0; i < NUM_ITERS; i++)
   {
@@ -320,7 +321,7 @@ TEST(Quat, boxplus_and_boxminus)
 
 TEST(Quat, inplace_add_and_mul)
 {
-  Eigen::Vector3d delta1, delta2, zeros;
+  Vector3d delta1, delta2, zeros;
   zeros.setZero();
   for (int i = 0; i < NUM_ITERS; i++)
   {
@@ -355,13 +356,13 @@ TEST(Quat, euler)
 
 TEST(math_helper, T_zeta)
 {
-  Eigen::Vector3d v2;
+  Vector3d v2;
   for (int i = 0; i < NUM_ITERS; i++)
   {
     v2.setRandom();
     v2 /= v2.norm();
     Quat q2 = Quat::from_two_unit_vectors(e_z, v2);
-    Eigen::Vector2d T_z_v2 = T_zeta(q2).transpose() * v2;
+    Vector2d T_z_v2 = T_zeta(q2).transpose() * v2;
     EXPECT_LE(T_z_v2.norm(), 1e-8);
   }
 }
@@ -370,23 +371,23 @@ TEST(math_helper, d_dTdq)
 {
   for (int j = 0; j < NUM_ITERS; j++)
   {
-    Eigen::Matrix2d d_dTdq;
+    Matrix2d d_dTdq;
     d_dTdq.setZero();
-    Eigen::Vector3d v2;
+    Vector3d v2;
     v2.setRandom();
     Quat q = Quat::Random();
     q.setZ(0);
     q.normalize();
     auto T_z = T_zeta(q);
-    Eigen::Vector2d x0 = T_z.transpose() * v2;
+    Vector2d x0 = T_z.transpose() * v2;
     double epsilon = 1e-6;
-    Eigen::Matrix2d I = Eigen::Matrix2d::Identity() * epsilon;
-    Eigen::Matrix2d a_dTdq = -T_z.transpose() * skew(v2) * T_z;
+    Matrix2d I = Matrix2d::Identity() * epsilon;
+    Matrix2d a_dTdq = -T_z.transpose() * skew(v2) * T_z;
     for (int i = 0; i < 2; i++)
     {
       quat::Quat qplus = q_feat_boxplus(q, I.col(i));
-      Eigen::Vector2d xprime = T_zeta(qplus).transpose() * v2;
-      Eigen::Vector2d dx = xprime - x0;
+      Vector2d xprime = T_zeta(qplus).transpose() * v2;
+      Vector2d dx = xprime - x0;
       d_dTdq.row(i) = (dx) / epsilon;
     }
     EXPECT_MATRIX_EQUAL(d_dTdq, a_dTdq, 1e-6);
@@ -397,27 +398,27 @@ TEST(math_helper, dqzeta_dqzeta)
 {
   for(int j = 0; j < NUM_ITERS; j++)
   {
-    Eigen::Matrix2d d_dqdq;
+    Matrix2d d_dqdq;
     quat::Quat q = quat::Quat::Random();
     if (j == 0)
       q = quat::Quat::Identity();
     double epsilon = 1e-6;
-    Eigen::Matrix2d I = Eigen::Matrix2d::Identity() * epsilon;
+    Matrix2d I = Matrix2d::Identity() * epsilon;
     for (int i = 0; i < 2; i++)
     {
       quat::Quat q_prime = q_feat_boxplus(q, I.col(i));
-      Eigen::Vector2d dq  = q_feat_boxminus(q_prime, q);
+      Vector2d dq  = q_feat_boxminus(q_prime, q);
       d_dqdq.row(i) = dq /epsilon;
     }
-    Eigen::Matrix2d a_dqdq = T_zeta(q).transpose() * T_zeta(q);
+    Matrix2d a_dqdq = T_zeta(q).transpose() * T_zeta(q);
     EXPECT_MATRIX_EQUAL(a_dqdq, d_dqdq, 1e-2);
   }
 }
 
 TEST(math_helper, manifold_operations)
 {
-  Eigen::Vector3d omega, omega2;
-  Eigen::Vector2d dx, zeros;
+  Vector3d omega, omega2;
+  Vector2d dx, zeros;
   zeros.setZero();
   for (int i = 0; i < NUM_ITERS; i++)
   {
@@ -503,7 +504,7 @@ TEST(VI_EKF, dfdu_test)
   dxMatrix dfdx_dummy;
   dxuMatrix dfdu_dummy;
   dxuMatrix d_dfdu;
-  Eigen::Matrix<double, 6, 6> Iu = Eigen::Matrix<double, 6, 6>::Identity();
+  Matrix<double, 6, 6> Iu = Matrix<double, 6, 6>::Identity();
   dxVector dx0;
   dxMatrix a_dfdx;
   dxuMatrix a_dfdu;

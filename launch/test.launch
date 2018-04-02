@@ -7,8 +7,16 @@
 <!-- <node name="play" type="play" pkg="rosbag" args="/home/superjax/rosbag/no_yaw_inertialsense.bag -d 1 -s 52 -u 20"> -->
 <!-- <node name="play" type="play" pkg="rosbag" args="/home/superjax/rosbag/no_yaw_inertialsense_shifted.bag -d 1 -s 52 -u 20"> -->
 <node name="play" type="play" pkg="rosbag" args="/home/superjax/rosbag/no_yaw_inertialsense_shifted2.bag -d 1 -s 9">
-  <remap from="imu" to="imu"/>
+  <remap from="camera/color/image_raw" to="color"/>
+  <remap from="camera/depth/image_rect_raw" to="depth"/>
+  <remap from="vrpn/Leo/pose" to="truth/pose"/>
 </node>
+
+<!-- <node name="play" type="play" pkg="rosbag" args="/home/superjax/rosbag/EuRoC/V2_01_easy_restamp.bag">
+  <remap from="vicon/firefly_sbx/firefly_sbx" to="truth"/>
+  <remap from="imu0" to="imu"/>
+  <remap from="cam0/image_raw" to="color"/>
+</node> -->
 
 <node name="vi_ekf_node" type="vi_ekf_node" pkg="vi_ekf" output="screen"/>
 

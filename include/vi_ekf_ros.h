@@ -12,6 +12,7 @@
 #include <sensor_msgs/Range.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/TransformStamped.h>
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/image_transport.h>
 #include <opencv/cv.hpp>
@@ -33,7 +34,9 @@ public:
   ~VIEKF_ROS();
   void color_image_callback(const sensor_msgs::ImageConstPtr &msg);
   void depth_image_callback(const sensor_msgs::ImageConstPtr& msg);
-  void truth_callback(const geometry_msgs::PoseStampedConstPtr &msg);
+  void pose_truth_callback(const geometry_msgs::PoseStampedConstPtr &msg);
+  void transform_truth_callback(const geometry_msgs::TransformStampedConstPtr &msg);
+  void truth_callback(Vector3d z_pos, Vector4d z_att);
   void imu_callback(const sensor_msgs::ImuConstPtr& msg);
   void keyframe_reset_callback();
   
@@ -50,7 +53,8 @@ private:
   image_transport::Subscriber image_sub_;
   image_transport::Subscriber depth_sub_;
   ros::Subscriber imu_sub_;
-  ros::Subscriber truth_sub_;
+  ros::Subscriber pose_sub_;
+  ros::Subscriber transform_sub_;
   ros::Publisher odometry_pub_;
   nav_msgs::Odometry odom_msg_;
 
@@ -81,6 +85,7 @@ private:
   Quat truth_att_;
   
   Matrix3d R_IMU_body_;
+  Matrix3d R_truth_I_;
 
   Matrix2d feat_R_;
   Matrix2d acc_R_;

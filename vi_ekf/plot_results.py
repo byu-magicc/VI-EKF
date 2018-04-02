@@ -10,10 +10,10 @@ from pyquat import Quaternion
 
 # Shift truth timestamp
 # offset = -0.35
-offset = 0.35
+offset = 0.0
 
-plot_cov = True
-pose_cov = True
+plot_cov = False
+pose_cov = False
 
 log_dir = os.path.dirname(os.path.realpath(__file__)) + "/../logs/"
 log_folders =  [int(name) for name in os.listdir(log_dir) if os.path.isdir(log_dir + name)]

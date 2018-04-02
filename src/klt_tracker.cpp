@@ -80,33 +80,27 @@ void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, 
     calcOpticalFlowPyrLK(prev_image_, grey_img, prev_features_, new_features_, status, err);
     
     // Keep only good points
-    int offscreen_points_removed = 0;
-    int tooclose_points_removed = 0;
+    deque<int> good_ids;
     for (int i = prev_features_.size()-1; i >= 0; i--)
     {
       // If we found a match and the match is in the image
       double new_x = new_features_[i].x;
       double new_y = new_features_[i].y;
-//      std::printf("%d\t", mask_.at<uint8_t>(new_x, new_y));
-//      cv::imshow("mask", mask_);1
       if (status[i] == 0 || new_x <= 1.0 || new_y <= 1.0 || new_x >= img.cols-1.0 || new_y >= img.rows-1.0 || mask_.at<uint8_t>(cv::Point(round(new_x), round(new_y))) != 255)
       {
-        offscreen_points_removed++;
         new_features_.erase(new_features_.begin() + i);
         ids_.erase(ids_.begin() + i);
         continue;
       }
       
       // Make sure that it's not too close to other points
-      deque<int> good_ids;
       bool good_point = true;
       for (auto it = good_ids.begin(); it != good_ids.end(); it++)
       {
         double dx = new_features_[*it].x - new_x;
         double dy = new_features_[*it].y - new_y;
-        if (std::pow(dx*dx + dy*dy, 0.5) < feature_nearby_radius_)
+        if (std::sqrt(dx*dx + dy*dy) < feature_nearby_radius_)
         {
-          tooclose_points_removed++;
           good_point = false;
           new_features_.erase(new_features_.begin() + i);
           ids_.erase(ids_.begin() + i);
@@ -116,7 +110,6 @@ void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, 
       if (good_point)
         good_ids.push_back(i);
     }
-//    std::cout << "offcreen " << offscreen_points_removed << " tooclose " << tooclose_points_removed << "\n";
     
     // If we are missing points, collect new ones
     if (new_features_.size() < num_features_)
@@ -139,7 +132,6 @@ void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, 
         new_features_.push_back(new_corners[i]);
         ids_.push_back(next_feature_id_++);
       }
-//      cv::imshow("mask", point_mask);
     }
   }
   

@@ -6,11 +6,12 @@ VIEKF_ROS::VIEKF_ROS() :
   it_(nh_)
 {
   imu_sub_ = nh_.subscribe("imu", 500, &VIEKF_ROS::imu_callback, this);
-  truth_sub_ = nh_.subscribe("vrpn/Leo/pose", 10, &VIEKF_ROS::truth_callback, this);
+  pose_sub_ = nh_.subscribe("truth/pose", 10, &VIEKF_ROS::pose_truth_callback, this);
+  transform_sub_ = nh_.subscribe("truth/transform", 10, &VIEKF_ROS::transform_truth_callback, this);
   odometry_pub_ = nh_.advertise<nav_msgs::Odometry>("odom", 1);
 
-  image_sub_ = it_.subscribe("camera/color/image_raw", 10, &VIEKF_ROS::color_image_callback, this);
-  depth_sub_ = it_.subscribe("camera/depth/image_rect_raw", 10, &VIEKF_ROS::depth_image_callback, this);
+  image_sub_ = it_.subscribe("color", 10, &VIEKF_ROS::color_image_callback, this);
+  depth_sub_ = it_.subscribe("depth", 10, &VIEKF_ROS::depth_image_callback, this);
   output_pub_ = it_.advertise("tracked", 1);
   cov_img_pub_ = it_.advertise("covariance", 1);
 
@@ -47,6 +48,7 @@ VIEKF_ROS::VIEKF_ROS() :
   importMatrixFromParamServer(nh_private_, pos_r_diag, "pos_R");
   importMatrixFromParamServer(nh_private_, vel_r_diag, "vel_R");
   importMatrixFromParamServer(nh_private_, R_IMU_body_, "R_IMU_body");
+  importMatrixFromParamServer(nh_private_, R_truth_I_, "R_truth_I");
   double depth_r, alt_r, min_depth, keyframe_overlap;
   bool partial_update, drag_term, keyframe_reset;
   int feature_radius;
@@ -127,7 +129,9 @@ VIEKF_ROS::VIEKF_ROS() :
 VIEKF_ROS::~VIEKF_ROS()
 {}
 
-void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
+void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConsR_IMU_body: [ 0, 0, 1,
+-1, 0, 0,
+ 0, -1, 0],tPtr &msg)
 {
   uVector u;
   u << msg->linear_acceleration.x,
@@ -288,15 +292,33 @@ void VIEKF_ROS::depth_image_callback(const sensor_msgs::ImageConstPtr &msg)
   got_depth_ = true;
 }
 
-void VIEKF_ROS::truth_callback(const geometry_msgs::PoseStampedConstPtr &msg)
+void VIEKF_ROS::pose_truth_callback(const geometry_msgs::PoseStampedConstPtr &msg)
 {
   Vector3d z_pos;
-  z_pos << msg->pose.position.z, -msg->pose.position.x, -msg->pose.position.y;
-  truth_pos_ = z_pos;
+  z_pos << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z;
 
   Vector4d z_att;
-  z_att << -msg->pose.orientation.w, -msg->pose.orientation.z, msg->pose.orientation.x, msg->pose.orientation.y;
+  z_att << msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
+  truth_callback(z_pos, z_att);
+}
+
+void VIEKF_ROS::transform_truth_callback(const geometry_msgs::TransformStampedConstPtr &msg)
+{
+  Vector3d z_pos;
+  z_pos << msg->transform.translation.x, msg->transform.translation.y, msg->transform.translation.z;
+
+  Vector4d z_att;
+  z_att << msg->transform.rotation.w, msg->transform.rotation.x, msg->transform.rotation.y, msg->transform.rotation.z;
+  truth_callback(z_pos, z_att);
+}
+
+void VIEKF_ROS::truth_callback(Vector3d z_pos, Vector4d z_att)
+{
+  // Rotate measurements into the proper frame
+  z_pos = R_truth_I_ * z_pos;
+  z_att.block<3,1>(1,0) = R_truth_I_ * z_att.block<3,1>(1,0);
   
+  truth_pos_ = z_pos;
   if (!truth_init_)
   {
     ekf_mtx_.lock();
@@ -311,7 +333,7 @@ void VIEKF_ROS::truth_callback(const geometry_msgs::PoseStampedConstPtr &msg)
   truth_att_ = y_t + (truth_LPF_ * (truth_att_ - y_t));
 
   Matrix<double, 1, 1> z_alt;
-  z_alt << msg->pose.position.y;
+  z_alt << z_pos(2,0);
   
   eVector global_transform;
   global_transform.block<3,1>(0,0) = z_pos;

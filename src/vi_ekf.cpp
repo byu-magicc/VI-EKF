@@ -2,18 +2,15 @@
 
 #define NO_NANS(mat) (mat.array() == mat.array()).all()
 
-//#ifndef NDEBUG
+#ifndef NDEBUG
 #define NAN_CHECK if (NaNsInTheHouse()) { std::cout << "NaNs In The House at line " << __LINE__ << "!!!\n"; exit(0); }
 #define NEGATIVE_DEPTH if (NegativeDepth()) std::cout << "Negative Depth " << __LINE__ << "!!!\n"
 #define CHECK_MAT_FOR_NANS(mat) if ((K_.array() != K_.array()).any()) { std::cout << "NaN detected in " << #mat << " at line " << __LINE__ << "!!!\n" << mat << "\n"; exit(0); }
-#define CHECK_RESET if (std::abs(Quat(x_.block<4,1>((int)xATT, 0)).yaw()) > 0.0001 || \
-					    std::abs(x_(0,0)) > 0.0001 || std::abs(x_(1,0)))\
-						std::cout << "Improperly reset keyframe! x: " << x_(0,0) << " y: " << x_(1,0) << " psi: " << Quat(x_.block<4,1>((int)xATT, 0)).yaw() << "\n";
-//#else
-//#define NAN_CHECK {}
-//#define NEGATIVE_DEPTH {}
-//#define CHECK_MAT_FOR_NANS(mat) {}
-//#endif
+#else
+#define NAN_CHECK {}
+#define NEGATIVE_DEPTH {}
+#define CHECK_MAT_FOR_NANS(mat) {}
+#endif
 
 namespace vi_ekf
 {

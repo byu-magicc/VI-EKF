@@ -193,6 +193,19 @@ class Quaternion():
     def normalize(self):
         self.arr /= norm(self.arr)
 
+    # Perform an active rotation on quaternion q (same as q * q1 * q.conj) but faster
+    def qrot(self, q1):
+        skew_xyz = skew(self.arr[1:])
+        t = 2.0 * skew_xyz.dot(q1.elements[1:])
+        return Quaternion(np.vstack((q1.elements[0, 0], q1.elements[1:] + self.arr[0,0] * t + skew_xyz.dot(t))))
+
+    # Perform a passive rotation on quaternion q (same as q.conj * q1 * q) but faster
+    def qinvrot(self, q1):
+        skew_xyz = skew(self.arr[1:])
+        t = 2.0 * skew_xyz.dot(q1.elements[1:])
+        return Quaternion(np.vstack((q1.elements[0, 0], q1.elements[1:] - self.arr[0,0] * t + skew_xyz.dot(t))))
+
+
     # Perform an active rotation on v (same as q.R.T.dot(v), but faster) CONFIRMED
     def rot(self, v):
         # assert v.shape[0] == 3
@@ -420,23 +433,23 @@ def run_tests():
             epsilon = 1e-6
             I_3x3 = np.eye(3) * epsilon
             for k in range(3):
-                d[k,:,None] = ((q + I_3x3[:,k,None]).invrot(v) - q.invrot(v)) / epsilon
-            a = -skew(q.R.dot(v))
-            assert (np.abs(a - d) < 1e-3).all()
+                d[:,k,None] = ((q + I_3x3[:,k,None]).invrot(v) - q.invrot(v)) / epsilon
+            a = skew(q.R.dot(v))
+            assert (np.abs(a - d) < 1e-3).all(), "error in d(Rv)/dq"
 
         for j in range(100):
             d = np.zeros((3,3))
             v = np.random.uniform(-1, 1, (3,1))
-            # if j == 0:
-            #     q = Quaternion.Identity()
-            # else:
-            q = Quaternion.random()
+            if j == 0:
+                q = Quaternion.Identity()
+            else:
+                q = Quaternion.random()
             epsilon = 1e-6
             I_3x3 = np.eye(3) * epsilon
             for k in range(3):
-                d[k,:,None] = ((q + I_3x3[:,k,None]).rot(v) - q.rot(v)) / epsilon
-            a = skew(v).dot(q.R)
-            assert (np.abs(a - d) < 1e-3).all()
+                d[:,k,None] = ((q + I_3x3[:,k,None]).rot(v) - q.rot(v)) / epsilon
+            a = -q.R.T.dot(skew(v))
+            assert (np.abs(a - d) < 1e-3).all(), "error in d(R.T.v)/dq"
 
     print "pyquat test [PASSED]"
 

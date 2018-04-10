@@ -1,100 +1,70 @@
 {
-
-x0: [0, 0, -0.2,    # POS
-     0, 0, 0,         # VEL
-     1, 0, 0, 0,      # ATT
-     0.0, 0.0, 0.0, # B_A
-     0.0, 0.0, 0.0,  # B_G
-     0.25],           # MU
+## Initial Uncertainty
 P0: [0.001, 0.001, 0.001,
      0.00, 0.00, 0.00,
      0.001, 0.001, 0.001,
      0.01, 0.01, 0.01,
      0.01, 0.01, 0.01,
-     0.1],
+     0.01],
+P0_feat: [0.15, 0.15, 1.0],
+
+## Additive Process Noise
 Qx: [0.000, 0.000, 0.000,
      0.001, 0.001, 0.001,
      0.000, 0.000, 0.000,
      0.0001, 0.0001, 0.0001,
      0.0001, 0.0001, 0.0001,
      0.00],
+Qx_feat: [0.05, 0.05, 0.00],
+
+# Input Process Noise
 Qu: [0.00, 0.00, 0.0,       # u_acc
      0.00, 0.00, 0.0],      # u_gyro
+
+## Partial Update Gain
 lambda: [1.0, 1.0, 1.0,     # POS
          1.0, 1.0, 1.0,     # VEL
          1.0, 1.0, 1.0,     # ATT
          0.5, 0.5, 0.5,     # B_A
          0.5, 0.5, 0.3,     # B_G
          0.1],              # MU
-P0_feat: [0.15, 0.15, 1.0],
-Qx_feat: [0.05, 0.05, 0.00],
+lambda_feat: [1.0, 1.0, 0.75],            
 
-lambda_feat: [1.0, 1.0, 0.75],
-cam_center: [316.680559, 230.660661],
-focal_len: [533.013144, 533.503964],
-
-## Inertialsense Hardware Geometry
-q_b_c: [0.5, 0.5, 0.5, 0.5],
-p_b_c: [0.0, 0.00, 0.015],
-R_IMU_body: [ 0, 0, 1,
-             -1, 0, 0,
-              0, -1, 0],
-R_truth_I: [0, 0, 1,
-            -1, 0, 0,
-            0, -1, 0],
-
-## ETH-Z Dataset Geometry
-# q_b_c: [-0.5965039446137476, 0.39670432388275984, -0.4027340936760613, 0.5697485533510572],
-# p_b_c_b: [ 0.00308908, -0.06499946,  0.02265363],
-# R_IMU_body: [ 0.33638022, -0.01748638,  0.94156351,
-#               0.02078362,  0.99972192,  0.01114138,
-#              -0.94149649,  0.01582138,  0.3366501],
-# R_truth_I: [1, 0, 0,
-#             0, -1, 0,
-#             0, 0, -1],
-
-
-feature_mask: /home/superjax/dev_ws/src/vi_ekf/params/mask.png,              
-
-# depth_R: 0.0625,
-# feat_R: [2.0, 2.0],
-# acc_R: [0.5, 0.5],
-# att_R: [0.1, 0.1, 0.1],
-# pos_R: [0.01, 0.01, 0.01],
-# vel_R: [0.1, 0.1, 0.1],
-# alt_R: 0.1,
-
+## Sensor Noise
 depth_R: 0.1,
 feat_R: [1.0, 1.0],
 acc_R: [1.0, 1.0],
-att_R: [0.1, 0.1, 0.1],
-pos_R: [5.0, 5.0, 5.0],
-# pos_R: [0.1, 0.1, 0.1],
+att_R: [0.001, 0.001, 0.001],
+# pos_R: [5.0, 5.0, 5.0],
+pos_R: [0.01, 0.01, 0.01],
+
 vel_R: [0.1, 0.1, 0.1],
-alt_R: 0.5,
+alt_R: 0.001,
 
-imu_LPF: 0.5,
-truth_LPF: 1.0,
+## Low-Pass Filtering on IMU and Truth
+imu_LPF: 0.0,
+truth_LPF: 0.0,
 
-drag_term: true,
-
-use_truth: false,
+## Measurement Model Flags
+use_truth: true,
 use_depth: false,
-use_features: true,
+use_features: false,
 use_acc: true,
 use_imu_att: false,
 use_alt: false,
 
-invert_image: true,
+## Feature Flags
 drag_term: true,
-partial_update: false,
+partial_update: true,
 keyframe_reset: false,
 
+## Tracking Paramters
 min_depth: 1.5,
 keyframe_overlap: 0.75,
-num_features: 35,
+num_features: 12,
 feature_radius: 30,
 
+## CPU Threads
 num_threads: 1,
 
 

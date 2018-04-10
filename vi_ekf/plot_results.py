@@ -12,7 +12,7 @@ from pyquat import Quaternion
 # offset = -0.35
 offset = 0.0
 
-plot_cov = False
+plot_cov = True
 pose_cov = False
 
 log_dir = os.path.dirname(os.path.realpath(__file__)) + "/../logs/"
@@ -84,7 +84,7 @@ for line in meas_file:
         h.store(t, line_arr[3], depth=line_arr[0], depth_hat=line_arr[1], depth_cov=[[cov   ]])
     elif meas_type == 'ALT':
         if len(line_arr) < 3: continue
-        h.store(t, line_arr[2], alt=line_arr[0], alt_hat=line_arr[1])
+        h.store(t, alt=line_arr[0], alt_hat=line_arr[1])
     else:
         print("unsupported measurement type ", meas_type)
 
@@ -136,7 +136,11 @@ true_euler, est_euler = np.zeros((len(h.global_att),3)), np.zeros((len(h.global_
 for i, true_quat in enumerate(h.global_att): true_euler[i,:,None] = Quaternion(true_quat[:,None]).euler
 for i, est_quat in enumerate(h.global_att_hat): est_euler[i,:,None] = (Quaternion(est_quat[:,None]).euler)
 plot_side_by_side('global_euler', 0, 3, h.t.global_att_hat, est_euler, truth_t=h.t.global_att, truth=true_euler, start_t=start, end_t=end, labels=[r'\phi', r'\theta', r'\psi'], truth_offset=offset)
-plot_side_by_side('$y_{a}$', 0, 2, h.t.acc, h.acc, labels=[r'y_{a,x}', r'y_{a,y}'], start_t=start, end_t=end, truth_offset=offset)
+# Filter accelerometer
+b_acc, a_acc = scipy.signal.butter(6, 0.05)
+acc_smooth = scipy.signal.filtfilt(b_acc, a_acc, h.acc, axis=0)
+plot_side_by_side('$y_{a}$', 0, 2, h.t.acc, acc_smooth, truth=h.acc, truth_t=h.t.acc, labels=[r'y_{a,x}', r'y_{a,y}'], start_t=start, end_t=end, truth_offset=offset)
+plot_side_by_side('$y_{alt}$', 0, 1, h.t.alt, h.alt_hat[:,None], truth=h.alt[:,None], truth_t=h.t.alt, labels=[r'-p_z'], start_t=start, end_t=end)
 plot_side_by_side('Bias Terms', 10, 17, h.t.xhat, h.xhat, labels=[r'\beta_{a,x}', r'\beta_{a,y}', r'\beta_{a,z}', r'\beta_{\omega,x}', r'\beta_{\omega,y}', r'\beta_{\omega,z}', 'b'], start_t=start, end_t=end, cov=h.cov if plot_cov else None, cov_bounds=(9,16), truth_offset=offset)
 
 
@@ -151,7 +155,8 @@ for i in tqdm(ids):
     if i not in h.depth_hat: continue
     plot_side_by_side('x_{}'.format(i), 0, 2, h.t.feat_hat[i], h.feat_hat[i], truth_t=h.t.feat[i],
                       truth=h.feat[i], labels=['u', 'v'], start_t=start, end_t=end, truth_offset=None, subdir='lambda')
-    plot_side_by_side('x_{}'.format(i), 0, 1, h.t.depth_hat[i], h.depth_hat[i][:, None], truth_t=h.t.depth[i],
+    if hasattr(h, 'depth') and hasattr(h, 'depth_hat'): 
+        plot_side_by_side('x_{}'.format(i), 0, 1, h.t.depth_hat[i], h.depth_hat[i][:, None], truth_t=h.t.depth[i],
                       truth=h.depth[i][:, None], labels=[r'\frac{1}{\rho}'], start_t=start, end_t=end,
                       cov=h.depth_cov[i] if plot_cov else None, truth_offset=None, subdir='rho')
 

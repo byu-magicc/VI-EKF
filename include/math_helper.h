@@ -127,6 +127,15 @@ void concatenate_edges(const Eigen::Matrix<double,7,1>& T1, const Eigen::Matrix<
   Tout.block<4,1>(3,0) = (q1 * q2).elements();
 }
 
+const Eigen::Matrix<double,7,1> invert_edge(const Eigen::Matrix<double,7,1>& T1)
+{
+  quat::Quat qinv(T1.block<4,1>(3,0));
+  qinv.invert();
+  Eigen::Matrix<double, 7,1> Tout;
+  Tout.topRows(3) = qinv.invrot(T1.topRows(3));
+  Tout.bottomRows(4) = qinv.elements();
+}
+
 
 void invert_SE2(Eigen::Vector3d& T, Eigen::Vector3d& Tout)
 {
@@ -135,4 +144,10 @@ void invert_SE2(Eigen::Vector3d& T, Eigen::Vector3d& Tout)
   Tout(0) = -(T(0) * cs + T(1) * ss);
   Tout(1) = -(- T(0) * ss + T(1) * cs);
   Tout(2) = -T(2);
+}
+
+template <typename T>
+int sign(T in)
+{
+  return (in >= 0) - (in < 0);
 }

@@ -266,9 +266,9 @@ public:
     double yz = y()*z();
     double zz = z()*z();
     Matrix3d out;
-    out << 1. - 2.*yy - 2.*zz, 2.*xy + 2.*wz, 2.*xz - 2.*wy,
-        2.*xy - 2.*wz, 1. - 2.*xx - 2.*zz, 2.*yz + 2.*wx,
-        2.*xz + 2.*wy, 2.*yz - 2.*wx, 1. - 2.*xx - 2.*yy;
+    out << 1. - 2.*yy - 2.*zz, 2.*xy + 2.*wz,      2.*xz - 2.*wy,
+           2.*xy - 2.*wz,      1. - 2.*xx - 2.*zz, 2.*yz + 2.*wx,
+           2.*xz + 2.*wy,      2.*yz - 2.*wx,      1. - 2.*xx - 2.*yy;
     return out;
   }
 
@@ -299,8 +299,8 @@ public:
     Vector3d t;
     for (int i = 0; i < v.cols(); i++)
     {
-       t = 2.0 * arr_.block<3,1>(1,0).cross(v.block<3,1>(0,i));
-       out.block<3,1>(0,i) = v.block<3,1>(0,i) - w() * t + arr_.block<3,1>(1,0).cross(t);
+       t = -2.0 * arr_.block<3,1>(1,0).cross(v.block<3,1>(0,i));
+       out.block<3,1>(0,i) = v.block<3,1>(0,i) + w() * t - arr_.block<3,1>(1,0).cross(t);
     }
     return out;
   }
@@ -314,13 +314,13 @@ public:
 
   Vector3d invrot(Vector3d v)
   {
-    Vector3d t = 2.0 * arr_.block<3,1>(1,0).cross(v);
-    return v - w() * t + arr_.block<3,1>(1,0).cross(t);
+    Vector3d t = -2.0 * arr_.block<3,1>(1,0).cross(v);
+    return v + w() * t - arr_.block<3,1>(1,0).cross(t);
   }
 
-  Quat& inv()
+  Quat& invert()
   {
-    arr_(0,0) *= -1.0;
+    arr_.block<3,1>(1,0) *= -1.0;
   }
 
   Quat inverse() const

@@ -29,17 +29,17 @@ for i in tqdm(range(10000)):
     v = skew(u).dot(qm0.rot(u))
 
     tv0 = u.T.dot(qm0.rot(u)) * (skew(u).dot(qm0.rot(u)))
-    a_dtvdq = (skew(u).dot(qm0.R).dot(u)).dot(v.T) + t * (skew(u).dot(qm0.R).dot(skew(u).T))
+    a_dtvdq = -v.dot(u.T.dot(qm0.R.T).dot(skew(u))) - t*skew(u).dot(qm0.R.T.dot(skew(u)))
     d_dtvdq = np.zeros_like(a_dtvdq)
 
     nd = norm(t * v)
     d0 = t * v
     qd0 = Quaternion.exp(d0)
     sk_tv = skew(t * v)
-    Tau = np.eye(3) + ((1. - np.cos(t)) * sk_tv) / (t * t) + ((t - np.sin(t)) * sk_tv.dot(sk_tv)) / (t * t * t)
+    Tau = (np.eye(3) + ((1. - np.cos(t)) * sk_tv) / (t * t) + ((t - np.sin(t)) * sk_tv.dot(sk_tv)) / (t * t * t)).T
     Tau_approx = np.eye(3) + 1. / 2. * sk_tv
-    a_dqdq = a_dtvdq.dot(Tau)
-    a_dqdq_approx = a_dtvdq.dot(Tau_approx)
+    a_dqdq = Tau.dot(a_dtvdq)
+    a_dqdq_approx = Tau_approx.dot(a_dtvdq)
     d_dqdq = np.zeros_like(a_dqdq)
 
     a_dexpdd = Tau
@@ -59,49 +59,49 @@ for i in tqdm(range(10000)):
         th = u.T.dot(w)
         ve = skew(u).dot(w)
         qpi = Quaternion.exp(th * ve)
-        d_dqdq[i, :, None] = (qpi - qp0) / e
+        d_dqdq[:, i, None] = (qpi - qp0) / e
 
         qdi = Quaternion.exp(d0 + epsilon[:, i, None])
-        d_dexpdd[i, :, None] = (qdi - qd0) / e
+        d_dexpdd[:, i, None] = (qdi - qd0) / e
 
         tvi = u.T.dot(qmi.rot(u)) * (skew(u).dot(qmi.rot(u)))
-        d_dtvdq[i, :, None] = (tvi - tv0) / e
+        d_dtvdq[:, i, None] = (tvi - tv0) / e
 
     total_diff = np.sum(np.abs(a_dqdq - d_dqdq))
 
     if total_diff > 5e-2:
         print "analytical:\n", np.around(a_dqdq, 5)
-        # print "approx:\n", np.around(a_dqdq_approx, 5)
+        print "approx:\n", np.around(a_dqdq_approx, 5)
         print "finite difference:\n", np.around(d_dqdq, 5)
 
         # print "dan:\n", np.around(N,5)
 
-        # print "bonus A:\n", np.around(a_dtvdq, 5)
-        # print "bonus FD:\n", np.around(d_dtvdq, 5)
-        # print "bonus diff:\n", np.sum(a_dtvdq - d_dtvdq)
+        print "bonus A:\n", np.around(a_dtvdq, 5)
+        print "bonus FD:\n", np.around(d_dtvdq, 5)
+        print "bonus diff:\n", np.sum(a_dtvdq - d_dtvdq)
         # #
-        # print "magic A:\n", np.around(Tau, 5)
-        # print "magic FD:\n", np.around(d_dexpdd, 5)
-        # print "magic diff:\n", np.sum(Tau - d_dexpdd)
+        print "magic A:\n", np.around(Tau, 5)
+        print "magic FD:\n", np.around(d_dexpdd, 5)
+        print "magic diff:\n", np.sum(Tau - d_dexpdd)
         print "total diff:\n", total_diff, 5
-plt.scatter(psi_hist, yaw_hist)
-plt.xlabel("psi")
-plt.ylabel("yaw+")
-plt.show()
-plt.scatter(s_hist, yaw_hist)
-plt.xlabel("s")
-plt.ylabel("yaw+")
-plt.show()
-plt.scatter(qx_hist, yaw_hist)
-plt.xlabel("qx")
-plt.ylabel("yaw+")
-plt.show()
-plt.scatter(qy_hist, yaw_hist)
-plt.xlabel("qy")
-plt.ylabel("yaw+")
-plt.show()
-plt.scatter(qz_hist, yaw_hist)
-plt.xlabel("qz")
-plt.ylabel("yaw+")
-plt.show()
+# plt.scatter(psi_hist, yaw_hist)
+# plt.xlabel("psi")
+# plt.ylabel("yaw+")
+# plt.show()
+# plt.scatter(s_hist, yaw_hist)
+# plt.xlabel("s")
+# plt.ylabel("yaw+")
+# plt.show()
+# plt.scatter(qx_hist, yaw_hist)
+# plt.xlabel("qx")
+# plt.ylabel("yaw+")
+# plt.show()
+# plt.scatter(qy_hist, yaw_hist)
+# plt.xlabel("qy")
+# plt.ylabel("yaw+")
+# plt.show()
+# plt.scatter(qz_hist, yaw_hist)
+# plt.xlabel("qz")
+# plt.ylabel("yaw+")
+# plt.show()
 

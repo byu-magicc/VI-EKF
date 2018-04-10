@@ -84,9 +84,9 @@ private:
   Vector3d truth_pos_;
   Quat truth_att_;
   
-  Matrix3d R_IMU_body_;
-  Matrix3d R_truth_I_;
-
+  Quat q_b_IMU_;
+  Quat q_I_truth_;
+  
   Matrix2d feat_R_;
   Matrix2d acc_R_;
   Matrix3d att_R_;

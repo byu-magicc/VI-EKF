@@ -269,7 +269,8 @@ TEST(Quat, from_R)
     Matrix3d R = q1.R();
     Quat qR = Quat::from_R(R);
     v.setRandom();
-    EXPECT_VECTOR3_EQUALS(qR.rot(v), R.T.dot(v));
+    EXPECT_VECTOR3_EQUALS(qR.rot(v), R.transpose() * v);
+	EXPECT_VECTOR3_EQUALS(qR.invrot(v), R * v);
   }
 }
 
@@ -589,7 +590,7 @@ TEST(VI_EKF, KF_reset_test)
       ekf.boxplus(xm, (I_dx.col(i) * epsilon), xm_prime);
       ekf.keyframe_reset(xm_prime, xp_prime, dummy);
       ekf.boxminus(xp_prime, xp, d_xp);
-      d_dxpdxm.row(i) =  d_xp / epsilon;
+      d_dxpdxm.col(i) =  d_xp / epsilon;
     }
     
     EXPECT_FALSE(check_block("dxPOS", "dxPOS", a_dxpdxm, d_dxpdxm));
@@ -602,4 +603,5 @@ int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
+
 

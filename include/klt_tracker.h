@@ -12,7 +12,7 @@ class KLT_Tracker
 {
 public:
   KLT_Tracker();
-  void init(int _num_features, bool _show_image, int _radius);
+  void init(int _num_features, bool _show_image, int _radius, Size _size);
 
   void set_num_features(int _num_features) {num_features_ = _num_features;}
   void set_radius(int _radius) {feature_nearby_radius_ = _radius;}

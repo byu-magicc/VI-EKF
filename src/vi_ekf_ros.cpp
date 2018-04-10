@@ -26,10 +26,11 @@ VIEKF_ROS::VIEKF_ROS() :
   uVector Qudiag;
   Vector3d P0feat, Qxfeat, lambdafeat;
   Vector2d cam_center, focal_len;
-  Vector4d q_b_c;
+  Vector4d q_b_c, q_b_IMU, q_I_truth;
   Vector3d p_b_c;
   Vector2d feat_r_diag, acc_r_diag;
   Vector3d att_r_diag, pos_r_diag, vel_r_diag;
+  Vector2i image_size;
   importMatrixFromParamServer(nh_private_, x0, "x0");
   importMatrixFromParamServer(nh_private_, P0diag, "P0");
   importMatrixFromParamServer(nh_private_, Qxdiag, "Qx");
@@ -47,8 +48,11 @@ VIEKF_ROS::VIEKF_ROS() :
   importMatrixFromParamServer(nh_private_, att_r_diag, "att_R");
   importMatrixFromParamServer(nh_private_, pos_r_diag, "pos_R");
   importMatrixFromParamServer(nh_private_, vel_r_diag, "vel_R");
-  importMatrixFromParamServer(nh_private_, R_IMU_body_, "R_IMU_body");
-  importMatrixFromParamServer(nh_private_, R_truth_I_, "R_truth_I");
+  importMatrixFromParamServer(nh_private_, q_b_IMU, "q_b_IMU");
+  importMatrixFromParamServer(nh_private_, q_I_truth, "q_I_truth");
+  importMatrixFromParamServer(nh_private_, image_size, "image_size");
+  q_b_IMU_.arr_ = q_b_IMU;
+  q_I_truth_.arr_ = q_I_truth;
   double depth_r, alt_r, min_depth, keyframe_overlap;
   bool partial_update, drag_term, keyframe_reset;
   int feature_radius;
@@ -74,7 +78,7 @@ VIEKF_ROS::VIEKF_ROS() :
             drag_term, partial_update, keyframe_reset, keyframe_overlap);
   ekf_.register_keyframe_reset_callback(std::bind(&VIEKF_ROS::keyframe_reset_callback, this));
  
-  klt_tracker_.init(num_features_, false, feature_radius);
+  klt_tracker_.init(num_features_, false, feature_radius, cv::Size(image_size(0,0), image_size(1,0)));
   if (!feature_mask.empty())
   {
     klt_tracker_.set_feature_mask(feature_mask);
@@ -85,7 +89,7 @@ VIEKF_ROS::VIEKF_ROS() :
   kf_pos_.setZero();
 
   // Initialize the depth image to all NaNs
-  depth_image_ = cv::Mat(640, 480, CV_32FC1, cv::Scalar(NAN));
+  depth_image_ = cv::Mat(image_size(0,0), image_size(1,0), CV_32FC1, cv::Scalar(NAN));
   got_depth_ = false;
 
   // Initialize the measurement noise covariance matrices
@@ -123,15 +127,13 @@ VIEKF_ROS::VIEKF_ROS() :
 
   odom_msg_.header.frame_id = "body";
   
-  video_.open(log_directory + "video.avi", cv::VideoWriter::fourcc('M','J','P','G'), 30, cv::Size(640,480), true);
+  video_.open(log_directory + "video.avi", cv::VideoWriter::fourcc('M','J','P','G'), 30, cv::Size(image_size(0,0),image_size(1,0)), true);
 }
 
 VIEKF_ROS::~VIEKF_ROS()
 {}
 
-void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConsR_IMU_body: [ 0, 0, 1,
--1, 0, 0,
- 0, -1, 0],tPtr &msg)
+void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
 {
   uVector u;
   u << msg->linear_acceleration.x,
@@ -140,10 +142,10 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConsR_IMU_body: [ 0, 0, 1,
        msg->angular_velocity.x,
        msg->angular_velocity.y,
        msg->angular_velocity.z;
-  u.block<3,1>(0,0) = R_IMU_body_ * u.block<3,1>(0,0);
-  u.block<3,1>(3,0) = R_IMU_body_ * u.block<3,1>(3,0);
+  u.block<3,1>(0,0) = q_b_IMU_.invrot(u.block<3,1>(0,0));
+  u.block<3,1>(3,0) = q_b_IMU_.invrot(u.block<3,1>(3,0));
 
-  imu_ = IMU_LPF_ * u + (1. - IMU_LPF_) * imu_;
+  imu_ = (1. - IMU_LPF_) * u + IMU_LPF_ * imu_;
 
   if (!truth_init_)
     return;
@@ -218,9 +220,6 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
     return;
   }
 
-  if (!got_depth_)
-    return;
-
   Mat img;
   if (invert_image_)
     cv::flip(cv_ptr->image, img, -1);
@@ -240,25 +239,23 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
   {
     int x = round(features[i].x);
     int y = round(features[i].y);
-    float depth_mm;
-    double depth;
-    depth_mm = depth_image_.at<float>(y, x);
-    depth = ((double)depth_mm) * 1e-3;
+    // The depth image encodes depth in mm
+    float depth = depth_image_.at<float>(y, x) * 1e-3;
     if (depth > 1e3)
       depth = NAN;
     else if (depth < 0.1)
       depth = NAN;
-
     Vector2d z_feat;
     z_feat << features[i].x, features[i].y;
     Matrix1d z_depth;
     z_depth << depth;
-
+    
     ekf_mtx_.lock();
-    if (!ekf_.update(z_feat, vi_ekf::VIEKF::FEAT, feat_R_, use_features_, ids[i], (use_depth_) ? depth : NAN))
+    bool new_feature = ekf_.update(z_feat, vi_ekf::VIEKF::FEAT, feat_R_, use_features_, ids[i], (use_depth_) ? depth : NAN);
+    if (!new_feature && got_depth_)
       ekf_.update(z_depth, vi_ekf::VIEKF::DEPTH, depth_R_, use_depth_, ids[i]);
-    ekf_mtx_.unlock();
-
+    ekf_mtx_.unlock();   
+    
     // Draw depth and position of tracked features
     Eigen::Vector2d est_feat = ekf_.get_feat(ids[i]);
     circle(img, features[i], 5, Scalar(0,255,0));
@@ -315,25 +312,41 @@ void VIEKF_ROS::transform_truth_callback(const geometry_msgs::TransformStampedCo
 void VIEKF_ROS::truth_callback(Vector3d z_pos, Vector4d z_att)
 {
   // Rotate measurements into the proper frame
-  z_pos = R_truth_I_ * z_pos;
-  z_att.block<3,1>(1,0) = R_truth_I_ * z_att.block<3,1>(1,0);
+  z_pos = q_I_truth_.invrot(z_pos);
+  z_att.block<3,1>(1,0) = q_I_truth_.invrot(z_att.block<3,1>(1,0));
+  
+  // Make sure that the truth quaternion is the right sign (for plotting)
+  if (sign(z_att(0,0)) != sign(ekf_.get_state()(vi_ekf::VIEKF::xATT, 0)))
+  {
+    z_att *= -1.0;
+  }
   
   truth_pos_ = z_pos;
+  
+  // Initialize Truth
   if (!truth_init_)
   {
-    ekf_mtx_.lock();
-    ekf_.keyframe_reset();
-    ekf_mtx_.unlock();
     truth_att_ = Quat(z_att);
+    
+	// Initialize the EKF to the origin in the Vicon frame, but then immediately keyframe reset to start at origin
+    ekf_mtx_.lock();
+	Matrix<double, vi_ekf::VIEKF::xZ, 1> x0 = ekf_.get_state().topRows(vi_ekf::VIEKF::xZ);
+	x0.block<3,1>((int)vi_ekf::VIEKF::xPOS,0) = z_pos;
+	x0.block<4,1>((int)vi_ekf::VIEKF::xATT,0) = z_att;
+//	ekf_.set_x0(x0);
+//    ekf_.keyframe_reset();
+    ekf_mtx_.unlock();
+    
     truth_init_ = true;
     return;
   }
   
-  Quat y_t(z_att); 
+  Quat y_t(z_att);
+  
   truth_att_ = y_t + (truth_LPF_ * (truth_att_ - y_t));
 
   Matrix<double, 1, 1> z_alt;
-  z_alt << z_pos(2,0);
+  z_alt << -z_pos(2,0);
   
   eVector global_transform;
   global_transform.block<3,1>(0,0) = z_pos;

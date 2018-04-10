@@ -259,7 +259,7 @@ public:
   double get_depth(const int id) const;
   inline int get_len_features() const { return len_features_; }
 
-  void set_x0(const VectorXd& _x0);
+  void set_x0(const Matrix<double, xZ, 1>& _x0);
   void set_imu_bias(const Vector3d& b_g, const Vector3d& b_a);
 
   bool init_feature(const Vector2d &l, const int id, const double depth=-1.0);
@@ -291,7 +291,7 @@ public:
   void keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N);
   void keyframe_reset();
   void register_keyframe_reset_callback(std::function<void(void)> cb);
-  void log_global_position(const eVector relative_transform);
+  void log_global_position(const eVector truth_global_transform);
 
   // Inequality Constraint on Depth
   void fix_depth();

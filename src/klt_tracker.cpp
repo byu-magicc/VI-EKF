@@ -2,10 +2,10 @@
 
 KLT_Tracker::KLT_Tracker()
 {
-  init(12, true, 30);
+  init(12, true, 30, cv::Size(640, 480));
 }
 
-void KLT_Tracker::init(int _num_features, bool _show_image, int _radius)
+void KLT_Tracker::init(int _num_features, bool _show_image, int _radius, cv::Size _size)
 {
   initialized_ = false;
   num_features_ = _num_features;
@@ -23,7 +23,7 @@ void KLT_Tracker::init(int _num_features, bool _show_image, int _radius)
   {
     colors_.push_back(Scalar(std::rand()/(RAND_MAX/255), std::rand()/(RAND_MAX/255), std::rand()/(RAND_MAX/255)));
   }
-  mask_ = cv::Mat(cv::Size(640,480), CV_8UC1);
+  mask_ = cv::Mat(_size, CV_8UC1);
   mask_ = 255;
 }
 

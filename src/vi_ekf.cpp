@@ -76,9 +76,9 @@ void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<doub
   H_.setZero();
 }
 
-void VIEKF::set_x0(const VectorXd& _x0)
+void VIEKF::set_x0(const Matrix<double, xZ, 1>& _x0)
 {
-  x_ = _x0;
+  x_.topRows(xZ) = _x0;
 }
 
 void VIEKF::register_keyframe_reset_callback(std::function<void(void)> cb)
@@ -405,13 +405,13 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
   acc_z << 0, 0, acc(2,0);
   double mu = x((int)xMU);
   
-  Vector3d gravity_B = q_I_b.invrot(gravity);
-  Vector3d vel_I = q_I_b.invrot(vel);
-  Vector3d vel_xy;
+  Matrix3d R_I_b = q_I_b.R();
+  Vector3d gravity_B = R_I_b * gravity;
+  Vector3d vel_xy;  
   vel_xy << vel(0), vel(1), 0.0;
   
   // Calculate State Dynamics
-  dx_.block<3,1>((int)dxPOS,0) = vel_I;
+  dx_.block<3,1>((int)dxPOS,0) = R_I_b.transpose() * vel;
   if (use_drag_term_)
     dx_.block<3,1>((int)dxVEL,0) = acc_z + gravity_B - mu*vel_xy;
   else
@@ -419,8 +419,8 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
   dx_.block<3,1>((int)dxATT, 0) = omega;
   
   // State Jacobian
-  A_.block<3,3>((int)dxPOS, (int)dxVEL) = q_I_b.R();
-  A_.block<3,3>((int)dxPOS, (int)dxATT) = skew(vel_I);
+  A_.block<3,3>((int)dxPOS, (int)dxVEL) = R_I_b.transpose();
+  A_.block<3,3>((int)dxPOS, (int)dxATT) = -R_I_b.transpose()*skew(vel);
   if (use_drag_term_)
   {
     A_.block<3,3>((int)dxVEL, (int)dxVEL) = -mu * I_2x3.transpose() * I_2x3;
@@ -627,8 +627,8 @@ void VIEKF::keyframe_reset()
   A_ = I_big_;
   A_((int)xPOS, (int)xPOS) = 0;
   A_((int)xPOS+1, (int)xPOS+1) = 0;
-  A_.block<3,3>((int)dxATT, (int)dxATT) = (sk_u * qmR * khat)*v.transpose() + theta * (sk_u * qmR * sk_u.transpose())
-      * (I_3x3 + ((1.-cos(theta))*sk_tv)/(theta*theta) + ((theta - sin(theta))*sk_tv*sk_tv)/(theta*theta*theta));
+  A_.block<3,3>((int)dxATT, (int)dxATT) = (I_3x3 + ((1.-cos(theta))*sk_tv)/(theta*theta) + ((theta - sin(theta))*sk_tv*sk_tv)/(theta*theta*theta)).transpose()
+		  * (-v * (khat.transpose() * qmR.transpose() * sk_u) - theta * sk_u * (qmR.transpose() * sk_u));
   
   
 ////// Old way to reset z-axis rotation
@@ -798,9 +798,11 @@ void VIEKF::fix_depth()
   }
 }
 
-void VIEKF::log_global_position(const eVector global_transform) //Vector3d pos, const Vector4d att)
+void VIEKF::log_global_position(const eVector truth_global_transform) //Vector3d pos, const Vector4d att)
 { 
-//  WRT_DBG;
+  // cut off initial state from truth - for plotting comparison
+//  concatenate_edges(invert_fed );
+  
   // Log Global Position Estimate
   eVector global_pose;
   eVector rel_pose;
@@ -808,11 +810,11 @@ void VIEKF::log_global_position(const eVector global_transform) //Vector3d pos, 
   rel_pose.block<4,1>((int)eATT, 0) = x_.block<4,1>((int)xATT, 0);
   concatenate_edges(current_node_global_pose_, rel_pose, global_pose);
   (*log_.stream)[LOG_MEAS] << "GLOBAL_POS" << "\t" << prev_t_-start_t_ << "\t"
-                           << global_transform.topRows(3).transpose() << "\t" << global_pose.topRows(3).transpose() << "\n";
+                           << truth_global_transform.topRows(3).transpose() << "\t" << global_pose.topRows(3).transpose() << "\n";
   
   // Log Global Attitude Estimate
   (*log_.stream)[LOG_MEAS] << "GLOBAL_ATT" << "\t" << prev_t_-start_t_ << "\t"
-                           << global_transform.bottomRows(4).transpose() << "\t" << global_pose.bottomRows(4).transpose() << "\n";
+                           << truth_global_transform.bottomRows(4).transpose() << "\t" << global_pose.bottomRows(4).transpose() << "\n";
 //  WRT_DBG;
 }
 

@@ -53,12 +53,12 @@ VIEKF_ROS::VIEKF_ROS() :
   importMatrixFromParamServer(nh_private_, image_size, "image_size");
   q_b_IMU_.arr_ = q_b_IMU;
   q_I_truth_.arr_ = q_I_truth;
-  double depth_r, alt_r, min_depth, keyframe_overlap;
+  double depth_r, alt_r, keyframe_overlap;
   bool partial_update, drag_term, keyframe_reset;
   int feature_radius;
   ROS_FATAL_COND(!nh_private_.getParam("depth_R", depth_r), "you need to specify the 'depth_R' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("alt_R", alt_r), "you need to specify the 'alt_R' parameter");
-  ROS_FATAL_COND(!nh_private_.getParam("min_depth", min_depth), "you need to specify the 'min_depth' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("min_depth", min_depth_), "you need to specify the 'min_depth' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("imu_LPF", IMU_LPF_), "you need to specify the 'imu_LPF' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("truth_LPF", truth_LPF_), "you need to specify the 'truth_LPF' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("num_features", num_features_), "you need to specify the 'num_features' parameter");
@@ -71,10 +71,10 @@ VIEKF_ROS::VIEKF_ROS() :
 
   num_features_ = (num_features_ > NUM_FEATURES) ? NUM_FEATURES : num_features_;
 
-  P0feat(2,0) = 1.0/(16.0 * min_depth * min_depth);
+  P0feat(2,0) = 1.0/(16.0 * min_depth_ * min_depth_);
 
   ekf_.init(x0, P0diag, Qxdiag, lambda, Qudiag, P0feat, Qxfeat, lambdafeat,
-            cam_center, focal_len, q_b_c, p_b_c, min_depth, log_directory, 
+            cam_center, focal_len, q_b_c, p_b_c, min_depth_, log_directory, 
             drag_term, partial_update, keyframe_reset, keyframe_overlap);
   ekf_.register_keyframe_reset_callback(std::bind(&VIEKF_ROS::keyframe_reset_callback, this));
  
@@ -243,7 +243,7 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
     float depth = depth_image_.at<float>(y, x) * 1e-3;
     if (depth > 1e3)
       depth = NAN;
-    else if (depth < 0.1)
+    else if (depth < min_depth_)
       depth = NAN;
     Vector2d z_feat;
     z_feat << features[i].x, features[i].y;
@@ -311,6 +311,12 @@ void VIEKF_ROS::transform_truth_callback(const geometry_msgs::TransformStampedCo
 
 void VIEKF_ROS::truth_callback(Vector3d z_pos, Vector4d z_att)
 {
+  static int counter = 0;
+  if (counter++ < 2)
+  {
+    return;
+  }
+  else counter = 0;
   // Rotate measurements into the proper frame
   z_pos = q_I_truth_.invrot(z_pos);
   z_att.block<3,1>(1,0) = q_I_truth_.invrot(z_att.block<3,1>(1,0));

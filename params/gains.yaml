@@ -3,19 +3,19 @@
 P0: [0.001, 0.001, 0.001,
      0.00, 0.00, 0.00,
      0.001, 0.001, 0.001,
-     0.01, 0.01, 0.01,
-     0.01, 0.01, 0.01,
+     0.0001, 0.0001, 0.0001,
+     0.0001, 0.0001, 0.0001,
      0.01],
-P0_feat: [0.15, 0.15, 1.0],
+P0_feat: [0.15, 0.15, 0.1],
 
 ## Additive Process Noise
 Qx: [0.000, 0.000, 0.000,
-     0.001, 0.001, 0.001,
+     0.00, 0.00, 0.00,
      0.000, 0.000, 0.000,
-     0.0001, 0.0001, 0.0001,
-     0.0001, 0.0001, 0.0001,
+     0.000, 0.000, 0.000,
+     0.000, 0.000, 0.000,
      0.00],
-Qx_feat: [0.05, 0.05, 0.00],
+Qx_feat: [0.0, 0.0, 0.00],
 
 # Input Process Noise
 Qu: [0.00, 0.00, 0.0,       # u_acc
@@ -25,43 +25,43 @@ Qu: [0.00, 0.00, 0.0,       # u_acc
 lambda: [1.0, 1.0, 1.0,     # POS
          1.0, 1.0, 1.0,     # VEL
          1.0, 1.0, 1.0,     # ATT
-         0.5, 0.5, 0.5,     # B_A
-         0.5, 0.5, 0.3,     # B_G
+         0.5, 0.5, 0.7,     # B_A
+         0.7, 0.7, 0.3,     # B_G
          0.1],              # MU
 lambda_feat: [1.0, 1.0, 0.75],            
 
 ## Sensor Noise
-depth_R: 0.1,
-feat_R: [1.0, 1.0],
-acc_R: [1.0, 1.0],
-att_R: [0.001, 0.001, 0.001],
+depth_R: 0.5,
+feat_R: [3.0, 3.0],
+acc_R: [1.3, 1.3],
+att_R: [0.0001, 0.0001, 0.0001],
 # pos_R: [5.0, 5.0, 5.0],
 pos_R: [0.01, 0.01, 0.01],
 
 vel_R: [0.1, 0.1, 0.1],
-alt_R: 0.001,
+alt_R: 0.1,
 
 ## Low-Pass Filtering on IMU and Truth
-imu_LPF: 0.0,
+imu_LPF: 0.3,
 truth_LPF: 0.0,
 
 ## Measurement Model Flags
 use_truth: true,
 use_depth: false,
 use_features: false,
-use_acc: true,
+use_acc: false,
 use_imu_att: false,
-use_alt: false,
+use_alt: true,
 
 ## Feature Flags
-drag_term: true,
+drag_term: false,
 partial_update: true,
 keyframe_reset: false,
 
 ## Tracking Paramters
 min_depth: 1.5,
 keyframe_overlap: 0.75,
-num_features: 12,
+num_features: 0,
 feature_radius: 30,
 
 ## CPU Threads

@@ -111,7 +111,7 @@ except:
     att = h.global_att[np.hstack((good_ids, False))]
 for i in range(len(v_t)):
     q_I_b = Quaternion(att[i, :, None])
-    vel_data.append(q_I_b.rot(v_inertial[i, None].T).T)
+    vel_data.append(q_I_b.invrot(v_inertial[i, None].T).T)
 
 vel_data = np.array(vel_data).squeeze()
 

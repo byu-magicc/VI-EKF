@@ -77,6 +77,7 @@ private:
   bool use_alt_;
   double IMU_LPF_;
   double truth_LPF_;
+  double min_depth_;
 
   Vector6d imu_;
   Vector3d kf_pos_;

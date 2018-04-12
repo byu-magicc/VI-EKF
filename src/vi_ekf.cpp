@@ -413,9 +413,9 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
   // Calculate State Dynamics
   dx_.block<3,1>((int)dxPOS,0) = R_I_b.transpose() * vel;
   if (use_drag_term_)
-    dx_.block<3,1>((int)dxVEL,0) = acc_z + gravity_B - mu*vel_xy;
+    dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc_z + gravity_B - mu*vel_xy;
   else
-    dx_.block<3,1>((int)dxVEL,0) = acc + gravity_B;
+    dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc + gravity_B;
   dx_.block<3,1>((int)dxATT, 0) = omega;
   
   // State Jacobian
@@ -423,7 +423,7 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
   A_.block<3,3>((int)dxPOS, (int)dxATT) = -R_I_b.transpose()*skew(vel);
   if (use_drag_term_)
   {
-    A_.block<3,3>((int)dxVEL, (int)dxVEL) = -mu * I_2x3.transpose() * I_2x3;
+    A_.block<3,3>((int)dxVEL, (int)dxVEL) = -skew(omega) -mu * I_2x3.transpose() * I_2x3;
     A_.block<3,3>((int)dxVEL, (int)dxB_A) << 0, 0, 0, 0, 0, 0, 0, 0, -1;
     A_.block<3,1>((int)dxVEL, (int)dxMU) = -vel_xy;
   }
@@ -432,6 +432,7 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
     A_.block<3,3>((int)dxVEL, (int)dxB_A) = -I_3x3;
   }
   A_.block<3,3>((int)dxVEL, (int)dxATT) = skew(gravity_B);
+  A_.block<3,3>((int)dxVEL, (int)dxB_G) = -skew(vel);
   A_.block<3,3>((int)dxATT, (int)dxB_G) = -I_3x3;
   
   // Input Jacobian
@@ -439,6 +440,7 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
     G_.block<3,3>((int)dxVEL, (int)uA) << 0, 0, 0, 0, 0, 0, 0, 0, 1;
   else
     G_.block<3,3>((int)dxVEL, (int)uA) = I_3x3;
+  G_.block<3,3>((int)dxVEL, (int)uG) = skew(vel);
   G_.block<3,3>((int)dxATT, (int)uG) = I_3x3;
   
   // Camera Dynamics

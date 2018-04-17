@@ -24,6 +24,7 @@ prop_file = open(log_dir + str(latest_folder) + "/prop.txt")
 perf_file = open(log_dir + str(latest_folder) + "/perf.txt")
 meas_file = open(log_dir + str(latest_folder) + "/meas.txt")
 conf_file = open(log_dir + str(latest_folder) + "/conf.txt")
+input_file = open(log_dir + str(latest_folder) + "/input.txt")
 fig_dir = log_dir + str(latest_folder) + "/plots"
 os.system("mkdir " + fig_dir)
 
@@ -88,6 +89,11 @@ for line in meas_file:
     else:
         print("unsupported measurement type ", meas_type)
 
+for line in input_file:
+    line_arr = np.array([float(item) for item in line.split()])
+    if len(line_arr) < 6: continue
+    h.store(line_arr[0], u_acc=line_arr[1:4], u_gyro=line_arr[4:])
+
 
 h.tonumpy()
 
@@ -121,9 +127,9 @@ start = h.t.xhat[0]
 end = h.t.xhat[-1]
 init_plots(start, end, fig_dir)
 
-plot_side_by_side(r'$p_{b/n}^n$', 0, 3, h.t.xhat, h.xhat, cov=h.cov if pose_cov else None, truth_t=h.t.pos, truth=h.pos, labels=['p_x', 'p_y', 'p_z'], start_t=start, end_t=end, truth_offset=offset)
-plot_side_by_side(r'$p_{b/I}^I$', 0, 3, h.t.global_pos_hat, h.global_pos_hat, cov=h.cov if pose_cov else None, truth_t=h.t.global_pos, truth=h.global_pos, labels=['p_x', 'p_y', 'p_z'], start_t=start, end_t=end, truth_offset=offset)
-plot_side_by_side(r'$v_{b/I}^b$', 3, 6, h.t.xhat, h.xhat, cov=h.cov if plot_cov else None, truth_t=v_t, truth=vel_data, labels=['v_x', 'v_y', 'v_z'], start_t=start, end_t=end, truth_offset=offset)
+plot_side_by_side(r'$p_{b/n}^n$', 0, 3, h.t.xhat, h.xhat, cov=h.cov if pose_cov else None, truth_t=h.t.pos, truth=h.pos, labels=['p_x', 'p_y', 'p_z'], start_t=start, end_t=end, truth_offset=offset, ylim=[-3, 3])
+plot_side_by_side(r'$p_{b/I}^I$', 0, 3, h.t.global_pos_hat, h.global_pos_hat, cov=h.cov if pose_cov else None, truth_t=h.t.global_pos, truth=h.global_pos, labels=['p_x', 'p_y', 'p_z'], start_t=start, end_t=end, truth_offset=offset, ylim=[-3, 3])
+plot_side_by_side(r'$v_{b/I}^b$', 3, 6, h.t.xhat, h.xhat, cov=h.cov if plot_cov else None, truth_t=v_t, truth=vel_data, labels=['v_x', 'v_y', 'v_z'], start_t=start, end_t=end, truth_offset=offset, ylim=[-3, 3])
 plot_side_by_side(r'$q_n^b$', 6, 10, h.t.xhat, h.xhat, cov=None, truth_t=h.t.att, truth=h.att, labels=['q_w','q_x', 'q_y', 'q_z'], start_t=start, end_t=end, truth_offset=offset)
 plot_side_by_side(r'$q_I^b$', 0, 4, h.t.global_att_hat, h.global_att_hat, cov=None, truth_t=h.t.global_att, truth=h.global_att, labels=['q_w','q_x', 'q_y', 'q_z'], start_t=start, end_t=end, truth_offset=offset)
 # Convert relative attitude to euler angles
@@ -141,8 +147,9 @@ b_acc, a_acc = scipy.signal.butter(6, 0.05)
 acc_smooth = scipy.signal.filtfilt(b_acc, a_acc, h.acc, axis=0)
 plot_side_by_side('$y_{a}$', 0, 2, h.t.acc, acc_smooth, truth=h.acc, truth_t=h.t.acc, labels=[r'y_{a,x}', r'y_{a,y}'], start_t=start, end_t=end, truth_offset=offset)
 plot_side_by_side('$y_{alt}$', 0, 1, h.t.alt, h.alt_hat[:,None], truth=h.alt[:,None], truth_t=h.t.alt, labels=[r'-p_z'], start_t=start, end_t=end)
-plot_side_by_side('Bias Terms', 10, 17, h.t.xhat, h.xhat, labels=[r'\beta_{a,x}', r'\beta_{a,y}', r'\beta_{a,z}', r'\beta_{\omega,x}', r'\beta_{\omega,y}', r'\beta_{\omega,z}', 'b'], start_t=start, end_t=end, cov=h.cov if plot_cov else None, cov_bounds=(9,16), truth_offset=offset)
-
+plot_side_by_side('Bias Terms', 10, 17, h.t.xhat, h.xhat, labels=[r'\beta_{a,x}', r'\beta_{a,y}', r'\beta_{a,z}', r'\beta_{\omega,x}', r'\beta_{\omega,y}', r'\beta_{\omega,z}', 'b'], start_t=start, end_t=end, cov=h.cov if plot_cov else None, cov_bounds=(9,16), truth_offset=offset, ylim=[-0.3, 0.3])
+plot_side_by_side('u_acc', 0, 3, h.t.u_acc, h.u_acc, labels=[r'u_{a,x}',r'u_{a,y}',r'u_{a,z}'], start_t=start, end_t=end)
+plot_side_by_side('u_gyro', 0, 3, h.t.u_gyro, h.u_gyro, labels=[r'u_{\omega,x}',r'u_{\omega,y}',r'u_{\omega,z}'], start_t=start, end_t=end)
 
 # print Final States for baiases for tuning
 print "\nFinal bias States"
@@ -151,14 +158,19 @@ print "Gyro", h.xhat[-1, 13:16]
 print "Drag", h.xhat[-1, 16]
 
 
+print "\n Average Inputs"
+print "acc", np.mean(h.u_acc, axis=0)
+print "gyro", np.mean(h.u_gyro, axis=0)
+
+
 for i in tqdm(ids):
     if i not in h.depth_hat: continue
     plot_side_by_side('x_{}'.format(i), 0, 2, h.t.feat_hat[i], h.feat_hat[i], truth_t=h.t.feat[i],
                       truth=h.feat[i], labels=['u', 'v'], start_t=start, end_t=end, truth_offset=None, subdir='lambda')
     if hasattr(h, 'depth') and hasattr(h, 'depth_hat'): 
         plot_side_by_side('x_{}'.format(i), 0, 1, h.t.depth_hat[i], h.depth_hat[i][:, None], truth_t=h.t.depth[i],
-                      truth=h.depth[i][:, None], labels=[r'\frac{1}{\rho}'], start_t=start, end_t=end,
-                      cov=h.depth_cov[i] if plot_cov else None, truth_offset=None, subdir='rho')
+                truth=h.depth[i][:, None], labels=[r'\frac{1}{\rho}'], start_t=start, end_t=end,
+                cov=h.depth_cov[i] if plot_cov else None, truth_offset=None, subdir='rho')
 
 
 

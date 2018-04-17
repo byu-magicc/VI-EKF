@@ -344,7 +344,8 @@ void VIEKF::propagate(const uVector &u, const double t)
   
   dynamics(x_, u);
   NAN_CHECK;
-  boxplus(x_, dx_*dt, x_);
+  boxplus(x_, dx_*dt, xp_);
+  x_ = xp_;
   NAN_CHECK;
   int dx = dxZ+3*len_features_;
   P_.topLeftCorner(dx, dx) += (A_.topLeftCorner(dx, dx) * P_.topLeftCorner(dx, dx) 
@@ -373,10 +374,12 @@ void VIEKF::propagate(const uVector &u, const double t)
   }
   
   log_.prop_log_count++;
-  if (log_.stream && log_.prop_log_count > 10)
+  if (log_.stream && log_.prop_log_count > 1)
   {
     log_.prop_log_count = 0;
     (*log_.stream)[LOG_PROP] << t-start_t_ << " " << x_.transpose() << " " <<  P_.diagonal().transpose() << " \n";
+    (*log_.stream)[LOG_INPUT] << t-start_t_ << " " << (u - x_.block<6,1>((int)xB_A, 0)).transpose() << "\n";
+    (*log_.stream)[LOG_XDOT] << t-start_t_ << " " << dt << dx_.transpose() << "\n";
   }
 }
 
@@ -398,8 +401,8 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
   Vector3d vel = x.block<3, 1>((int)xVEL, 0);
   Quat q_I_b(x.block<4,1>((int)xATT,0));
   
-  Vector3d omega = u.block<3,1>((int)uG, 0) - x.block<3,1>((int)xB_G, 0);
   Vector3d acc = u.block<3,1>((int)uA, 0) - x.block<3,1>((int)xB_A, 0);
+  Vector3d omega = u.block<3,1>((int)uG, 0) - x.block<3,1>((int)xB_G, 0);
   Vector3d acc_z;
   acc_z << 0, 0, acc(2,0);
   double mu = x((int)xMU);
@@ -414,16 +417,16 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
   
   
   // Calculate State Dynamics
-  dx_.block<3,1>((int)dxPOS,0) = R_I_b.transpose() * vel;
+//  dx_.block<3,1>((int)dxPOS,0) = R_I_b.transpose() * vel;
 //  if (use_drag_term_)
 //    dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc_z + gravity_B - mu*vel_xy;
 //  else
-  dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc + gravity_B;
+//  dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc + gravity_B;
   dx_.block<3,1>((int)dxATT, 0) = omega;
   
   // State Jacobian
-  A_.block<3,3>((int)dxPOS, (int)dxVEL) = R_I_b.transpose();
-  A_.block<3,3>((int)dxPOS, (int)dxATT) = -R_I_b.transpose()*skew(vel);
+//  A_.block<3,3>((int)dxPOS, (int)dxVEL) = R_I_b.transpose();
+//  A_.block<3,3>((int)dxPOS, (int)dxATT) = -R_I_b.transpose()*skew(vel);
 //  if (use_drag_term_)
 //  {
 //    A_.block<3,3>((int)dxVEL, (int)dxVEL) = -skew(omega) -mu * I_2x3.T * I_2x3;
@@ -432,68 +435,68 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
 //  }
 //  else
 //  {
-    A_.block<3,3>((int)dxVEL, (int)dxB_A) = -I_3x3;
-    A_.block<3,3>((int)dxVEL, (int)dxVEL) = -skew(omega);
+//    A_.block<3,3>((int)dxVEL, (int)dxB_A) = -I_3x3;
+//    A_.block<3,3>((int)dxVEL, (int)dxVEL) = -skew(omega);
 //  }
-  A_.block<3,3>((int)dxVEL, (int)dxATT) = skew(gravity_B);
-  A_.block<3,3>((int)dxVEL, (int)dxB_G) = -skew(vel);
+//  A_.block<3,3>((int)dxVEL, (int)dxATT) = skew(gravity_B);
+//  A_.block<3,3>((int)dxVEL, (int)dxB_G) = -skew(vel);
   A_.block<3,3>((int)dxATT, (int)dxB_G) = -I_3x3;
   
   // Input Jacobian
 //  if (use_drag_term_)
 //    G_.block<3,3>((int)dxVEL, (int)uA) << 0, 0, 0, 0, 0, 0, 0, 0, 1;
 //  else
-    G_.block<3,3>((int)dxVEL, (int)uA) = I_3x3;
-  G_.block<3,3>((int)dxVEL, (int)uG) = skew(vel);
+//    G_.block<3,3>((int)dxVEL, (int)uA) = I_3x3;
+//  G_.block<3,3>((int)dxVEL, (int)uG) = skew(vel);
   G_.block<3,3>((int)dxATT, (int)uG) = I_3x3;
   
   // Camera Dynamics
-  Vector3d vel_c_i = q_b_c_.invrot(vel - omega.cross(p_b_c_));
-  Vector3d omega_c_i = q_b_c_.invrot(omega);
+//  Vector3d vel_c_i = q_b_c_.invrot(vel - omega.cross(p_b_c_));
+//  Vector3d omega_c_i = q_b_c_.invrot(omega);
   
   
-  Quat q_zeta;
-  double rho;
-  Vector3d zeta;
-  Matrix<double, 3, 2> T_z;
-  Matrix3d skew_zeta;
-  Matrix3d skew_vel_c = skew(vel_c_i);
-  Matrix3d skew_p_b_c = skew(p_b_c_);
-  Matrix3d R_b_c = q_b_c_.R();
-  int xZETA_i, xRHO_i, dxZETA_i, dxRHO_i;
-  for (int i = 0; i < len_features_; i++)
-  {
-    xZETA_i = (int)xZ+i*5;
-    xRHO_i = (int)xZ+5*i+4;
-    dxZETA_i = (int)dxZ + i*3;
-    dxRHO_i = (int)dxZ + i*3+2;
+//  Quat q_zeta;
+//  double rho;
+//  Vector3d zeta;
+//  Matrix<double, 3, 2> T_z;
+//  Matrix3d skew_zeta;
+//  Matrix3d skew_vel_c = skew(vel_c_i);
+//  Matrix3d skew_p_b_c = skew(p_b_c_);
+//  Matrix3d R_b_c = q_b_c_.R();
+//  int xZETA_i, xRHO_i, dxZETA_i, dxRHO_i;
+//  for (int i = 0; i < len_features_; i++)
+//  {
+//    xZETA_i = (int)xZ+i*5;
+//    xRHO_i = (int)xZ+5*i+4;
+//    dxZETA_i = (int)dxZ + i*3;
+//    dxRHO_i = (int)dxZ + i*3+2;
     
-    q_zeta = (x.block<4,1>(xZETA_i, 0));
-    rho = x(xRHO_i);
-    zeta = q_zeta.rot(e_z);
-    T_z = T_zeta(q_zeta);
-    skew_zeta = skew(zeta);
+//    q_zeta = (x.block<4,1>(xZETA_i, 0));
+//    rho = x(xRHO_i);
+//    zeta = q_zeta.rot(e_z);
+//    T_z = T_zeta(q_zeta);
+//    skew_zeta = skew(zeta);
     
-    double rho2 = rho*rho;
+//    double rho2 = rho*rho;
     
-    // Feature Dynamics
-    dx_.block<2,1>(dxZETA_i,0) = -T_z.transpose() * (omega_c_i + rho * zeta.cross(vel_c_i));
-    dx_(dxRHO_i) = rho2 * zeta.dot(vel_c_i);
+//    // Feature Dynamics
+//    dx_.block<2,1>(dxZETA_i,0) = -T_z.transpose() * (omega_c_i + rho * zeta.cross(vel_c_i));
+//    dx_(dxRHO_i) = rho2 * zeta.dot(vel_c_i);
     
-    // Feature Jacobian
-    A_.block<2, 3>(dxZETA_i, (int)dxVEL) = -rho * T_z.transpose() * skew_zeta * R_b_c;
-    A_.block<2, 3>(dxZETA_i, (int)dxB_G) = T_z.transpose() * (rho * skew_zeta * R_b_c * skew_p_b_c + R_b_c);
-    A_.block<2, 2>(dxZETA_i, dxZETA_i) = -T_z.transpose() * (skew(rho * skew_zeta * vel_c_i + omega_c_i) + (rho * skew_vel_c * skew_zeta)) * T_z;
-    A_.block<2, 1>(dxZETA_i, dxRHO_i) = -T_z.transpose() * zeta.cross(vel_c_i);
-    A_.block<1, 3>(dxRHO_i, (int)dxVEL) = rho2 * zeta.transpose() * R_b_c;
-    A_.block<1, 3>(dxRHO_i, (int)dxB_G) = -rho2 * zeta.transpose() * R_b_c * skew_p_b_c;
-    A_.block<1, 2>(dxRHO_i, dxZETA_i) = -rho2 * vel_c_i.transpose() * skew_zeta * T_z;
-    A_(dxRHO_i, dxRHO_i) = 2 * rho * zeta.transpose() * vel_c_i;
+//    // Feature Jacobian
+//    A_.block<2, 3>(dxZETA_i, (int)dxVEL) = -rho * T_z.transpose() * skew_zeta * R_b_c;
+//    A_.block<2, 3>(dxZETA_i, (int)dxB_G) = T_z.transpose() * (rho * skew_zeta * R_b_c * skew_p_b_c + R_b_c);
+//    A_.block<2, 2>(dxZETA_i, dxZETA_i) = -T_z.transpose() * (skew(rho * skew_zeta * vel_c_i + omega_c_i) + (rho * skew_vel_c * skew_zeta)) * T_z;
+//    A_.block<2, 1>(dxZETA_i, dxRHO_i) = -T_z.transpose() * zeta.cross(vel_c_i);
+//    A_.block<1, 3>(dxRHO_i, (int)dxVEL) = rho2 * zeta.transpose() * R_b_c;
+//    A_.block<1, 3>(dxRHO_i, (int)dxB_G) = -rho2 * zeta.transpose() * R_b_c * skew_p_b_c;
+//    A_.block<1, 2>(dxRHO_i, dxZETA_i) = -rho2 * vel_c_i.transpose() * skew_zeta * T_z;
+//    A_(dxRHO_i, dxRHO_i) = 2 * rho * zeta.transpose() * vel_c_i;
     
-    // Feature Input Jacobian
-    G_.block<2, 3>(dxZETA_i, (int)uG) = -T_z.transpose() * (R_b_c + rho*skew_zeta * R_b_c*skew_p_b_c);
-    G_.block<1, 3>(dxRHO_i, (int)uG) = rho2*zeta.transpose() * R_b_c * skew_p_b_c;
-  }
+//    // Feature Input Jacobian
+//    G_.block<2, 3>(dxZETA_i, (int)uG) = -T_z.transpose() * (R_b_c + rho*skew_zeta * R_b_c*skew_p_b_c);
+//    G_.block<1, 3>(dxRHO_i, (int)uG) = rho2*zeta.transpose() * R_b_c * skew_p_b_c;
+//  }
 }
 
 bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
@@ -550,7 +553,6 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
   {
     K_.leftCols(z_dim) = P_ * H_.topRows(z_dim).transpose() * (R + H_.topRows(z_dim)*P_ * H_.topRows(z_dim).transpose()).inverse();
     NAN_CHECK;
-    xp_ = x_;
     
 //    CHECK_MAT_FOR_NANS(H_);
 //    CHECK_MAT_FOR_NANS(K_);
@@ -565,13 +567,14 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
 //    }
 //    else
 //    {
-      boxplus(xp_, K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
+      boxplus(x_, K_.leftCols(z_dim) * residual.topRows(z_dim), xp_);
+      x_ = xp_;
       P_ = (I_big_ - K_.leftCols(z_dim) * H_.topRows(z_dim))*P_;
 //    }
     NAN_CHECK;
   }
   
-  fix_depth();
+//  fix_depth();
   
   NAN_CHECK;
   NEGATIVE_DEPTH;
@@ -840,6 +843,8 @@ void VIEKF::init_logger(string root_filename)
   (*log_.stream)[LOG_MEAS].open(root_filename + "meas.txt", std::ofstream::out | std::ofstream::trunc);
   (*log_.stream)[LOG_PERF].open(root_filename + "perf.txt", std::ofstream::out | std::ofstream::trunc);
   (*log_.stream)[LOG_CONF].open(root_filename + "conf.txt", std::ofstream::out | std::ofstream::trunc);
+  (*log_.stream)[LOG_INPUT].open(root_filename + "input.txt", std::ofstream::out | std::ofstream::trunc);
+  (*log_.stream)[LOG_XDOT].open(root_filename + "xdot.txt", std::ofstream::out | std::ofstream::trunc);
   (*log_.stream)[LOG_KF].open(root_filename + "kf.txt", std::ofstream::out | std::ofstream::trunc);
   (*log_.stream)[LOG_DEBUG].open(root_filename + "debug.txt", std::ofstream::out | std::ofstream::trunc);
   

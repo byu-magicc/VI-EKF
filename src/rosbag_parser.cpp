@@ -52,8 +52,12 @@ int main(int argc, char * argv[])
   }
   
   // Call all the callbacks
+  ros::Time tstart = view.getBeginTime();
+  ros::Time tend = view.getEndTime();
+  cout << "\n";
   foreach (rosbag::MessageInstance const m, view)
   {
+    cout << "\r" <<  (m.getTime() - tstart).toSec() << "/" << (tend - tstart).toSec();
     // break if Ctrl+C
     if (!ros::ok())
       break;

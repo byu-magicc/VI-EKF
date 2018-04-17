@@ -56,6 +56,7 @@ private:
   ros::Subscriber pose_sub_;
   ros::Subscriber transform_sub_;
   ros::Publisher odometry_pub_;
+  ros::Publisher bias_pub_;
   nav_msgs::Odometry odom_msg_;
 
   std::mutex ekf_mtx_;

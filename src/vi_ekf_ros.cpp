@@ -9,6 +9,7 @@ VIEKF_ROS::VIEKF_ROS() :
   pose_sub_ = nh_.subscribe("truth/pose", 10, &VIEKF_ROS::pose_truth_callback, this);
   transform_sub_ = nh_.subscribe("truth/transform", 10, &VIEKF_ROS::transform_truth_callback, this);
   odometry_pub_ = nh_.advertise<nav_msgs::Odometry>("odom", 1);
+  bias_pub_ = nh_.advertise<sensor_msgs::Imu>("imu/bias", 1);
 
   image_sub_ = it_.subscribe("color", 10, &VIEKF_ROS::color_image_callback, this);
   depth_sub_ = it_.subscribe("depth", 10, &VIEKF_ROS::depth_image_callback, this);
@@ -193,6 +194,16 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
   odom_msg_.twist.twist.angular.y = imu_(4);
   odom_msg_.twist.twist.angular.z = imu_(5);
   odometry_pub_.publish(odom_msg_);
+  
+  sensor_msgs::Imu bias_msg;
+  bias_msg.header = msg->header;
+  bias_msg.linear_acceleration.x = ekf_.get_state()(vi_ekf::VIEKF::xB_A, 0);
+  bias_msg.linear_acceleration.y = ekf_.get_state()(vi_ekf::VIEKF::xB_A+1, 0);
+  bias_msg.linear_acceleration.z = ekf_.get_state()(vi_ekf::VIEKF::xB_A+2, 0);
+  bias_msg.angular_velocity.x = ekf_.get_state()(vi_ekf::VIEKF::xB_G, 0);
+  bias_msg.angular_velocity.y = ekf_.get_state()(vi_ekf::VIEKF::xB_G+1, 0);
+  bias_msg.angular_velocity.z = ekf_.get_state()(vi_ekf::VIEKF::xB_G+2, 0);
+  bias_pub_.publish(bias_msg);
 }
 
 void VIEKF_ROS::keyframe_reset_callback()
@@ -369,11 +380,11 @@ void VIEKF_ROS::truth_callback(Vector3d z_pos, Vector4d z_att)
   z_att = (kf_att_.inverse() * truth_att_).elements();  
 
   ekf_mtx_.lock();
-  ekf_.update(z_pos, vi_ekf::VIEKF::POS, pos_R_, use_truth_);
+  ekf_.update(z_pos, vi_ekf::VIEKF::POS, pos_R_, false); //use_truth_);
   ekf_.update(z_alt, vi_ekf::VIEKF::ALT, alt_R_, (use_truth_) ? false : use_alt_);
   if (!use_imu_att_)
   {
-    ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, false); //use_truth_);
+    ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, use_truth_);
   }
   ekf_mtx_.unlock();
 }

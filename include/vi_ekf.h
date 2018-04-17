@@ -111,6 +111,8 @@ private:
     LOG_PROP,
     LOG_MEAS,
     LOG_PERF,
+    LOG_INPUT,
+    LOG_XDOT,
     LOG_CONF,
     LOG_KF,
     LOG_DEBUG,

@@ -54,7 +54,8 @@ def plot_3d_side_by_side(h, p_b_c, q_b_c):
     plt.show()
 
 
-def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None, truth=None, labels=None, skip=1, save=True, cov_bounds=None, start_t=None, end_t=None, truth_offset=None, subdir=None):
+def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None, truth=None, labels=None, skip=1, 
+    save=True, cov_bounds=None, start_t=None, end_t=None, truth_offset=None, subdir=None, ylim=None):
     estimate = estimate[:, start:end]
     if cov_bounds == None:
         cov_bounds = (start,end)
@@ -96,6 +97,7 @@ def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None
                 debug = 1
 
         plt.xlim(plot_start, plot_end)
+        if ylim is not None: plt.ylim(ylim[0], ylim[1])
         plt.legend()
         if i == 0:
             plt.title(title)

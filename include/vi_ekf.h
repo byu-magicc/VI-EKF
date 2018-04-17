@@ -28,7 +28,6 @@ using namespace Eigen;
 
 #define MAX_X 17+NUM_FEATURES*5
 #define MAX_DX 16+NUM_FEATURES*3
-#define AVG_DEPTH 1.5
 
 typedef Matrix<double, MAX_X, 1> xVector;
 typedef Matrix<double, MAX_DX, 1> dxVector;

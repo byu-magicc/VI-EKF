@@ -1,5 +1,8 @@
 #include "klt_tracker.h"
 
+#include "iostream"
+using namespace std;
+
 KLT_Tracker::KLT_Tracker()
 {
   init(12, true, 30, cv::Size(640, 480));
@@ -126,7 +129,7 @@ void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, 
       int num_new_features = num_features_ - new_features_.size();
       vector<Point2f> new_corners;
       goodFeaturesToTrack(grey_img, new_corners, num_new_features, 0.3, feature_nearby_radius_, point_mask, 7);
-      
+
       for (int i = 0; i < new_corners.size(); i++)
       {
         new_features_.push_back(new_corners[i]);

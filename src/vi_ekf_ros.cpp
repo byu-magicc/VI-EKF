@@ -144,6 +144,9 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
        msg->angular_velocity.z;
   u.block<3,1>(0,0) = q_b_IMU_.invrot(u.block<3,1>(0,0));
   u.block<3,1>(3,0) = q_b_IMU_.invrot(u.block<3,1>(3,0));
+  
+  if (u(2) > 0.0)
+    return;
 
   imu_ = (1. - IMU_LPF_) * u + IMU_LPF_ * imu_;
 
@@ -339,8 +342,8 @@ void VIEKF_ROS::truth_callback(Vector3d z_pos, Vector4d z_att)
 	Matrix<double, vi_ekf::VIEKF::xZ, 1> x0 = ekf_.get_state().topRows(vi_ekf::VIEKF::xZ);
 	x0.block<3,1>((int)vi_ekf::VIEKF::xPOS,0) = z_pos;
 	x0.block<4,1>((int)vi_ekf::VIEKF::xATT,0) = z_att;
-//	ekf_.set_x0(x0);
-//    ekf_.keyframe_reset();
+	ekf_.set_x0(x0);
+    ekf_.keyframe_reset();
     ekf_mtx_.unlock();
     
     truth_init_ = true;
@@ -370,30 +373,9 @@ void VIEKF_ROS::truth_callback(Vector3d z_pos, Vector4d z_att)
   ekf_.update(z_alt, vi_ekf::VIEKF::ALT, alt_R_, (use_truth_) ? false : use_alt_);
   if (!use_imu_att_)
   {
-    ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, use_truth_);
+    ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, false); //use_truth_);
   }
   ekf_mtx_.unlock();
-}
-
-
-int main(int argc, char* argv[])
-{
-  ros::init(argc, argv, "vi_ekf_node");
-  VIEKF_ROS ekf;
-  
-  ros::NodeHandle nh("~");
-  int num_threads = nh.param<int>("num_threads", 0);
-  if (num_threads == 1)
-  {
-    ros::spin();
-  }
-  else
-  {
-    ros::AsyncSpinner spinner(num_threads);
-    spinner.start();
-    ros::waitForShutdown();
-  }
-  return 0;
 }
 
 

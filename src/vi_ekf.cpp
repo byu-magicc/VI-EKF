@@ -179,7 +179,6 @@ void VIEKF::boxplus(const xVector& x, const dxVector& dx, xVector& out) const
   out.block<6,1>((int)xPOS, 0) = x.block<6,1>((int)xPOS, 0) + dx.block<6,1>((int)dxPOS, 0);
   out.block<4,1>((int)xATT, 0) = (Quat(x.block<4,1>((int)xATT, 0)) + dx.block<3,1>((int)dxATT, 0)).elements();
   out.block<7,1>((int)xB_A, 0) = x.block<7,1>((int)xB_A, 0) + dx.block<7,1>((int)dxB_A, 0);
-  
   for (int i = 0; i < len_features_; i++)
   {
     out.block<4,1>(xZ+i*5,0) = q_feat_boxplus(Quat(x.block<4,1>(xZ+i*5,0)), dx.block<2,1>(dxZ+3*i,0)).elements();
@@ -349,9 +348,9 @@ void VIEKF::propagate(const uVector &u, const double t)
   NAN_CHECK;
   int dx = dxZ+3*len_features_;
   P_.topLeftCorner(dx, dx) += (A_.topLeftCorner(dx, dx) * P_.topLeftCorner(dx, dx) 
-                                       + P_.topLeftCorner(dx, dx) * A_.topLeftCorner(dx, dx).transpose() 
-                                       + G_.topRows(dx) * Qu_ * G_.topRows(dx).transpose() 
-                                       + Qx_.topLeftCorner(dx, dx) ) * dt;
+                              + P_.topLeftCorner(dx, dx) * A_.topLeftCorner(dx, dx).transpose() 
+                              + G_.topRows(dx) * Qu_ * G_.topRows(dx).transpose()
+                              + Qx_.topLeftCorner(dx, dx) ) * dt;
   NAN_CHECK;
   
   fix_depth();
@@ -410,35 +409,40 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
   Vector3d vel_xy;  
   vel_xy << vel(0), vel(1), 0.0;
   
+//  acc = -gravity_B;
+//  omega << 0, 0, 0;
+  
+  
   // Calculate State Dynamics
   dx_.block<3,1>((int)dxPOS,0) = R_I_b.transpose() * vel;
-  if (use_drag_term_)
-    dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc_z + gravity_B - mu*vel_xy;
-  else
-    dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc + gravity_B;
+//  if (use_drag_term_)
+//    dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc_z + gravity_B - mu*vel_xy;
+//  else
+  dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc + gravity_B;
   dx_.block<3,1>((int)dxATT, 0) = omega;
   
   // State Jacobian
   A_.block<3,3>((int)dxPOS, (int)dxVEL) = R_I_b.transpose();
   A_.block<3,3>((int)dxPOS, (int)dxATT) = -R_I_b.transpose()*skew(vel);
-  if (use_drag_term_)
-  {
-    A_.block<3,3>((int)dxVEL, (int)dxVEL) = -skew(omega) -mu * I_2x3.transpose() * I_2x3;
-    A_.block<3,3>((int)dxVEL, (int)dxB_A) << 0, 0, 0, 0, 0, 0, 0, 0, -1;
-    A_.block<3,1>((int)dxVEL, (int)dxMU) = -vel_xy;
-  }
-  else
-  {
+//  if (use_drag_term_)
+//  {
+//    A_.block<3,3>((int)dxVEL, (int)dxVEL) = -skew(omega) -mu * I_2x3.T * I_2x3;
+//    A_.block<3,3>((int)dxVEL, (int)dxB_A) << 0, 0, 0, 0, 0, 0, 0, 0, -1;
+//    A_.block<3,1>((int)dxVEL, (int)dxMU) = -vel_xy;
+//  }
+//  else
+//  {
     A_.block<3,3>((int)dxVEL, (int)dxB_A) = -I_3x3;
-  }
+    A_.block<3,3>((int)dxVEL, (int)dxVEL) = -skew(omega);
+//  }
   A_.block<3,3>((int)dxVEL, (int)dxATT) = skew(gravity_B);
   A_.block<3,3>((int)dxVEL, (int)dxB_G) = -skew(vel);
   A_.block<3,3>((int)dxATT, (int)dxB_G) = -I_3x3;
   
   // Input Jacobian
-  if (use_drag_term_)
-    G_.block<3,3>((int)dxVEL, (int)uA) << 0, 0, 0, 0, 0, 0, 0, 0, 1;
-  else
+//  if (use_drag_term_)
+//    G_.block<3,3>((int)dxVEL, (int)uA) << 0, 0, 0, 0, 0, 0, 0, 0, 1;
+//  else
     G_.block<3,3>((int)dxVEL, (int)uA) = I_3x3;
   G_.block<3,3>((int)dxVEL, (int)uG) = skew(vel);
   G_.block<3,3>((int)dxATT, (int)uG) = I_3x3;
@@ -516,6 +520,7 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
   
   zhat_.setZero();
   H_.setZero();
+  K_.setZero();
   
   (this->*(measurement_functions[meas_type]))(x_, zhat_, H_, id);
   
@@ -537,9 +542,11 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
     residual.topRows(z_dim) = z - zhat_.topRows(z_dim);
   }
   
+//  double mahal = residual.topRows(z_dim).transpose() * R.inverse() * residual.topRows(z_dim);
+  
   NAN_CHECK;
   
-  if (active)
+  if (active)// && mahal < 4)
   {
     K_.leftCols(z_dim) = P_ * H_.topRows(z_dim).transpose() * (R + H_.topRows(z_dim)*P_ * H_.topRows(z_dim).transpose()).inverse();
     NAN_CHECK;
@@ -548,19 +555,19 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
 //    CHECK_MAT_FOR_NANS(H_);
 //    CHECK_MAT_FOR_NANS(K_);
     
-    if (partial_update_ && NO_NANS(K_))
-    {
-      // Apply Fixed Gain Partial update per
-      // "Partial-Update Schmidt-Kalman Filter" by Brink
-      // Modified to operate inline and on the manifold 
-      boxplus(xp_, lambda_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
-      P_ -= (Lambda_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*P_);
-    }
-    else
-    {
+//    if (partial_update_ && NO_NANS(K_))
+//    {
+//      // Apply Fixed Gain Partial update per
+//      // "Partial-Update Schmidt-Kalman Filter" by Brink
+//      // Modified to operate inline and on the manifold 
+//      boxplus(xp_, lambda_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
+//      P_ -= (Lambda_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*P_);
+//    }
+//    else
+//    {
       boxplus(xp_, K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
-      P_ -= K_.leftCols(z_dim) * H_.topRows(z_dim)*P_;
-    }
+      P_ = (I_big_ - K_.leftCols(z_dim) * H_.topRows(z_dim))*P_;
+//    }
     NAN_CHECK;
   }
   
@@ -782,20 +789,20 @@ void VIEKF::fix_depth()
     if (x_(xRHO_i, 0) != x_(xRHO_i, 0))
     {
       // if a depth state has gone NaN, reset it
-      x_(xRHO_i, 0) = AVG_DEPTH;
+      x_(xRHO_i, 0) = 1.0/(2.0*min_depth_);
     }
     if (x_(xRHO_i, 0) < 0.0)
     {
       // If the state has gone negative, reset it
-      double err = AVG_DEPTH - x_(xRHO_i, 0);
+      double err = 1.0/(2.0*min_depth_) - x_(xRHO_i, 0);
       P_(dxRHO_i, dxRHO_i) += err*err;
-      x_(xRHO_i, 0) = AVG_DEPTH;
+      x_(xRHO_i, 0) = 1.0/(2.0*min_depth_);
     }
     else if (x_(xRHO_i, 0) > 1e2)
     {
       // If the state has grown unreasonably large, reset it
       P_(dxRHO_i, dxRHO_i) = P0_feat_(2,2);
-      x_(xRHO_i, 0) = AVG_DEPTH;
+      x_(xRHO_i, 0) = 1.0/(2.0*min_depth_);
     }
   }
 }

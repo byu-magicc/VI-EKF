@@ -13,19 +13,19 @@ using namespace Eigen;
 #define NUM_ITERS 10
 
 #define EXPECT_QUATERNION_EQUALS(q1, q2) \
-  EXPECT_NEAR((q1).w(), (q1).w(), 1e-8); \
-  EXPECT_NEAR((q1).x(), (q1).x(), 1e-8); \
-  EXPECT_NEAR((q1).y(), (q1).y(), 1e-8); \
-  EXPECT_NEAR((q1).z(), (q1).z(), 1e-8)
+  EXPECT_NEAR((q1).w(), (q2).w(), 1e-8); \
+  EXPECT_NEAR((q1).x(), (q2).x(), 1e-8); \
+  EXPECT_NEAR((q1).y(), (q2).y(), 1e-8); \
+  EXPECT_NEAR((q1).z(), (q2).z(), 1e-8)
 
 #define EXPECT_VECTOR3_EQUALS(v1, v2) \
-  EXPECT_NEAR((v1)(0,0), (v1)(0,0), 1e-8); \
-  EXPECT_NEAR((v1)(1,0), (v1)(1,0), 1e-8); \
-  EXPECT_NEAR((v1)(2,0), (v1)(2,0), 1e-8)
+  EXPECT_NEAR((v1)(0,0), (v2)(0,0), 1e-8); \
+  EXPECT_NEAR((v1)(1,0), (v2)(1,0), 1e-8); \
+  EXPECT_NEAR((v1)(2,0), (v2)(2,0), 1e-8)
 
 #define EXPECT_VECTOR2_EQUALS(v1, v2) \
-  EXPECT_NEAR((v1)(0,0), (v1)(0,0), 1e-8); \
-  EXPECT_NEAR((v1)(1,0), (v1)(1,0), 1e-8)
+  EXPECT_NEAR((v1)(0,0), (v2)(0,0), 1e-8); \
+  EXPECT_NEAR((v1)(1,0), (v2)(1,0), 1e-8)
 
 #define EXPECT_MATRIX_EQUAL(m1, m2, tol) {\
   for (int row = 0; row < m1.rows(); row++ ) \
@@ -240,8 +240,8 @@ TEST(Quat, rot_invrot_R)
     q1 = Quat::Random();
     
     // Check that rotations are inverses of each other
-    EXPECT_VECTOR3_EQUALS(q1.rot(v), q1.R.T * v);
-    EXPECT_VECTOR3_EQUALS(q1.invrot(v), q1.R * v);
+    EXPECT_VECTOR3_EQUALS(q1.rot(v), q1.R().transpose() * v);
+    EXPECT_VECTOR3_EQUALS(q1.invrot(v), q1.R() * v);
   }
 }
 

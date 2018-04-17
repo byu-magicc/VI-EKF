@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   geometry_msgs
   nav_msgs
+  rosbag
 )
 find_package(Boost REQUIRED COMPONENTS system thread)
 find_package(Eigen3 REQUIRED)
@@ -52,14 +53,30 @@ add_executable(vi_ekf_test
 )
 target_link_libraries(vi_ekf_test ${GTEST_LIBRARIES} pthread vi_ekf)
 
-add_executable(vi_ekf_node
+add_library(vi_ekf_ros
   src/vi_ekf_ros.cpp
   include/vi_ekf_ros.h
   include/eigen_helpers.h
 )
-target_link_libraries(vi_ekf_node
+target_link_libraries(vi_ekf_ros
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS}
   vi_ekf
   klt_tracker
+)
+
+add_executable(vi_ekf_node
+  src/vi_ekf_node.cpp
+  )
+target_link_libraries(vi_ekf_node
+  ${catkin_LIBRARIES}
+  vi_ekf_ros  
+)
+
+add_executable(vi_ekf_rosbag
+  src/rosbag_parser.cpp
+  )
+target_link_libraries(vi_ekf_rosbag
+  ${catkin_LIBRARIES}
+  vi_ekf_ros  
 )

@@ -13,7 +13,7 @@
 </node> -->
 
 <rosparam command="load" file="$(find vi_ekf)/params/leo.yaml" ns="vi_ekf_node"/>
-<node name="play" type="play" pkg="rosbag" args="/home/superjax/rosbag/with_yaw_and_truth.bag -d 1 -s 0">
+<node name="play" type="play" pkg="rosbag" args="/home/superjax/rosbag/with_yaw_and_truth.bag -d 1 -s 20">
   <remap from="camera/color/image_raw" to="color"/>
   <remap from="camera/depth/image_rect_raw" to="depth"/>
   <remap from="vrpn/Leo/pose" to="truth/pose"/>
@@ -31,6 +31,6 @@
 	<remap from="image" to="tracked"/>
 </node>
 
-<node name="record" type="record" pkg="rosbag" args="-O /home/superjax/rosbag/vi_ekf_results /odom /imu_rot /tracked /covariance /color /imu /truth/pose" output="screen"/>
+<node name="record" type="record" pkg="rosbag" args="-O /home/superjax/rosbag/vi_ekf_results /odom /imu /truth/pose" output="screen"/>
 
 </launch>

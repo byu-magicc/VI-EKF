@@ -12,27 +12,37 @@ using namespace Eigen;
 
 #define NUM_ITERS 10
 
-#define EXPECT_QUATERNION_EQUALS(q1, q2) \
-  EXPECT_NEAR((q1).w(), (q2).w(), 1e-8); \
-  EXPECT_NEAR((q1).x(), (q2).x(), 1e-8); \
-  EXPECT_NEAR((q1).y(), (q2).y(), 1e-8); \
-  EXPECT_NEAR((q1).z(), (q2).z(), 1e-8)
+#define ASSERT_QUATERNION_EQUALS(q1, q2) \
+  if (sign((q1).w()) != sign((q2).w())) \
+  { \
+    ASSERT_NEAR((-1.0*(q1).w()), (q2).w(), 1e-8); \
+    ASSERT_NEAR((-1.0*(q1).x()), (q2).x(), 1e-8); \
+    ASSERT_NEAR((-1.0*(q1).y()), (q2).y(), 1e-8); \
+    ASSERT_NEAR((-1.0*(q1).z()), (q2).z(), 1e-8); \
+  } \
+  else\
+  {\
+    ASSERT_NEAR((q1).w(), (q2).w(), 1e-8); \
+    ASSERT_NEAR((q1).x(), (q2).x(), 1e-8); \
+    ASSERT_NEAR((q1).y(), (q2).y(), 1e-8); \
+    ASSERT_NEAR((q1).z(), (q2).z(), 1e-8); \
+  }
 
-#define EXPECT_VECTOR3_EQUALS(v1, v2) \
-  EXPECT_NEAR((v1)(0,0), (v2)(0,0), 1e-8); \
-  EXPECT_NEAR((v1)(1,0), (v2)(1,0), 1e-8); \
-  EXPECT_NEAR((v1)(2,0), (v2)(2,0), 1e-8)
+#define ASSERT_VECTOR3_EQUALS(v1, v2) \
+  ASSERT_NEAR((v1)(0,0), (v2)(0,0), 1e-8); \
+  ASSERT_NEAR((v1)(1,0), (v2)(1,0), 1e-8); \
+  ASSERT_NEAR((v1)(2,0), (v2)(2,0), 1e-8)
 
-#define EXPECT_VECTOR2_EQUALS(v1, v2) \
-  EXPECT_NEAR((v1)(0,0), (v2)(0,0), 1e-8); \
-  EXPECT_NEAR((v1)(1,0), (v2)(1,0), 1e-8)
+#define ASSERT_VECTOR2_EQUALS(v1, v2) \
+  ASSERT_NEAR((v1)(0,0), (v2)(0,0), 1e-8); \
+  ASSERT_NEAR((v1)(1,0), (v2)(1,0), 1e-8)
 
-#define EXPECT_MATRIX_EQUAL(m1, m2, tol) {\
+#define ASSERT_MATRIX_EQUAL(m1, m2, tol) {\
   for (int row = 0; row < m1.rows(); row++ ) \
 { \
   for (int col = 0; col < m1.cols(); col++) \
 { \
-  EXPECT_NEAR((m1)(row, col), (m2)(row, col), tol); \
+  ASSERT_NEAR((m1)(row, col), (m2)(row, col), tol); \
   } \
   } \
   }
@@ -220,14 +230,16 @@ TEST(Quat, rotation_direction)
   // Compare against a known active and passive rotation
   Vector3d v, beta, v_active_rotated, v_passive_rotated;
   v << 0, 0, 1;
-  v_active_rotated << 0, std::pow(-0.5,0.5), std::pow(0.5,0.5);
+  v_active_rotated << 0, -1.0*std::pow(0.5,0.5), std::pow(0.5,0.5);
   beta << 1, 0, 0;
   Quat q_x_45 = Quat::from_axis_angle(beta, 45*M_PI/180.0);
+  Eigen::Vector3d v_x_45 = q_x_45.rot(v);
   
-  EXPECT_VECTOR3_EQUALS(q_x_45.rot(v), v_active_rotated);
+  ASSERT_VECTOR3_EQUALS(v_x_45, v_active_rotated);
   
   v_passive_rotated << 0, std::pow(0.5, 0.5), std::pow(0.5, 0.5);
-  EXPECT_VECTOR3_EQUALS(q_x_45.rot(v), v_passive_rotated);
+  Vector3d v_x_45_T = q_x_45.invrot(v);
+  ASSERT_VECTOR3_EQUALS(v_x_45_T, v_passive_rotated);
 }
 
 TEST(Quat, rot_invrot_R)
@@ -240,8 +252,8 @@ TEST(Quat, rot_invrot_R)
     q1 = Quat::Random();
     
     // Check that rotations are inverses of each other
-    EXPECT_VECTOR3_EQUALS(q1.rot(v), q1.R().transpose() * v);
-    EXPECT_VECTOR3_EQUALS(q1.invrot(v), q1.R() * v);
+    ASSERT_VECTOR3_EQUALS(q1.rot(v), q1.R().transpose() * v);
+    ASSERT_VECTOR3_EQUALS(q1.invrot(v), q1.R() * v);
   }
 }
 
@@ -255,22 +267,26 @@ TEST(Quat, from_two_unit_vectors)
     v1 /= v1.norm();
     v2 /= v2.norm();
     
-    EXPECT_VECTOR3_EQUALS(Quat::from_two_unit_vectors(v1, v2).rot(v1), v2);
-    EXPECT_VECTOR3_EQUALS(Quat::from_two_unit_vectors(v2, v1).invrot(v1), v2);
+    ASSERT_VECTOR3_EQUALS(Quat::from_two_unit_vectors(v1, v2).rot(v1), v2);
+    ASSERT_VECTOR3_EQUALS(Quat::from_two_unit_vectors(v2, v1).invrot(v1), v2);
   }
 }
 
 TEST(Quat, from_R)
 {
-  Quat q1 = Quat::Random();
   Vector3d v;
   for (int i = 0; i < NUM_ITERS; i++)
   {
+    Quat q1 = Quat::Random();
     Matrix3d R = q1.R();
     Quat qR = Quat::from_R(R);
     v.setRandom();
-    EXPECT_VECTOR3_EQUALS(qR.rot(v), R.transpose() * v);
-	EXPECT_VECTOR3_EQUALS(qR.invrot(v), R * v);
+    ASSERT_VECTOR3_EQUALS(qR.rot(v), R.transpose() * v);
+    ASSERT_VECTOR3_EQUALS(q1.rot(v), R.transpose() * v);
+    ASSERT_VECTOR3_EQUALS(qR.invrot(v), R * v);
+    ASSERT_VECTOR3_EQUALS(q1.invrot(v), R * v);
+    ASSERT_MATRIX_EQUAL(R, qR.R(), 1e-6);
+    ASSERT_QUATERNION_EQUALS(qR, q1);
   }
 }
 
@@ -278,7 +294,7 @@ TEST(Quat, otimes)
 {
   Quat q1 = Quat::Random();
   Quat qI = Quat::Identity();
-  EXPECT_QUATERNION_EQUALS(q1 * q1.inverse(), qI);
+  ASSERT_QUATERNION_EQUALS(q1 * q1.inverse(), qI);
 }
 
 TEST(Quat, exp_log_axis_angle)
@@ -288,16 +304,16 @@ TEST(Quat, exp_log_axis_angle)
   {
     Vector3d omega;
     omega.setRandom();
-    Matrix3d R_omega_exp = Quat::skew(omega).exp();
-    Quat q_R_omega_exp = Quat::from_R(R_omega_exp);
+    Matrix3d R_omega_exp_T = Quat::skew(omega).exp();  // Why is this needed?
+    Quat q_R_omega_exp = Quat::from_R(R_omega_exp_T.transpose());
     Quat q_omega = Quat::from_axis_angle(omega/omega.norm(), omega.norm());
     Quat q_omega_exp = Quat::exp(omega);
-    EXPECT_QUATERNION_EQUALS(q_R_omega_exp, q_omega);
-    EXPECT_QUATERNION_EQUALS(q_omega_exp, q_omega);
+    ASSERT_QUATERNION_EQUALS(q_R_omega_exp, q_omega);
+    ASSERT_QUATERNION_EQUALS(q_omega_exp, q_omega);
     
     // Check that exp and log are inverses of each otherprint_error
-    EXPECT_VECTOR3_EQUALS(Quat::log(Quat::exp(omega)), omega);
-    EXPECT_QUATERNION_EQUALS(Quat::exp(Quat::log(q_omega)), q_omega);
+    ASSERT_VECTOR3_EQUALS(Quat::log(Quat::exp(omega)), omega);
+    ASSERT_QUATERNION_EQUALS(Quat::exp(Quat::log(q_omega)), q_omega);
   }
 }
 
@@ -313,10 +329,10 @@ TEST(Quat, boxplus_and_boxminus)
     delta1.setRandom();
     delta2.setRandom();
     
-    EXPECT_QUATERNION_EQUALS(q + zeros, q);
-    EXPECT_QUATERNION_EQUALS(q + (q2 - q), q2);
-    EXPECT_VECTOR3_EQUALS((q + delta1) - q, delta1);
-    EXPECT_LE(((q+delta1)-(q+delta2)).norm(), (delta1-delta2).norm());
+    ASSERT_QUATERNION_EQUALS(q + zeros, q);
+    ASSERT_QUATERNION_EQUALS(q + (q2 - q), q2);
+    ASSERT_VECTOR3_EQUALS((q + delta1) - q, delta1);
+    ASSERT_LE(((q+delta1)-(q+delta2)).norm(), (delta1-delta2).norm());
   }
 }
 
@@ -329,15 +345,16 @@ TEST(Quat, inplace_add_and_mul)
     Quat q = Quat::Random();
     Quat q2 = Quat::Random();
     Quat q_copy = q.copy();
+    ASSERT_QUATERNION_EQUALS(q_copy, q);
     delta1.setRandom();
     delta2.setRandom();
     
     q_copy += delta1;
-    EXPECT_QUATERNION_EQUALS(q_copy, q+delta1);
+    ASSERT_QUATERNION_EQUALS(q_copy, q+delta1);
     
     q_copy = q.copy();
     q_copy *= q2;
-    EXPECT_QUATERNION_EQUALS(q_copy, q*q2);
+    ASSERT_QUATERNION_EQUALS(q_copy, q*q2);
   }
 }
 
@@ -349,9 +366,9 @@ TEST(Quat, euler)
     double pitch = random(-M_PI/2.0, M_PI/2.0);
     double yaw = random(-M_PI, M_PI);
     Quat q = Quat::from_euler(roll, pitch, yaw);
-    EXPECT_NEAR(roll, q.roll(), 1e-8);
-    EXPECT_NEAR(pitch, q.pitch(), 1e-8);
-    EXPECT_NEAR(yaw, q.yaw(), 1e-8);    
+    ASSERT_NEAR(roll, q.roll(), 1e-8);
+    ASSERT_NEAR(pitch, q.pitch(), 1e-8);
+    ASSERT_NEAR(yaw, q.yaw(), 1e-8);    
   }
 }
 
@@ -364,7 +381,7 @@ TEST(math_helper, T_zeta)
     v2 /= v2.norm();
     Quat q2 = Quat::from_two_unit_vectors(e_z, v2);
     Vector2d T_z_v2 = T_zeta(q2).transpose() * v2;
-    EXPECT_LE(T_z_v2.norm(), 1e-8);
+    ASSERT_LE(T_z_v2.norm(), 1e-8);
   }
 }
 
@@ -391,7 +408,7 @@ TEST(math_helper, d_dTdq)
       Vector2d dx = xprime - x0;
       d_dTdq.row(i) = (dx) / epsilon;
     }
-    EXPECT_MATRIX_EQUAL(d_dTdq, a_dTdq, 1e-6);
+    ASSERT_MATRIX_EQUAL(d_dTdq, a_dTdq, 1e-6);
   }
 }
 
@@ -412,7 +429,7 @@ TEST(math_helper, dqzeta_dqzeta)
       d_dqdq.row(i) = dq /epsilon;
     }
     Matrix2d a_dqdq = T_zeta(q).transpose() * T_zeta(q);
-    EXPECT_MATRIX_EQUAL(a_dqdq, d_dqdq, 1e-2);
+    ASSERT_MATRIX_EQUAL(a_dqdq, d_dqdq, 1e-2);
   }
 }
 
@@ -432,9 +449,9 @@ TEST(math_helper, manifold_operations)
     Quat x = Quat::exp(omega);
     Quat y = Quat::exp(omega2);
     
-    EXPECT_QUATERNION_EQUALS( q_feat_boxplus(x, zeros), x);
-    EXPECT_VECTOR3_EQUALS( q_feat_boxplus( x, q_feat_boxminus(y, x)).rot(e_z), y.rot(e_z));
-    EXPECT_VECTOR2_EQUALS( q_feat_boxminus(q_feat_boxplus(x, dx), x), dx);
+    ASSERT_QUATERNION_EQUALS( q_feat_boxplus(x, zeros), x);
+    ASSERT_VECTOR3_EQUALS( q_feat_boxplus( x, q_feat_boxminus(y, x)).rot(e_z), y.rot(e_z));
+    ASSERT_VECTOR2_EQUALS( q_feat_boxminus(q_feat_boxplus(x, dx), x), dx);
   }
 }
 
@@ -469,28 +486,28 @@ TEST(VI_EKF, dfdx_test)
       d_dfdx.col(i) = (dxprime - dx0) / epsilon;
     }
     
-    EXPECT_FALSE(check_block("dxPOS", "dxVEL", a_dfdx, d_dfdx));
-    EXPECT_FALSE(check_block("dxPOS", "dxATT", a_dfdx, d_dfdx));
-    EXPECT_FALSE(check_block("dxVEL", "dxVEL", a_dfdx, d_dfdx));
-    EXPECT_FALSE(check_block("dxVEL", "dxPOS", a_dfdx, d_dfdx));
-    EXPECT_FALSE(check_block("dxVEL", "dxATT", a_dfdx, d_dfdx));
-    EXPECT_FALSE(check_block("dxVEL", "dxB_A", a_dfdx, d_dfdx));
-    EXPECT_FALSE(check_block("dxVEL", "dxB_G", a_dfdx, d_dfdx));
-    EXPECT_FALSE(check_block("dxVEL", "dxMU", a_dfdx, d_dfdx));
+    ASSERT_FALSE(check_block("dxPOS", "dxVEL", a_dfdx, d_dfdx));
+    ASSERT_FALSE(check_block("dxPOS", "dxATT", a_dfdx, d_dfdx));
+    ASSERT_FALSE(check_block("dxVEL", "dxVEL", a_dfdx, d_dfdx));
+    ASSERT_FALSE(check_block("dxVEL", "dxPOS", a_dfdx, d_dfdx));
+    ASSERT_FALSE(check_block("dxVEL", "dxATT", a_dfdx, d_dfdx));
+    ASSERT_FALSE(check_block("dxVEL", "dxB_A", a_dfdx, d_dfdx));
+    ASSERT_FALSE(check_block("dxVEL", "dxB_G", a_dfdx, d_dfdx));
+    ASSERT_FALSE(check_block("dxVEL", "dxMU", a_dfdx, d_dfdx));
     
     for (int i = 0; i < ekf.get_len_features(); i++)
     {
       std::string zeta_key = "dxZETA_" + std::to_string(i);
       std::string rho_key = "dxRHO_" + std::to_string(i);
       
-      EXPECT_FALSE(check_block(zeta_key, "dxVEL", a_dfdx, d_dfdx));
-      EXPECT_FALSE(check_block(zeta_key, "dxB_G", a_dfdx, d_dfdx));
-      EXPECT_FALSE(check_block(zeta_key, zeta_key, a_dfdx, d_dfdx, 2e-2));
-      EXPECT_FALSE(check_block(zeta_key, rho_key, a_dfdx, d_dfdx));
-      EXPECT_FALSE(check_block(rho_key, "dxVEL", a_dfdx, d_dfdx, 2e-2));
-      EXPECT_FALSE(check_block(rho_key, "dxB_G", a_dfdx, d_dfdx, 1e-2));
-      EXPECT_FALSE(check_block(rho_key, zeta_key, a_dfdx, d_dfdx, 5.0));
-      EXPECT_FALSE(check_block(rho_key, rho_key, a_dfdx, d_dfdx, 1e-2));
+      ASSERT_FALSE(check_block(zeta_key, "dxVEL", a_dfdx, d_dfdx));
+      ASSERT_FALSE(check_block(zeta_key, "dxB_G", a_dfdx, d_dfdx));
+      ASSERT_FALSE(check_block(zeta_key, zeta_key, a_dfdx, d_dfdx, 2e-2));
+      ASSERT_FALSE(check_block(zeta_key, rho_key, a_dfdx, d_dfdx));
+      ASSERT_FALSE(check_block(rho_key, "dxVEL", a_dfdx, d_dfdx, 2e-2));
+      ASSERT_FALSE(check_block(rho_key, "dxB_G", a_dfdx, d_dfdx, 1e-2));
+      ASSERT_FALSE(check_block(rho_key, zeta_key, a_dfdx, d_dfdx, 5.0));
+      ASSERT_FALSE(check_block(rho_key, rho_key, a_dfdx, d_dfdx, 1e-2));
     }
   }
 }
@@ -525,15 +542,15 @@ TEST(VI_EKF, dfdu_test)
       d_dfdu.col(i) = (dxprime - dx0) / epsilon;
     }
     
-    EXPECT_FALSE(check_block("dxVEL","uA", a_dfdu, d_dfdu));
-    EXPECT_FALSE(check_block("dxVEL","uG", a_dfdu, d_dfdu));
-    EXPECT_FALSE(check_block("dxATT", "uG", a_dfdu, d_dfdu));
+    ASSERT_FALSE(check_block("dxVEL","uA", a_dfdu, d_dfdu));
+    ASSERT_FALSE(check_block("dxVEL","uG", a_dfdu, d_dfdu));
+    ASSERT_FALSE(check_block("dxATT", "uG", a_dfdu, d_dfdu));
     for (int i = 0; i < ekf.get_len_features(); i++)
     {
       std::string zeta_key = "dxZETA_" + std::to_string(i);
       std::string rho_key = "dxRHO_" + std::to_string(i);
-      EXPECT_FALSE(check_block(zeta_key, "uG", a_dfdu, d_dfdu));
-      EXPECT_FALSE(check_block(rho_key, "uG", a_dfdu, d_dfdu, 1e-1));
+      ASSERT_FALSE(check_block(zeta_key, "uG", a_dfdu, d_dfdu));
+      ASSERT_FALSE(check_block(rho_key, "uG", a_dfdu, d_dfdu, 1e-1));
     }
   }
 }
@@ -546,18 +563,18 @@ TEST(VI_EKF, h_test)
   {
     vi_ekf::VIEKF ekf = init_jacobians_test(x0, u0);
     
-    EXPECT_EQ(htest(&VIEKF::h_acc, ekf, VIEKF::ACC, 0, 2), 0);
-    EXPECT_EQ(htest(&VIEKF::h_pos, ekf, VIEKF::POS, 0, 3), 0);
-    EXPECT_EQ(htest(&VIEKF::h_vel, ekf, VIEKF::VEL, 0, 3), 0);
-    EXPECT_EQ(htest(&VIEKF::h_alt, ekf, VIEKF::ALT, 0, 1), 0);
-    EXPECT_EQ(htest(&VIEKF::h_att, ekf, VIEKF::ATT, 0, 3), 0);
+    ASSERT_EQ(htest(&VIEKF::h_acc, ekf, VIEKF::ACC, 0, 2), 0);
+    ASSERT_EQ(htest(&VIEKF::h_pos, ekf, VIEKF::POS, 0, 3), 0);
+    ASSERT_EQ(htest(&VIEKF::h_vel, ekf, VIEKF::VEL, 0, 3), 0);
+    ASSERT_EQ(htest(&VIEKF::h_alt, ekf, VIEKF::ALT, 0, 1), 0);
+    ASSERT_EQ(htest(&VIEKF::h_att, ekf, VIEKF::ATT, 0, 3), 0);
     for (int i = 0; i < ekf.get_len_features(); i++)
     {
-      EXPECT_EQ(htest(&VIEKF::h_feat, ekf, VIEKF::FEAT, i, 2, 5e-1), 0);
-      EXPECT_EQ(htest(&VIEKF::h_qzeta, ekf, VIEKF::QZETA, i, 2), 0);
-      EXPECT_EQ(htest(&VIEKF::h_depth, ekf, VIEKF::DEPTH, i, 1), 0);
-      EXPECT_EQ(htest(&VIEKF::h_inv_depth, ekf, VIEKF::INV_DEPTH, i, 1), 0);
-      //        EXPECT_EQ(htest(VIEKF::h_pixel_vel, ekf, VIEKF::PIXEL_VEL, i), 0); // Still needs to be implemented
+      ASSERT_EQ(htest(&VIEKF::h_feat, ekf, VIEKF::FEAT, i, 2, 5e-1), 0);
+      ASSERT_EQ(htest(&VIEKF::h_qzeta, ekf, VIEKF::QZETA, i, 2), 0);
+      ASSERT_EQ(htest(&VIEKF::h_depth, ekf, VIEKF::DEPTH, i, 1), 0);
+      ASSERT_EQ(htest(&VIEKF::h_inv_depth, ekf, VIEKF::INV_DEPTH, i, 1), 0);
+      //        ASSERT_EQ(htest(VIEKF::h_pixel_vel, ekf, VIEKF::PIXEL_VEL, i), 0); // Still needs to be implemented
     }
   }
 }
@@ -593,10 +610,10 @@ TEST(VI_EKF, KF_reset_test)
       d_dxpdxm.col(i) =  d_xp / epsilon;
     }
     
-    EXPECT_FALSE(check_block("dxPOS", "dxPOS", a_dxpdxm, d_dxpdxm));
-    EXPECT_FALSE(check_block("dxATT", "dxATT", a_dxpdxm, d_dxpdxm, 1e-1));
+    ASSERT_FALSE(check_block("dxPOS", "dxPOS", a_dxpdxm, d_dxpdxm));
+    ASSERT_FALSE(check_block("dxATT", "dxATT", a_dxpdxm, d_dxpdxm, 1e-1));
   }
-  EXPECT_FALSE(check_all(a_dxpdxm, d_dxpdxm, "dfdx", 1e-1));
+  ASSERT_FALSE(check_all(a_dxpdxm, d_dxpdxm, "dfdx", 1e-1));
 }
 
 int main(int argc, char **argv) {

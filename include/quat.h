@@ -47,42 +47,10 @@ public:
   Quat operator+ (const Vector3d v) { return boxplus(v); }
   Quat& operator+= (const Vector3d v)
   {
-    double norm_v = v.norm();
-    Vector3d tmp = v;
-
-    Vector4d q_new;
-    if (norm_v > 1e-4)
-    {
-        tmp *= std::sin(norm_v / 2.)/norm_v;
-        q_new << std::cos(norm_v/2.0), v(0), v(1), v(2);
-
-        arr_ <<  w() * q_new(0) - x() *q_new(1) - y() * q_new(2) - z() * q_new(3),
-                 w() * q_new(1) + x() *q_new(0) + y() * q_new(3) - z() * q_new(2),
-                 w() * q_new(2) - x() *q_new(3) + y() * q_new(0) + z() * q_new(1),
-                 w() * q_new(3) + x() *q_new(2) - y() * q_new(1) + z() * q_new(0);
-    }
-    else
-    {
-      tmp *= 0.5;
-      q_new << 0.0, v(0), v(1), v(2);
-      q_new <<  w() * q_new(0) - x() *q_new(1) - y() * q_new(2) - z() * q_new(3),
-                w() * q_new(1) + x() *q_new(0) + y() * q_new(3) - z() * q_new(2),
-                w() * q_new(2) - x() *q_new(3) + y() * q_new(0) + z() * q_new(1),
-                w() * q_new(3) + x() *q_new(2) - y() * q_new(1) + z() * q_new(0);
-       arr_ += q_new;
-       arr_ /= arr_.norm();
-    }
+    arr_ = boxplus(v).elements();
   }
 
-  Vector3d operator- (const Quat q)
-  {
-    Quat dq = q.inverse().otimes(*this);
-    if (dq.w() < 0.0)
-    {
-      dq.arr_ *= -1.0;
-    }
-    return log(dq);
-  }
+  Vector3d operator- (const Quat q) {return boxminus(q);}
 
   static Matrix3d skew(const Vector3d v)
   {
@@ -172,8 +140,9 @@ public:
   static Quat from_axis_angle(const Vector3d axis, const double angle)
   {
     double alpha_2 = angle/2.0;
+    double sin_a2 = std::sin(alpha_2);
     Vector4d arr;
-    arr << std::cos(alpha_2), axis(0)*alpha_2, axis(1)*alpha_2, axis(2)*alpha_2;
+    arr << std::cos(alpha_2), axis(0)*sin_a2, axis(1)*sin_a2, axis(2)*sin_a2;
     arr /= arr.norm();
     return Quat(arr);
   }
@@ -343,6 +312,16 @@ public:
   Quat boxplus(Vector3d delta)
   {
     return otimes(exp(delta));
+  }
+  
+  Vector3d boxminus(Quat q)
+  {
+    Quat dq = q.inverse().otimes(*this);
+    if (dq.w() < 0.0)
+    {
+      dq.arr_ *= -1.0;
+    }
+    return log(dq);
   }
 };
 

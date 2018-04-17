@@ -54,6 +54,10 @@ int main(int argc, char * argv[])
   // Call all the callbacks
   foreach (rosbag::MessageInstance const m, view)
   {
+    // break if Ctrl+C
+    if (!ros::ok())
+      break;
+    
     // Cast datatype into proper format and call the appropriate callback
     string datatype = m.getDataType();
     

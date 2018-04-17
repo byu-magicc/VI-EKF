@@ -17,18 +17,26 @@ int main(int argc, char * argv[])
 {
   if (argc < 2)
   {
-    cout << "no bag file supplied, please supply bag file to parse" << endl;
+    ROS_ERROR("no bag file supplied, please supply bag file to parse");
     return -1;
   }
-  cout << "parsing bagfile: " << argv[1] << endl;
+  ROS_INFO("parsing bagfile: %s", argv[1]);
 
-  ros::init(argc, argv, "vi_ekf_rosbag_parser");  
+  ros::init(argc, argv, "vi_ekf_rosbag");  
   
   // Create the VIEKF_ROS object
   VIEKF_ROS node;
   
   rosbag::Bag bag;
-  bag.open(argv[1], rosbag::bagmode::Read);
+  try
+  {
+    bag.open(argv[1], rosbag::bagmode::Read);
+  }
+  catch(rosbag::BagIOException e)
+  {
+    ROS_ERROR("unable to load rosbag %s, %s", argv[1], e.what());
+    return -1;
+  }
   rosbag::View view(bag);
   
   // Get list of topics and print to screen - https://answers.ros.org/question/39345/rosbag-info-in-c/
@@ -58,7 +66,7 @@ int main(int argc, char * argv[])
     else if (datatype.compare("sensor_msgs/Image") == 0)
     {
       const sensor_msgs::ImageConstPtr image(m.instantiate<sensor_msgs::Image>());
-      if (m.getTopic().compare("depth"))
+      if (m.getTopic().compare("depth") == 0)
       {
         node.depth_image_callback(image);
       }

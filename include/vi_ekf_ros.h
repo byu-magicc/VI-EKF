@@ -36,7 +36,7 @@ public:
   void depth_image_callback(const sensor_msgs::ImageConstPtr& msg);
   void pose_truth_callback(const geometry_msgs::PoseStampedConstPtr &msg);
   void transform_truth_callback(const geometry_msgs::TransformStampedConstPtr &msg);
-  void truth_callback(Vector3d z_pos, Vector4d z_att);
+  void truth_callback(Vector3d &z_pos_, Vector4d &z_att_);
   void imu_callback(const sensor_msgs::ImuConstPtr& msg);
   void keyframe_reset_callback();
   
@@ -85,6 +85,21 @@ private:
   Quat kf_att_;
   Vector3d truth_pos_;
   Quat truth_att_;
+  
+  uVector u_;
+  Vector2d z_acc_;
+  Vector4d z_att_;
+  Vector2d z_feat_;
+  Matrix1d z_depth_;
+  Matrix1d z_alt_;
+  Vector3d z_pos_;
+  eVector global_transform_;
+  sensor_msgs::Imu bias_msg_;
+  
+  cv_bridge::CvImagePtr cv_ptr_;
+  Mat img_;
+  std::vector<Point2f> features_;
+  std::vector<int> ids_;
   
   Quat q_b_IMU_;
   Quat q_I_truth_;

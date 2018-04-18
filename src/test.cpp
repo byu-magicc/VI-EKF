@@ -460,9 +460,65 @@ TEST(math_helper, manifold_operations)
     Quat x = Quat::exp(omega);
     Quat y = Quat::exp(omega2);
     
+    // (x [+] 0) == x 
     QUATERNION_EQUALS( q_feat_boxplus(x, zeros), x);
+    // (x [+] (x2 [-] x)) = x2
     VECTOR3_EQUALS( q_feat_boxplus( x, q_feat_boxminus(y, x)).rot(e_z), y.rot(e_z));
+    // ((x [+] dx) [-] x) == dx
     VECTOR2_EQUALS( q_feat_boxminus(q_feat_boxplus(x, dx), x), dx);
+  }
+}
+
+void XVECTOR_EQUAL(xVector& x1, xVector& x2)
+{
+  for (int i = 0; i < VIEKF::xATT; i++)
+    EXPECT_NEAR(x1(i, 0), x2(i,0), 1e-8);
+  
+  QUATERNION_EQUALS(Quat(x1.block<4,1>((int)VIEKF::xATT, 0)), Quat(x2.block<4,1>((int)VIEKF::xATT, 0)));
+  
+  for (int i = VIEKF::xB_A; i < VIEKF::xZ; i++)
+    EXPECT_NEAR(x1(i, 0), x2(i,0), 1e-8);
+  
+  for (int i = 0; i < NUM_FEATURES; i++)
+  {
+    VECTOR3_EQUALS(Quat(x1.block<4,1>(VIEKF::xZ+i*5,0)).rot(e_z), Quat(x2.block<4,1>(VIEKF::xZ+i*5,0)).rot(e_z));
+    EXPECT_NEAR(x1(VIEKF::xZ+i*5+4), x1(VIEKF::xZ+i*5+4), 1e-8);
+  }
+}
+
+TEST(VI_EKF, manifold)
+{
+  xVector x, x2, x3;
+  uVector u;
+  dxVector dx, dx1, dx2;
+  for (int j = 0; j < NUM_ITERS; j++)
+  {
+    vi_ekf::VIEKF ekf = init_jacobians_test(x, u);
+    vi_ekf::VIEKF dummyekf = init_jacobians_test(x2, u);
+    dx.setZero();
+    
+    // (x [+] 0) == x 
+    ekf.boxplus(x, dx, x3);
+    MATRIX_EQUAL(x3, x, 1e-8);
+    
+    // (x [+] (x2 [-] x)) = x2
+    ekf.boxminus(x2, x, dx2);
+    ekf.boxplus(x, dx2, x3);
+    XVECTOR_EQUAL(x3, x2);
+    
+    // ((x [+] dx) [-] x) == dx
+    dx.setRandom();
+    ekf.boxplus(x, dx, x3);
+    ekf.boxminus(x3, x, dx2);
+    MATRIX_EQUAL(dx2, dx, 1e-8);
+    
+    // ||(x [+] dx1) [-] (x [+] dx2)|| < || dx1 - dx2 ||
+    dx1.setRandom();
+    dx2.setRandom();
+    ekf.boxplus(x, dx1, x2);
+    ekf.boxplus(x, dx2, x3);
+    ekf.boxminus(x2, x3, dx);
+    ASSERT_LE(dx.norm(), (dx - dx2).norm());    
   }
 }
 

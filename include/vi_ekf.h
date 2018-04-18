@@ -22,7 +22,7 @@ using namespace Eigen;
 #ifndef NDEBUG
 #define NUM_FEATURES 3
 #else
-#define NUM_FEATURES 35
+#define NUM_FEATURES 3
 #endif
 #endif
 

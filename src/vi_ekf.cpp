@@ -52,7 +52,7 @@ void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<doub
   // set camera intrinsics
   cam_center_ = cam_center;
   cam_F_ << focal_len(0), 0, 0,
-            0, focal_len(1), 0;
+      0, focal_len(1), 0;
   
   use_drag_term_ = use_drag_term;
   partial_update_ = partial_update;
@@ -93,6 +93,7 @@ VIEKF::~VIEKF()
   {
     for (std::map<log_type_t, std::ofstream>::iterator it=log_.stream->begin(); it!=log_.stream->end(); ++it)
     {
+      it->second << endl;
       it->second.close();
     }
   }
@@ -349,9 +350,9 @@ void VIEKF::propagate(const uVector &u, const double t)
   NAN_CHECK;
   int dx = dxZ+3*len_features_;
   P_.topLeftCorner(dx, dx) += (A_.topLeftCorner(dx, dx) * P_.topLeftCorner(dx, dx) 
-                              + P_.topLeftCorner(dx, dx) * A_.topLeftCorner(dx, dx).transpose() 
-                              + G_.topRows(dx) * Qu_ * G_.topRows(dx).transpose()
-                              + Qx_.topLeftCorner(dx, dx) ) * dt;
+                               + P_.topLeftCorner(dx, dx) * A_.topLeftCorner(dx, dx).transpose() 
+                               + G_.topRows(dx) * Qu_ * G_.topRows(dx).transpose()
+                               + Qx_.topLeftCorner(dx, dx) ) * dt;
   NAN_CHECK;
   
   fix_depth();
@@ -379,7 +380,7 @@ void VIEKF::propagate(const uVector &u, const double t)
     log_.prop_log_count = 0;
     (*log_.stream)[LOG_PROP] << t-start_t_ << " " << x_.transpose() << " " <<  P_.diagonal().transpose() << " \n";
     (*log_.stream)[LOG_INPUT] << t-start_t_ << " " << (u - x_.block<6,1>((int)xB_A, 0)).transpose() << "\n";
-    (*log_.stream)[LOG_XDOT] << t-start_t_ << " " << dt << dx_.transpose() << "\n";
+    (*log_.stream)[LOG_XDOT] << t-start_t_ << " " << dt << " " <<  dx_.transpose() << "\n";
   }
 }
 
@@ -408,95 +409,102 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
   double mu = x((int)xMU);
   
   Matrix3d R_I_b = q_I_b.R();
-  Vector3d gravity_B = R_I_b * gravity;
+  Vector3d gravity_B = q_I_b.invrot(gravity); // R_I^b * vel
   Vector3d vel_xy;  
   vel_xy << vel(0), vel(1), 0.0;
   
-//  acc = -gravity_B;
-//  omega << 0, 0, 0;
+  //  acc = -gravity_B;
+  //  omega << 0, 0, 0;
   
   
   // Calculate State Dynamics
-//  dx_.block<3,1>((int)dxPOS,0) = R_I_b.transpose() * vel;
-//  if (use_drag_term_)
-//    dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc_z + gravity_B - mu*vel_xy;
-//  else
-//  dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc + gravity_B;
+  dx_.block<3,1>((int)dxPOS,0) = q_I_b.rot(vel); // R_I^b.T * vel
+  //  if (use_drag_term_)
+  //    dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc_z + gravity_B - mu*vel_xy;
+  //  else
+  dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc + gravity_B;  
   dx_.block<3,1>((int)dxATT, 0) = omega;
   
   // State Jacobian
-//  A_.block<3,3>((int)dxPOS, (int)dxVEL) = R_I_b.transpose();
-//  A_.block<3,3>((int)dxPOS, (int)dxATT) = -R_I_b.transpose()*skew(vel);
-//  if (use_drag_term_)
-//  {
-//    A_.block<3,3>((int)dxVEL, (int)dxVEL) = -skew(omega) -mu * I_2x3.T * I_2x3;
-//    A_.block<3,3>((int)dxVEL, (int)dxB_A) << 0, 0, 0, 0, 0, 0, 0, 0, -1;
-//    A_.block<3,1>((int)dxVEL, (int)dxMU) = -vel_xy;
-//  }
-//  else
-//  {
-//    A_.block<3,3>((int)dxVEL, (int)dxB_A) = -I_3x3;
-//    A_.block<3,3>((int)dxVEL, (int)dxVEL) = -skew(omega);
-//  }
-//  A_.block<3,3>((int)dxVEL, (int)dxATT) = skew(gravity_B);
-//  A_.block<3,3>((int)dxVEL, (int)dxB_G) = -skew(vel);
+  A_.block<3,3>((int)dxPOS, (int)dxVEL) = R_I_b.transpose();
+  A_.block<3,3>((int)dxPOS, (int)dxATT) = -R_I_b.transpose()*skew(vel);
+  //  if (use_drag_term_)
+  //  {
+  //    A_.block<3,3>((int)dxVEL, (int)dxVEL) = -skew(omega) -mu * I_2x3.T * I_2x3;
+  //    A_.block<3,3>((int)dxVEL, (int)dxB_A) << 0, 0, 0, 0, 0, 0, 0, 0, -1;
+  //    A_.block<3,1>((int)dxVEL, (int)dxMU) = -vel_xy;
+  //  }
+  //  else
+  //  {
+  A_.block<3,3>((int)dxVEL, (int)dxB_A) = -I_3x3;
+  A_.block<3,3>((int)dxVEL, (int)dxVEL) = -skew(omega);
+  //  }
+  A_.block<3,3>((int)dxVEL, (int)dxATT) = skew(gravity_B);
+  A_.block<3,3>((int)dxVEL, (int)dxB_G) = -skew(vel);
   A_.block<3,3>((int)dxATT, (int)dxB_G) = -I_3x3;
   
   // Input Jacobian
-//  if (use_drag_term_)
-//    G_.block<3,3>((int)dxVEL, (int)uA) << 0, 0, 0, 0, 0, 0, 0, 0, 1;
-//  else
-//    G_.block<3,3>((int)dxVEL, (int)uA) = I_3x3;
-//  G_.block<3,3>((int)dxVEL, (int)uG) = skew(vel);
+  //  if (use_drag_term_)
+  //    G_.block<3,3>((int)dxVEL, (int)uA) << 0, 0, 0, 0, 0, 0, 0, 0, 1;
+  //  else
+  G_.block<3,3>((int)dxVEL, (int)uA) = I_3x3;
+  G_.block<3,3>((int)dxVEL, (int)uG) = skew(vel);
   G_.block<3,3>((int)dxATT, (int)uG) = I_3x3;
   
+  if (dx_.block<3,1>((int)dxVEL,0).norm() > 1.5)
+  {
+    Vector3d coriolis = vel.cross(omega);
+    Vector3d total = dx_.block<3,1>((int)dxVEL,0);
+    int debug = 1;
+  }
+  
   // Camera Dynamics
-//  Vector3d vel_c_i = q_b_c_.invrot(vel - omega.cross(p_b_c_));
-//  Vector3d omega_c_i = q_b_c_.invrot(omega);
+  //  Vector3d vel_c_i = q_b_c_.invrot(vel - omega.cross(p_b_c_));
+  //  Vector3d omega_c_i = q_b_c_.invrot(omega);
   
   
-//  Quat q_zeta;
-//  double rho;
-//  Vector3d zeta;
-//  Matrix<double, 3, 2> T_z;
-//  Matrix3d skew_zeta;
-//  Matrix3d skew_vel_c = skew(vel_c_i);
-//  Matrix3d skew_p_b_c = skew(p_b_c_);
-//  Matrix3d R_b_c = q_b_c_.R();
-//  int xZETA_i, xRHO_i, dxZETA_i, dxRHO_i;
-//  for (int i = 0; i < len_features_; i++)
-//  {
-//    xZETA_i = (int)xZ+i*5;
-//    xRHO_i = (int)xZ+5*i+4;
-//    dxZETA_i = (int)dxZ + i*3;
-//    dxRHO_i = (int)dxZ + i*3+2;
-    
-//    q_zeta = (x.block<4,1>(xZETA_i, 0));
-//    rho = x(xRHO_i);
-//    zeta = q_zeta.rot(e_z);
-//    T_z = T_zeta(q_zeta);
-//    skew_zeta = skew(zeta);
-    
-//    double rho2 = rho*rho;
-    
-//    // Feature Dynamics
-//    dx_.block<2,1>(dxZETA_i,0) = -T_z.transpose() * (omega_c_i + rho * zeta.cross(vel_c_i));
-//    dx_(dxRHO_i) = rho2 * zeta.dot(vel_c_i);
-    
-//    // Feature Jacobian
-//    A_.block<2, 3>(dxZETA_i, (int)dxVEL) = -rho * T_z.transpose() * skew_zeta * R_b_c;
-//    A_.block<2, 3>(dxZETA_i, (int)dxB_G) = T_z.transpose() * (rho * skew_zeta * R_b_c * skew_p_b_c + R_b_c);
-//    A_.block<2, 2>(dxZETA_i, dxZETA_i) = -T_z.transpose() * (skew(rho * skew_zeta * vel_c_i + omega_c_i) + (rho * skew_vel_c * skew_zeta)) * T_z;
-//    A_.block<2, 1>(dxZETA_i, dxRHO_i) = -T_z.transpose() * zeta.cross(vel_c_i);
-//    A_.block<1, 3>(dxRHO_i, (int)dxVEL) = rho2 * zeta.transpose() * R_b_c;
-//    A_.block<1, 3>(dxRHO_i, (int)dxB_G) = -rho2 * zeta.transpose() * R_b_c * skew_p_b_c;
-//    A_.block<1, 2>(dxRHO_i, dxZETA_i) = -rho2 * vel_c_i.transpose() * skew_zeta * T_z;
-//    A_(dxRHO_i, dxRHO_i) = 2 * rho * zeta.transpose() * vel_c_i;
-    
-//    // Feature Input Jacobian
-//    G_.block<2, 3>(dxZETA_i, (int)uG) = -T_z.transpose() * (R_b_c + rho*skew_zeta * R_b_c*skew_p_b_c);
-//    G_.block<1, 3>(dxRHO_i, (int)uG) = rho2*zeta.transpose() * R_b_c * skew_p_b_c;
-//  }
+  //  Quat q_zeta;
+  //  double rho;
+  //  Vector3d zeta;
+  //  Matrix<double, 3, 2> T_z;
+  //  Matrix3d skew_zeta;
+  //  Matrix3d skew_vel_c = skew(vel_c_i);
+  //  Matrix3d skew_p_b_c = skew(p_b_c_);
+  //  Matrix3d R_b_c = q_b_c_.R();
+  //  int xZETA_i, xRHO_i, dxZETA_i, dxRHO_i;
+  //  for (int i = 0; i < len_features_; i++)
+  //  {
+  //    xZETA_i = (int)xZ+i*5;
+  //    xRHO_i = (int)xZ+5*i+4;
+  //    dxZETA_i = (int)dxZ + i*3;
+  //    dxRHO_i = (int)dxZ + i*3+2;
+  
+  //    q_zeta = (x.block<4,1>(xZETA_i, 0));
+  //    rho = x(xRHO_i);
+  //    zeta = q_zeta.rot(e_z);
+  //    T_z = T_zeta(q_zeta);
+  //    skew_zeta = skew(zeta);
+  
+  //    double rho2 = rho*rho;
+  
+  //    // Feature Dynamics
+  //    dx_.block<2,1>(dxZETA_i,0) = -T_z.transpose() * (omega_c_i + rho * zeta.cross(vel_c_i));
+  //    dx_(dxRHO_i) = rho2 * zeta.dot(vel_c_i);
+  
+  //    // Feature Jacobian
+  //    A_.block<2, 3>(dxZETA_i, (int)dxVEL) = -rho * T_z.transpose() * skew_zeta * R_b_c;
+  //    A_.block<2, 3>(dxZETA_i, (int)dxB_G) = T_z.transpose() * (rho * skew_zeta * R_b_c * skew_p_b_c + R_b_c);
+  //    A_.block<2, 2>(dxZETA_i, dxZETA_i) = -T_z.transpose() * (skew(rho * skew_zeta * vel_c_i + omega_c_i) + (rho * skew_vel_c * skew_zeta)) * T_z;
+  //    A_.block<2, 1>(dxZETA_i, dxRHO_i) = -T_z.transpose() * zeta.cross(vel_c_i);
+  //    A_.block<1, 3>(dxRHO_i, (int)dxVEL) = rho2 * zeta.transpose() * R_b_c;
+  //    A_.block<1, 3>(dxRHO_i, (int)dxB_G) = -rho2 * zeta.transpose() * R_b_c * skew_p_b_c;
+  //    A_.block<1, 2>(dxRHO_i, dxZETA_i) = -rho2 * vel_c_i.transpose() * skew_zeta * T_z;
+  //    A_(dxRHO_i, dxRHO_i) = 2 * rho * zeta.transpose() * vel_c_i;
+  
+  //    // Feature Input Jacobian
+  //    G_.block<2, 3>(dxZETA_i, (int)uG) = -T_z.transpose() * (R_b_c + rho*skew_zeta * R_b_c*skew_p_b_c);
+  //    G_.block<1, 3>(dxRHO_i, (int)uG) = rho2*zeta.transpose() * R_b_c * skew_p_b_c;
+  //  }
 }
 
 bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
@@ -545,7 +553,7 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
     residual.topRows(z_dim) = z - zhat_.topRows(z_dim);
   }
   
-//  double mahal = residual.topRows(z_dim).transpose() * R.inverse() * residual.topRows(z_dim);
+  //  double mahal = residual.topRows(z_dim).transpose() * R.inverse() * residual.topRows(z_dim);
   
   NAN_CHECK;
   
@@ -554,35 +562,46 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
     K_.leftCols(z_dim) = P_ * H_.topRows(z_dim).transpose() * (R + H_.topRows(z_dim)*P_ * H_.topRows(z_dim).transpose()).inverse();
     NAN_CHECK;
     
-//    CHECK_MAT_FOR_NANS(H_);
-//    CHECK_MAT_FOR_NANS(K_);
+    //    CHECK_MAT_FOR_NANS(H_);
+    //    CHECK_MAT_FOR_NANS(K_);
     
-//    if (partial_update_ && NO_NANS(K_))
-//    {
-//      // Apply Fixed Gain Partial update per
-//      // "Partial-Update Schmidt-Kalman Filter" by Brink
-//      // Modified to operate inline and on the manifold 
-//      boxplus(xp_, lambda_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
-//      P_ -= (Lambda_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*P_);
-//    }
-//    else
-//    {
-      boxplus(x_, K_.leftCols(z_dim) * residual.topRows(z_dim), xp_);
+    //    if (partial_update_ && NO_NANS(K_))
+    //    {
+    //      // Apply Fixed Gain Partial update per
+    //      // "Partial-Update Schmidt-Kalman Filter" by Brink
+    //      // Modified to operate inline and on the manifold 
+    //      boxplus(xp_, lambda_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
+    //      P_ -= (Lambda_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*P_);
+    //    }
+    //    else
+    //    {
+    dx_ = K_.leftCols(z_dim) * residual.topRows(z_dim);
+    // Check how big the update is
+    double update_mahal = dx_.transpose() * P_.inverse() * dx_;
+    
+    if (update_mahal < 6)
+    {
+      boxplus(x_, dx_, xp_);  
       x_ = xp_;
       P_ = (I_big_ - K_.leftCols(z_dim) * H_.topRows(z_dim))*P_;
-//    }
+    }
+    else
+    {
+      int debug = 1;
+    }
+    //    }
     NAN_CHECK;
   }
   
-//  fix_depth();
+  //  fix_depth();
   
   NAN_CHECK;
   NEGATIVE_DEPTH;
   
   log_.update_count[(int)meas_type]++;
-  if (log_.stream && log_.update_count[(int)meas_type] > 10)
+  if (log_.stream && log_.update_count[(int)meas_type] > 1)
   {
-    log_.update_count[(int)meas_type] > 10;
+    log_.update_count[(int)meas_type] = 0;
     (*log_.stream)[LOG_MEAS] << measurement_names[meas_type] << "\t" << prev_t_-start_t_ << "\t"
                              << z.transpose() << "\t" << zhat_.topRows(z_dim).transpose() << "\t";
     if (meas_type == DEPTH || meas_type == INV_DEPTH)
@@ -640,25 +659,25 @@ void VIEKF::keyframe_reset()
   A_((int)xPOS, (int)xPOS) = 0;
   A_((int)xPOS+1, (int)xPOS+1) = 0;
   A_.block<3,3>((int)dxATT, (int)dxATT) = (I_3x3 + ((1.-cos(theta))*sk_tv)/(theta*theta) + ((theta - sin(theta))*sk_tv*sk_tv)/(theta*theta*theta)).transpose()
-		  * (-v * (khat.transpose() * qmR.transpose() * sk_u) - theta * sk_u * (qmR.transpose() * sk_u));
+      * (-v * (khat.transpose() * qmR.transpose() * sk_u) - theta * sk_u * (qmR.transpose() * sk_u));
   
   
-////// Old way to reset z-axis rotation
-//  double cp = std::cos(qm.roll());
-//  double ct = std::cos(qm.pitch());
-//  double sp = std::sin(qm.roll());
-//  double st = std::sin(qm.pitch());
-//  double tt = std::tan(qm.pitch());
-//  x_.block<4,1>((int)(xATT), 0) << ct*cp, ct*sp, st*cp, -st*sp;
-//  x_.block<4,1>((int)(xATT), 0) /= x_.block<4,1>((int)(xATT), 0).norm();
-//  // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
-//  // RMEKF paper Eq 81
-//  A_ = I_big_;
-//  A_((int)xPOS, (int)xPOS) = 0;
-//  A_((int)xPOS+1, (int)xPOS+1) = 0;
-//  A_.block<3,3>((int)dxATT, (int)dxATT) << 1, st*tt, cp*tt,
-//                                           0, cp*cp, -cp*sp,
-//                                           0, -cp*sp, sp*sp;
+  ////// Old way to reset z-axis rotation
+  //  double cp = std::cos(qm.roll());
+  //  double ct = std::cos(qm.pitch());
+  //  double sp = std::sin(qm.roll());
+  //  double st = std::sin(qm.pitch());
+  //  double tt = std::tan(qm.pitch());
+  //  x_.block<4,1>((int)(xATT), 0) << ct*cp, ct*sp, st*cp, -st*sp;
+  //  x_.block<4,1>((int)(xATT), 0) /= x_.block<4,1>((int)(xATT), 0).norm();
+  //  // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
+  //  // RMEKF paper Eq 81
+  //  A_ = I_big_;
+  //  A_((int)xPOS, (int)xPOS) = 0;
+  //  A_((int)xPOS+1, (int)xPOS+1) = 0;
+  //  A_.block<3,3>((int)dxATT, (int)dxATT) << 1, st*tt, cp*tt,
+  //                                           0, cp*cp, -cp*sp,
+  //                                           0, -cp*sp, sp*sp;
   
   NAN_CHECK;
   
@@ -813,21 +832,25 @@ void VIEKF::fix_depth()
 void VIEKF::log_global_position(const eVector truth_global_transform) //Vector3d pos, const Vector4d att)
 { 
   // cut off initial state from truth - for plotting comparison
-//  concatenate_edges(invert_fed );
+  //  concatenate_edges(invert_fed );
   
-  // Log Global Position Estimate
-  eVector global_pose;
-  eVector rel_pose;
-  rel_pose.block<3,1>((int)ePOS, 0) = x_.block<3,1>((int)xPOS, 0);
-  rel_pose.block<4,1>((int)eATT, 0) = x_.block<4,1>((int)xATT, 0);
-  concatenate_edges(current_node_global_pose_, rel_pose, global_pose);
-  (*log_.stream)[LOG_MEAS] << "GLOBAL_POS" << "\t" << prev_t_-start_t_ << "\t"
-                           << truth_global_transform.topRows(3).transpose() << "\t" << global_pose.topRows(3).transpose() << "\n";
-  
-  // Log Global Attitude Estimate
-  (*log_.stream)[LOG_MEAS] << "GLOBAL_ATT" << "\t" << prev_t_-start_t_ << "\t"
-                           << truth_global_transform.bottomRows(4).transpose() << "\t" << global_pose.bottomRows(4).transpose() << "\n";
-//  WRT_DBG;
+  if (log_.stream)
+  {  
+    // Log Global Position Estimate
+    eVector global_pose;
+    eVector rel_pose;
+    rel_pose.block<3,1>((int)ePOS, 0) = x_.block<3,1>((int)xPOS, 0);
+    rel_pose.block<4,1>((int)eATT, 0) = x_.block<4,1>((int)xATT, 0);
+    concatenate_edges(current_node_global_pose_, rel_pose, global_pose);
+    
+    (*log_.stream)[LOG_MEAS] << "GLOBAL_POS" << "\t" << prev_t_-start_t_ << "\t"
+                             << truth_global_transform.topRows(3).transpose() << "\t" << global_pose.topRows(3).transpose() << "\n";
+    
+    // Log Global Attitude Estimate
+    (*log_.stream)[LOG_MEAS] << "GLOBAL_ATT" << "\t" << prev_t_-start_t_ << "\t"
+                             << truth_global_transform.bottomRows(4).transpose() << "\t" << global_pose.bottomRows(4).transpose() << "\n";
+  }
+  //  WRT_DBG;
 }
 
 void VIEKF::init_logger(string root_filename)

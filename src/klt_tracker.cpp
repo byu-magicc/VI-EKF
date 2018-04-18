@@ -20,6 +20,9 @@ void KLT_Tracker::init(int _num_features, bool _show_image, int _radius, cv::Siz
   prev_features_.clear();
   new_features_.clear();
   ids_.clear();
+  status_.clear();
+  err_.clear();
+  good_ids_.clear();
   
   colors_.clear();
   for (int i = 0; i < num_features_; i++)
@@ -51,45 +54,42 @@ void KLT_Tracker::set_feature_mask(std::string filename)
   cv::threshold(cv::imread(filename, IMREAD_GRAYSCALE), mask_, 1, 255, CV_8UC1);
 }
 
-void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, std::vector<int> &ids, OutputArray& output)
+void KLT_Tracker::load_image(Mat& img, double t, std::vector<Point2f> &features, std::vector<int> &ids, OutputArray& output)
 {
-  Mat grey_img;
   if (img.channels() > 1)
   {
-    cvtColor(img, grey_img, COLOR_BGR2GRAY);
+    cvtColor(img, grey_img_, COLOR_BGR2GRAY);
   }
   else
   {
-    grey_img = img;
+    grey_img_ = img;
   }
   if (!initialized_)
   {
     double quality_level = 0.3;
     int block_size = 7;
-    goodFeaturesToTrack(grey_img, new_features_, num_features_, quality_level, feature_nearby_radius_, mask_, block_size);
+    goodFeaturesToTrack(grey_img_, new_features_, num_features_, quality_level, feature_nearby_radius_, mask_, block_size);
     for (int i = 0; i < new_features_.size(); i++)
     {
       ids_.push_back(next_feature_id_++);
     }
-    prev_image_ = grey_img;
+    prev_image_ = grey_img_;
     initialized_ = true;
     prev_features_.resize(new_features_.size());
   }
   
   else
   {
-    vector<uchar> status;
-    vector<float> err;
-    calcOpticalFlowPyrLK(prev_image_, grey_img, prev_features_, new_features_, status, err);
+    calcOpticalFlowPyrLK(prev_image_, grey_img_, prev_features_, new_features_, status_, err_);
     
     // Keep only good points
-    deque<int> good_ids;
+    good_ids_.clear();
     for (int i = prev_features_.size()-1; i >= 0; i--)
     {
       // If we found a match and the match is in the image
       double new_x = new_features_[i].x;
       double new_y = new_features_[i].y;
-      if (status[i] == 0 || new_x <= 1.0 || new_y <= 1.0 || new_x >= img.cols-1.0 || new_y >= img.rows-1.0 || mask_.at<uint8_t>(cv::Point(round(new_x), round(new_y))) != 255)
+      if (status_[i] == 0 || new_x <= 1.0 || new_y <= 1.0 || new_x >= img.cols-1.0 || new_y >= img.rows-1.0 || mask_.at<uint8_t>(cv::Point(round(new_x), round(new_y))) != 255)
       {
         new_features_.erase(new_features_.begin() + i);
         ids_.erase(ids_.begin() + i);
@@ -98,7 +98,7 @@ void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, 
       
       // Make sure that it's not too close to other points
       bool good_point = true;
-      for (auto it = good_ids.begin(); it != good_ids.end(); it++)
+      for (auto it = good_ids_.begin(); it != good_ids_.end(); it++)
       {
         double dx = new_features_[*it].x - new_x;
         double dy = new_features_[*it].y - new_y;
@@ -111,28 +111,26 @@ void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, 
         }
       }
       if (good_point)
-        good_ids.push_back(i);
+        good_ids_.push_back(i);
     }
     
     // If we are missing points, collect new ones
     if (new_features_.size() < num_features_)
     {
       // create a mask around current points
-      Mat point_mask;
-      mask_.copyTo(point_mask);
+      mask_.copyTo(point_mask_);
       for (int i = 0; i < new_features_.size(); i++)
       {
-        circle(point_mask, new_features_[i], feature_nearby_radius_, 0, -1, 0);
+        circle(point_mask_, new_features_[i], feature_nearby_radius_, 0, -1, 0);
       }
       
       // Now find a bunch of points, not in the mask
       int num_new_features = num_features_ - new_features_.size();
-      vector<Point2f> new_corners;
-      goodFeaturesToTrack(grey_img, new_corners, num_new_features, 0.3, feature_nearby_radius_, point_mask, 7);
+      goodFeaturesToTrack(grey_img_, new_corners_, num_new_features, 0.3, feature_nearby_radius_, point_mask_, 7);
 
-      for (int i = 0; i < new_corners.size(); i++)
+      for (int i = 0; i < new_corners_.size(); i++)
       {
-        new_features_.push_back(new_corners[i]);
+        new_features_.push_back(new_corners_[i]);
         ids_.push_back(next_feature_id_++);
       }
     }
@@ -140,16 +138,15 @@ void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, 
   
   if (plot_matches_)
   {
-    Mat color_img;
-    cvtColor(grey_img, color_img, COLOR_GRAY2BGR);
+    cvtColor(grey_img_, color_img_, COLOR_GRAY2BGR);
     // draw features and ids
     for (int i = 0; i < new_features_.size(); i++)
     {
       Scalar color = colors_[ids_[i] % num_features_];
-      circle(color_img, new_features_[i], 5, color, -1);
-      putText(color_img, to_string(ids_[i]), new_features_[i], FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 0));
+      circle(color_img_, new_features_[i], 5, color, -1);
+      putText(color_img_, to_string(ids_[i]), new_features_[i], FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 255, 0));
     }
-    color_img.copyTo(output);
+    color_img_.copyTo(output);
   }
   
   // Save off measurements for output
@@ -164,7 +161,7 @@ void KLT_Tracker::load_image(Mat img, double t, std::vector<Point2f> &features, 
   }
   
   // get ready for next iteration
-  prev_image_ = grey_img;
+  prev_image_ = grey_img_;
   std::swap(new_features_, prev_features_);
   new_features_.resize(prev_features_.size());
 }

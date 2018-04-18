@@ -43,18 +43,18 @@ for line in prop_file:
 
 for line in perf_file:
     line_arr = np.array([float(item) for item in line.split()])
-    t = line_arr[0]
     if len(line_arr) == 12:
+        t = line_arr[0]
         h.store(t, prop_time=line_arr[1], acc_time=line_arr[2], pos_time=line_arr[5], feat_time=line_arr[8], depth_time=line_arr[10])
 
 ids = []
 for line in meas_file:
-    meas_type = line.split()[0]
     try:
+        meas_type = line.split()[0]
         line_arr = np.array([float(item) for item in line.split()[2:]])
         t = float(line.split()[1])
     except:
-        pass
+        continue
 
 
     if meas_type == 'ACC':
@@ -134,9 +134,9 @@ end = h.t.xhat[-1]
 init_plots(start, end, fig_dir)
 
 # PLOT STATES
-plot_side_by_side(r'$p_{b/n}^n$', 0, 3, h.t.xhat, h.xhat, cov=h.cov if pose_cov else None, truth_t=h.t.pos, truth=h.pos, labels=['p_x', 'p_y', 'p_z'], start_t=start, end_t=end, truth_offset=offset, ylim=[-3, 3])
-plot_side_by_side(r'$p_{b/I}^I$', 0, 3, h.t.global_pos_hat, h.global_pos_hat, cov=h.cov if pose_cov else None, truth_t=h.t.global_pos, truth=h.global_pos, labels=['p_x', 'p_y', 'p_z'], start_t=start, end_t=end, truth_offset=offset, ylim=[-3, 3])
-plot_side_by_side(r'$v_{b/I}^b$', 3, 6, h.t.xhat, h.xhat, cov=h.cov if plot_cov else None, truth_t=v_t, truth=vel_data, labels=['v_x', 'v_y', 'v_z'], start_t=start, end_t=end, truth_offset=offset, ylim=[-3, 3])
+plot_side_by_side(r'$p_{b/n}^n$', 0, 3, h.t.xhat, h.xhat, cov=h.cov if pose_cov else None, truth_t=h.t.pos, truth=h.pos, labels=['p_x', 'p_y', 'p_z'], start_t=start, end_t=end, truth_offset=offset)
+plot_side_by_side(r'$p_{b/I}^I$', 0, 3, h.t.global_pos_hat, h.global_pos_hat, cov=h.cov if pose_cov else None, truth_t=h.t.global_pos, truth=h.global_pos, labels=['p_x', 'p_y', 'p_z'], start_t=start, end_t=end, truth_offset=offset)
+plot_side_by_side(r'$v_{b/I}^b$', 3, 6, h.t.xhat, h.xhat, cov=h.cov if plot_cov else None, truth_t=v_t, truth=vel_data, labels=['v_x', 'v_y', 'v_z'], start_t=start, end_t=end, truth_offset=offset)
 plot_side_by_side(r'$q_n^b$', 6, 10, h.t.xhat, h.xhat, cov=None, truth_t=h.t.att, truth=h.att, labels=['q_w','q_x', 'q_y', 'q_z'], start_t=start, end_t=end, truth_offset=offset)
 plot_side_by_side(r'$q_I^b$', 0, 4, h.t.global_att_hat, h.global_att_hat, cov=None, truth_t=h.t.global_att, truth=h.global_att, labels=['q_w','q_x', 'q_y', 'q_z'], start_t=start, end_t=end, truth_offset=offset)
 

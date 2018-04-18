@@ -52,12 +52,22 @@ int main(int argc, char * argv[])
   }
   
   // Call all the callbacks
+  ros::Time sstart = ros::Time::now();
+  ros::Time last_print = ros::Time(0);
   ros::Time tstart = view.getBeginTime();
   ros::Time tend = view.getEndTime();
   cout << "\n";
   foreach (rosbag::MessageInstance const m, view)
   {
-    cout << "\r" <<  (m.getTime() - tstart).toSec() << "/" << (tend - tstart).toSec();
+    // Print status at 30 Hz
+    ros::Time now = ros::Time::now();
+    if (now - last_print > ros::Duration(0.03333))
+    {
+      double bag_time = (m.getTime() - tstart).toSec();
+      double system_time = (now - sstart).toSec();
+      cout << "\r" <<  bag_time << "/" << (tend - tstart).toSec() << "\t(" << bag_time / system_time << "x)\n";
+      last_print = now;
+    }
     // break if Ctrl+C
     if (!ros::ok())
       break;
@@ -86,7 +96,7 @@ int main(int argc, char * argv[])
     
     else if (datatype.compare("geometry_msgs/PoseStamped") == 0)
     {
-      const geometry_msgs::PoseStampedConstPtr pose(m.instantiate<geometry_msgs::PoseStamped>());
+      const geometry_msgs::PoseStampedConstPtr pose(m.instantiate<geometry_msgs::PoseStamped>());      
       node.pose_truth_callback(pose);
     }
     

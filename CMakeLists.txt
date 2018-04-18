@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(vi_ekf)
 
-set(CMAKE_CXX_FLAGS "-std=c++17 -mavx -mfma")
+set(CMAKE_CXX_FLAGS "-std=c++17 -mavx -mfma -pg")
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp

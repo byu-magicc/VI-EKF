@@ -20,7 +20,7 @@ public:
   void set_show_image(bool _show_image) {plot_matches_= _show_image;}
   bool drop_feature(int feature_id);
 
-  void load_image(Mat img, double t, std::vector<Point2f>& features, std::vector<int>& ids, OutputArray &output = noArray());
+  void load_image(Mat &img, double t, std::vector<Point2f>& features, std::vector<int>& ids, OutputArray &output = noArray());
 
 private:
   Mat prev_image_;
@@ -28,8 +28,16 @@ private:
   bool plot_matches_;
   int num_features_;
   int feature_nearby_radius_;
+  Mat grey_img_;
+  Mat color_img_;
+  
+  vector<uchar> status_;
+  vector<float> err_;
+  deque<int> good_ids_;
   
   Mat mask_;
+  Mat point_mask_;
+  vector<Point2f> new_corners_;
 
   vector<int> ids_;
   vector<Point2f> prev_features_;

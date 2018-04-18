@@ -112,6 +112,7 @@ private:
   Matrix3d vel_R_;
   Matrix1d depth_R_;
   
+  bool record_video_;
   cv::VideoWriter video_;
 };
 

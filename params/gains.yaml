@@ -67,7 +67,7 @@ feature_radius: 30,
 ## CPU Threads
 num_threads: 1,
 
-log_directory: "~",
+record_video: false
 
 
 }

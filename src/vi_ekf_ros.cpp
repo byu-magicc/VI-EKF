@@ -20,6 +20,7 @@ VIEKF_ROS::VIEKF_ROS() :
   std::string default_log_folder = ros::package::getPath("vi_ekf") + "/logs/" + to_string(ros::Time::now().sec) + "/";
   nh_private_.param<std::string>("log_directory", log_directory, default_log_folder );
   nh_private_.param<std::string>("feature_mask", feature_mask, "");
+  nh_private_.param<bool>("record_video", record_video_, true);
   
   
   Eigen::Matrix<double, vi_ekf::VIEKF::xZ, 1> x0;
@@ -128,7 +129,8 @@ VIEKF_ROS::VIEKF_ROS() :
   
   odom_msg_.header.frame_id = "body";
   
-  video_.open(log_directory + "video.avi", cv::VideoWriter::fourcc('M','J','P','G'), 30, cv::Size(image_size(0,0),image_size(1,0)), true);
+  if (record_video_)
+    video_.open(log_directory + "video.avi", cv::VideoWriter::fourcc('M','J','P','G'), 30, cv::Size(image_size(0,0),image_size(1,0)), true);
 }
 
 VIEKF_ROS::~VIEKF_ROS()
@@ -271,7 +273,8 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
     rectangle(img_, Point(x-h_true, y-h_true), Point(x+h_true, y+h_true), Scalar(0, 255, 0));
     rectangle(img_, Point(z_feat_.x()-h_est, z_feat_.y()-h_est), Point(z_feat_.x()+h_est, z_feat_.y()+h_est), Scalar(255, 0, 255));
   }
-  video_ << img_;
+  if (record_video_)
+    video_ << img_;
   sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img_).toImageMsg();
   output_pub_.publish(img_msg);
 }

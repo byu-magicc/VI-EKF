@@ -91,10 +91,10 @@ VIEKF::~VIEKF()
 {
   if (log_.stream)
   {
-    for (std::map<log_type_t, std::ofstream>::iterator it=log_.stream->begin(); it!=log_.stream->end(); ++it)
+    for (std::vector<std::ofstream>::iterator it=log_.stream->begin(); it!=log_.stream->end(); ++it)
     {
-      it->second << endl;
-      it->second.close();
+      (*it) << endl;
+      (*it).close();
     }
   }
 }
@@ -855,7 +855,8 @@ void VIEKF::log_global_position(const eVector truth_global_transform) //Vector3d
 
 void VIEKF::init_logger(string root_filename)
 {
-  log_.stream = new std::map<log_type_t, std::ofstream>;
+  log_.stream = new std::vector<std::ofstream>;
+  (*log_.stream).resize(TOTAL_LOGS);
   
   // Make the directory
   int result = system(("mkdir -p " + root_filename).c_str());

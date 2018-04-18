@@ -103,7 +103,8 @@ public:
     FEAT,
     PIXEL_VEL,
     DEPTH,
-    INV_DEPTH
+    INV_DEPTH,
+    TOTAL_MEAS
   } measurement_type_t;
 
 private:
@@ -116,6 +117,7 @@ private:
     LOG_CONF,
     LOG_KF,
     LOG_DEBUG,
+    TOTAL_LOGS
   } log_type_t;
 
   // State and Covariance and Process Noise Matrices
@@ -177,7 +179,7 @@ private:
   // Log Stuff
   typedef struct
   {
-    std::map<log_type_t, std::ofstream>* stream = nullptr;
+    std::vector<std::ofstream>* stream = nullptr;
     double update_times[12];
     int update_count[12];
     double prop_time;
@@ -298,8 +300,9 @@ public:
   void fix_depth();
 };
 
-static std::map<VIEKF::measurement_type_t, std::string> measurement_names = [] {
-  std::map<VIEKF::measurement_type_t, std::string> tmp;
+static std::vector<std::string> measurement_names = [] {
+  std::vector<std::string> tmp;
+  tmp.resize(VIEKF::TOTAL_MEAS);
   tmp[VIEKF::ACC] = "ACC";
   tmp[VIEKF::ALT] = "ALT";
   tmp[VIEKF::ATT] = "ATT";
@@ -313,8 +316,9 @@ static std::map<VIEKF::measurement_type_t, std::string> measurement_names = [] {
   return tmp;
 }();
 
-static std::map<VIEKF::measurement_type_t, measurement_function_ptr> measurement_functions = [] {
-  std::map<VIEKF::measurement_type_t, measurement_function_ptr> tmp;
+static std::vector<measurement_function_ptr> measurement_functions = [] {
+  std::vector<measurement_function_ptr> tmp;
+  tmp.resize(VIEKF::TOTAL_MEAS);
   tmp[VIEKF::ACC] = &VIEKF::h_acc;
   tmp[VIEKF::ALT] = &VIEKF::h_alt;
   tmp[VIEKF::ATT] = &VIEKF::h_att;

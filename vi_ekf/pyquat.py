@@ -201,9 +201,9 @@ class Quaternion():
 
     # Perform a passive rotation on quaternion q (same as q.conj * q1 * q) but faster
     def qinvrot(self, q1):
-        skew_xyz = skew(self.arr[1:])
+        skew_xyz = -skew(self.arr[1:])
         t = 2.0 * skew_xyz.dot(q1.elements[1:])
-        return Quaternion(np.vstack((q1.elements[0, 0], q1.elements[1:] - self.arr[0,0] * t + skew_xyz.dot(t))))
+        return Quaternion(np.vstack((q1.elements[0, 0], q1.elements[1:] + self.arr[0,0] * t + skew_xyz.dot(t))))
 
 
     # Perform an active rotation on v (same as q.R.T.dot(v), but faster) CONFIRMED

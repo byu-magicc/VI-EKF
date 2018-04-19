@@ -46,7 +46,7 @@ imu_LPF: 0.0,
 truth_LPF: 0.0,
 
 ## Measurement Model Flags
-use_truth: true,
+use_truth: false,
 use_depth: false,
 use_features: true,
 use_acc: false,

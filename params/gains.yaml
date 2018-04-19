@@ -35,7 +35,7 @@ depth_R: 0.5,
 feat_R: [3.0, 3.0],
 acc_R: [1.3, 1.3],
 att_R: [0.01, 0.01, 0.01],
-pos_R: [1.0, 1.0, 1.0],
+pos_R: [0.1, 0.1, 0.1],
 # pos_R: [0.1, 0.1, 0.1],
 
 vel_R: [0.1, 0.1, 0.1],
@@ -48,10 +48,10 @@ truth_LPF: 0.0,
 ## Measurement Model Flags
 use_truth: true,
 use_depth: false,
-use_features: false,
+use_features: true,
 use_acc: false,
 use_imu_att: false,
-use_alt: true,
+use_alt: false,
 
 ## Feature Flags
 drag_term: false,

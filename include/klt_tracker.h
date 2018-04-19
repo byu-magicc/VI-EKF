@@ -20,7 +20,7 @@ public:
   void set_show_image(bool _show_image) {plot_matches_= _show_image;}
   bool drop_feature(int feature_id);
 
-  void load_image(Mat &img, double t, std::vector<Point2f>& features, std::vector<int>& ids, OutputArray &output = noArray());
+  void load_image(const Mat &img, double t, std::vector<Point2f>& features, std::vector<int>& ids, OutputArray &output = noArray());
 
 private:
   Mat prev_image_;

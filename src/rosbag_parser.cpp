@@ -1,10 +1,9 @@
 #include <iostream>
 #include <vector>
+#include <unistd.h>
 
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
-#include <std_msgs/Int32.h>
-#include <std_msgs/String.h>
 
 #include "vi_ekf_ros.h"
 
@@ -15,26 +14,82 @@ using namespace std;
 
 int main(int argc, char * argv[])
 {
-  if (argc < 2)
+  string bag_filename = "";
+  bool realtime = false;
+  double start_time = 0;
+  double duration = INFINITY;
+  for (int i = 0; i < argc; i++)
   {
-    ROS_ERROR("no bag file supplied, please supply bag file to parse");
-    return -1;
+    string arg = argv[i];
+    if (arg == "-h" || argc == 1 || arg == "--help")
+    {
+      cout << "USAGE: vi_ekf_rosbag [op tions]" << "\n\n";
+      cout << "Options:\n";
+      cout << "\t -h, --help\t\tShow this help message and exit\n";
+      cout << "\t -f FILENAME\tBagfile to parse\n";
+      cout << "\t -s START_TIME\tstart time of bag (seconds)\n";
+      cout << "\t -r \t\tRun bag in real time\n";
+      cout << "\t -u DURATION\tduration to run bag (seconds)\n";
+      cout << endl;
+      return 0;
+    }
+    else if (arg == "-f")
+    {
+      if (i + 1 >= argc)
+      {
+        cout << "Please supply bag filename" << endl;
+        return 0;
+      }
+      bag_filename = argv[++i];
+    }
+    else if (arg == "-s")
+    {
+      if (i + 1 >= argc)
+      {
+        cout << "Please specify start time" << endl;
+        return 0;
+      }
+      start_time = atof(argv[++i]);
+    }
+    else if (arg == "-r")
+    {
+      realtime = true;
+    }
+    else if (arg == "-u")
+    {
+      if (i + 1 >= argc)
+      {
+        cout << "Please specify duration" << endl;
+        return 0;
+      }
+      duration = atof(argv[++i]);
+    }
+    else if (i == 0)
+    {
+      continue;
+    }
+    else
+    {
+      cout << "Unrecognized command: " << arg << ". Type -h for help menu\n";
+      return 0;
+    }
   }
-  ROS_INFO("parsing bagfile: %s", argv[1]);
+  
+  if (bag_filename.empty())
+  {
+    cout << "Please Specify bag file" << endl;
+  }
 
   ros::init(argc, argv, "vi_ekf_rosbag");  
-  
-  // Create the VIEKF_ROS object
-  VIEKF_ROS node;
-  
+   
   rosbag::Bag bag;
   try
   {
-    bag.open(argv[1], rosbag::bagmode::Read);
+    bag.open(bag_filename.c_str(), rosbag::bagmode::Read);
   }
   catch(rosbag::BagIOException e)
   {
-    ROS_ERROR("unable to load rosbag %s, %s", argv[1], e.what());
+    ROS_ERROR("unable to load rosbag %s, %s", bag_filename.c_str(), e.what());
     return -1;
   }
   rosbag::View view(bag);
@@ -43,34 +98,63 @@ int main(int argc, char * argv[])
   vector<const rosbag::ConnectionInfo *> connections = view.getConnections();
   vector<string> topics;
   vector<string> types;
-  cout << "loaded bagfile: \n===================================\n";
-  cout << "Topics\t\tTypes\n----------------------------" << endl;
+  cout << "\nloaded bagfile: " << bag_filename << "\n===================================\n";
+  cout << "Topics\t\tTypes\n----------------------------\n\n" << endl;
   foreach(const rosbag::ConnectionInfo *info, connections) {
     topics.push_back(info->topic);
     types.push_back(info->datatype);
     cout << info->topic << "\t\t" << info->datatype << endl;
   }
   
-  // Call all the callbacks
-  ros::Time sstart = ros::Time::now();
+  // Figure out the end time of the bag
+  double end_time = start_time + duration;
+  end_time = (end_time < view.getEndTime().toSec() - view.getBeginTime().toSec()) ? end_time : view.getEndTime().toSec() - view.getBeginTime().toSec();
+  cout << "Playing bag from: = " << start_time << "s to: " << end_time << "s" << endl;
+  
+  // Create the VIEKF_ROS object
+  VIEKF_ROS node;
+  
+  // Get some time variables
+  ros::Time system_start = ros::Time::now();
   ros::Time last_print = ros::Time(0);
-  ros::Time tstart = view.getBeginTime();
-  ros::Time tend = view.getEndTime();
+  ros::Time bag_start = view.getBeginTime() + ros::Duration(start_time);
+  ros::Time bag_end = view.getBeginTime() + ros::Duration(end_time);
   cout << "\n";
   foreach (rosbag::MessageInstance const m, view)
   {
+    // break on Ctrl+C
+    if (!ros::ok())
+      break;   
+    
+    // skip messages before start time
+    if (m.getTime() < bag_start)
+      continue;    
+    
+    // End bag after duration has passed
+    if (m.getTime() > bag_end)
+      break;
+
+    // Run at realtime    
+    if (realtime)
+    {
+      while (ros::Time::now() - system_start < (m.getTime() - bag_start))
+      {
+        usleep(1000);
+      }
+    }
+    
     // Print status at 30 Hz
     ros::Time now = ros::Time::now();
     if (now - last_print > ros::Duration(0.03333))
     {
-      double bag_time = (m.getTime() - tstart).toSec();
-      double system_time = (now - sstart).toSec();
-      cout << "\r" <<  bag_time << "/" << (tend - tstart).toSec() << "\t(" << bag_time / system_time << "x)\n";
+      double bag_elapsed = (m.getTime() - bag_start).toSec();
+      double system_elapsed = (now - system_start).toSec();      
+      cout << "\r" <<  bag_elapsed << "/" << bag_end.toSec() << "\t(" << bag_elapsed / system_elapsed << "x)" << endl;
       last_print = now;
     }
-    // break if Ctrl+C
-    if (!ros::ok())
-      break;
+    
+    
+    /// Call all the callbacks
     
     // Cast datatype into proper format and call the appropriate callback
     string datatype = m.getDataType();

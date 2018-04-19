@@ -22,7 +22,7 @@ using namespace Eigen;
 #ifndef NDEBUG
 #define NUM_FEATURES 3
 #else
-#define NUM_FEATURES 3
+#define NUM_FEATURES 35 
 #endif
 #endif
 
@@ -207,7 +207,10 @@ public:
 
   inline bool NaNsInTheHouse() const
   {
-    if( ( (x_).array() != (x_).array()).any() || ((P_).array() != (P_).array()).any() )
+    int x_max = xZ + len_features_ *5;
+    int dx_max = dxZ + len_features_*3;
+    if( ( (x_.topRows(x_max)).array() != (x_.topRows(x_max)).array()).any() 
+        || ((P_.topLeftCorner(dx_max,dx_max)).array() != (P_.topLeftCorner(dx_max,dx_max)).array()).any() )
     {
       std::cout << "x:\n" << x_.block(0,0, xZ + len_features_, 1) << "\n";
       std::cout << "P:\n" << P_.block(0, 0,xZ + len_features_, xZ + len_features_) << "\n";

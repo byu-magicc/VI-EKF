@@ -413,98 +413,87 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
   Vector3d vel_xy;  
   vel_xy << vel(0), vel(1), 0.0;
   
-  //  acc = -gravity_B;
-  //  omega << 0, 0, 0;
-  
-  
   // Calculate State Dynamics
   dx_.block<3,1>((int)dxPOS,0) = q_I_b.rot(vel); // R_I^b.T * vel
-  //  if (use_drag_term_)
-  //    dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc_z + gravity_B - mu*vel_xy;
-  //  else
-  dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc + gravity_B;  
+  if (use_drag_term_)
+    dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc_z + gravity_B - mu*vel_xy;
+  else
+    dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc + gravity_B;  
   dx_.block<3,1>((int)dxATT, 0) = omega;
   
   // State Jacobian
   A_.block<3,3>((int)dxPOS, (int)dxVEL) = R_I_b.transpose();
   A_.block<3,3>((int)dxPOS, (int)dxATT) = -R_I_b.transpose()*skew(vel);
-  //  if (use_drag_term_)
-  //  {
-  //    A_.block<3,3>((int)dxVEL, (int)dxVEL) = -skew(omega) -mu * I_2x3.T * I_2x3;
-  //    A_.block<3,3>((int)dxVEL, (int)dxB_A) << 0, 0, 0, 0, 0, 0, 0, 0, -1;
-  //    A_.block<3,1>((int)dxVEL, (int)dxMU) = -vel_xy;
-  //  }
-  //  else
-  //  {
-  A_.block<3,3>((int)dxVEL, (int)dxB_A) = -I_3x3;
-  A_.block<3,3>((int)dxVEL, (int)dxVEL) = -skew(omega);
-  //  }
+  if (use_drag_term_)
+  {
+    A_.block<3,3>((int)dxVEL, (int)dxVEL) = -skew(omega) -mu * I_2x3.transpose() * I_2x3;
+    A_.block<3,3>((int)dxVEL, (int)dxB_A) << 0, 0, 0, 0, 0, 0, 0, 0, -1;
+    A_.block<3,1>((int)dxVEL, (int)dxMU) = -vel_xy;
+  }
+  else
+  {
+    A_.block<3,3>((int)dxVEL, (int)dxB_A) = -I_3x3;
+    A_.block<3,3>((int)dxVEL, (int)dxVEL) = -skew(omega);
+  }
   A_.block<3,3>((int)dxVEL, (int)dxATT) = skew(gravity_B);
   A_.block<3,3>((int)dxVEL, (int)dxB_G) = -skew(vel);
   A_.block<3,3>((int)dxATT, (int)dxB_G) = -I_3x3;
   
   // Input Jacobian
-  //  if (use_drag_term_)
-  //    G_.block<3,3>((int)dxVEL, (int)uA) << 0, 0, 0, 0, 0, 0, 0, 0, 1;
-  //  else
-  G_.block<3,3>((int)dxVEL, (int)uA) = I_3x3;
+  if (use_drag_term_)
+    G_.block<3,3>((int)dxVEL, (int)uA) << 0, 0, 0, 0, 0, 0, 0, 0, 1;
+  else
+    G_.block<3,3>((int)dxVEL, (int)uA) = I_3x3;
   G_.block<3,3>((int)dxVEL, (int)uG) = skew(vel);
   G_.block<3,3>((int)dxATT, (int)uG) = I_3x3;
   
-  if (dx_.block<3,1>((int)dxVEL,0).norm() > 1.5)
-  {
-    Vector3d coriolis = vel.cross(omega);
-    Vector3d total = dx_.block<3,1>((int)dxVEL,0);
-    int debug = 1;
-  }
-  
   // Camera Dynamics
-  //  Vector3d vel_c_i = q_b_c_.invrot(vel - omega.cross(p_b_c_));
-  //  Vector3d omega_c_i = q_b_c_.invrot(omega);
+  Vector3d vel_c_i = q_b_c_.invrot(vel - omega.cross(p_b_c_));
+  Vector3d omega_c_i = q_b_c_.invrot(omega);
   
   
-  //  Quat q_zeta;
-  //  double rho;
-  //  Vector3d zeta;
-  //  Matrix<double, 3, 2> T_z;
-  //  Matrix3d skew_zeta;
-  //  Matrix3d skew_vel_c = skew(vel_c_i);
-  //  Matrix3d skew_p_b_c = skew(p_b_c_);
-  //  Matrix3d R_b_c = q_b_c_.R();
-  //  int xZETA_i, xRHO_i, dxZETA_i, dxRHO_i;
-  //  for (int i = 0; i < len_features_; i++)
-  //  {
-  //    xZETA_i = (int)xZ+i*5;
-  //    xRHO_i = (int)xZ+5*i+4;
-  //    dxZETA_i = (int)dxZ + i*3;
-  //    dxRHO_i = (int)dxZ + i*3+2;
-  
-  //    q_zeta = (x.block<4,1>(xZETA_i, 0));
-  //    rho = x(xRHO_i);
-  //    zeta = q_zeta.rot(e_z);
-  //    T_z = T_zeta(q_zeta);
-  //    skew_zeta = skew(zeta);
-  
-  //    double rho2 = rho*rho;
-  
-  //    // Feature Dynamics
-  //    dx_.block<2,1>(dxZETA_i,0) = -T_z.transpose() * (omega_c_i + rho * zeta.cross(vel_c_i));
-  //    dx_(dxRHO_i) = rho2 * zeta.dot(vel_c_i);
-  
-  //    // Feature Jacobian
-  //    A_.block<2, 3>(dxZETA_i, (int)dxVEL) = -rho * T_z.transpose() * skew_zeta * R_b_c;
-  //    A_.block<2, 3>(dxZETA_i, (int)dxB_G) = T_z.transpose() * (rho * skew_zeta * R_b_c * skew_p_b_c + R_b_c);
-  //    A_.block<2, 2>(dxZETA_i, dxZETA_i) = -T_z.transpose() * (skew(rho * skew_zeta * vel_c_i + omega_c_i) + (rho * skew_vel_c * skew_zeta)) * T_z;
-  //    A_.block<2, 1>(dxZETA_i, dxRHO_i) = -T_z.transpose() * zeta.cross(vel_c_i);
-  //    A_.block<1, 3>(dxRHO_i, (int)dxVEL) = rho2 * zeta.transpose() * R_b_c;
-  //    A_.block<1, 3>(dxRHO_i, (int)dxB_G) = -rho2 * zeta.transpose() * R_b_c * skew_p_b_c;
-  //    A_.block<1, 2>(dxRHO_i, dxZETA_i) = -rho2 * vel_c_i.transpose() * skew_zeta * T_z;
-  //    A_(dxRHO_i, dxRHO_i) = 2 * rho * zeta.transpose() * vel_c_i;
-  
-  //    // Feature Input Jacobian
-  //    G_.block<2, 3>(dxZETA_i, (int)uG) = -T_z.transpose() * (R_b_c + rho*skew_zeta * R_b_c*skew_p_b_c);
-  //    G_.block<1, 3>(dxRHO_i, (int)uG) = rho2*zeta.transpose() * R_b_c * skew_p_b_c;
-  //  }
+  Quat q_zeta;
+  double rho;
+  Vector3d zeta;
+  Matrix<double, 3, 2> T_z;
+  Matrix3d skew_zeta;
+  Matrix3d skew_vel_c = skew(vel_c_i);
+  Matrix3d skew_p_b_c = skew(p_b_c_);
+  Matrix3d R_b_c = q_b_c_.R();
+  int xZETA_i, xRHO_i, dxZETA_i, dxRHO_i;
+  for (int i = 0; i < len_features_; i++)
+  {
+    xZETA_i = (int)xZ+i*5;
+    xRHO_i = (int)xZ+5*i+4;
+    dxZETA_i = (int)dxZ + i*3;
+    dxRHO_i = (int)dxZ + i*3+2;
+    
+    q_zeta = (x.block<4,1>(xZETA_i, 0));
+    rho = x(xRHO_i);
+    zeta = q_zeta.rot(e_z);
+    T_z = T_zeta(q_zeta);
+    skew_zeta = skew(zeta);
+    
+    double rho2 = rho*rho;
+    
+    // Feature Dynamics
+    dx_.block<2,1>(dxZETA_i,0) = -T_z.transpose() * (omega_c_i + rho * zeta.cross(vel_c_i));
+    dx_(dxRHO_i) = rho2 * zeta.dot(vel_c_i);
+    
+    // Feature Jacobian
+    A_.block<2, 3>(dxZETA_i, (int)dxVEL) = -rho * T_z.transpose() * skew_zeta * R_b_c;
+    A_.block<2, 3>(dxZETA_i, (int)dxB_G) = T_z.transpose() * (rho * skew_zeta * R_b_c * skew_p_b_c + R_b_c);
+    A_.block<2, 2>(dxZETA_i, dxZETA_i) = -T_z.transpose() * (skew(rho * skew_zeta * vel_c_i + omega_c_i) + (rho * skew_vel_c * skew_zeta)) * T_z;
+    A_.block<2, 1>(dxZETA_i, dxRHO_i) = -T_z.transpose() * zeta.cross(vel_c_i);
+    A_.block<1, 3>(dxRHO_i, (int)dxVEL) = rho2 * zeta.transpose() * R_b_c;
+    A_.block<1, 3>(dxRHO_i, (int)dxB_G) = -rho2 * zeta.transpose() * R_b_c * skew_p_b_c;
+    A_.block<1, 2>(dxRHO_i, dxZETA_i) = -rho2 * vel_c_i.transpose() * skew_zeta * T_z;
+    A_(dxRHO_i, dxRHO_i) = 2 * rho * zeta.transpose() * vel_c_i;
+    
+    // Feature Input Jacobian
+    G_.block<2, 3>(dxZETA_i, (int)uG) = -T_z.transpose() * (R_b_c + rho*skew_zeta * R_b_c*skew_p_b_c);
+    G_.block<1, 3>(dxRHO_i, (int)uG) = rho2*zeta.transpose() * R_b_c * skew_p_b_c;
+  }
 }
 
 bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
@@ -553,11 +542,9 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
     residual.topRows(z_dim) = z - zhat_.topRows(z_dim);
   }
   
-  //  double mahal = residual.topRows(z_dim).transpose() * R.inverse() * residual.topRows(z_dim);
-  
   NAN_CHECK;
   
-  if (active)// && mahal < 4)
+  if (active)
   {
     K_.leftCols(z_dim) = P_ * H_.topRows(z_dim).transpose() * (R + H_.topRows(z_dim)*P_ * H_.topRows(z_dim).transpose()).inverse();
     NAN_CHECK;
@@ -565,35 +552,25 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
     //    CHECK_MAT_FOR_NANS(H_);
     //    CHECK_MAT_FOR_NANS(K_);
     
-    //    if (partial_update_ && NO_NANS(K_))
-    //    {
-    //      // Apply Fixed Gain Partial update per
-    //      // "Partial-Update Schmidt-Kalman Filter" by Brink
-    //      // Modified to operate inline and on the manifold 
-    //      boxplus(xp_, lambda_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), x_);
-    //      P_ -= (Lambda_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*P_);
-    //    }
-    //    else
-    //    {
-    dx_ = K_.leftCols(z_dim) * residual.topRows(z_dim);
-    // Check how big the update is
-    double update_mahal = dx_.transpose() * P_.inverse() * dx_;
-    
-    if (update_mahal < 6)
+    if (partial_update_ && NO_NANS(K_))
     {
-      boxplus(x_, dx_, xp_);  
+      // Apply Fixed Gain Partial update per
+      // "Partial-Update Schmidt-Kalman Filter" by Brink
+      // Modified to operate inline and on the manifold 
+      boxplus(x_, lambda_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), xp_);
       x_ = xp_;
-      P_ = (I_big_ - K_.leftCols(z_dim) * H_.topRows(z_dim))*P_;
+      P_ -= (Lambda_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*P_);
     }
     else
     {
-      int debug = 1;
-    }
-    //    }
+      boxplus(x_, K_.leftCols(z_dim) * residual.topRows(z_dim), xp_);  
+      x_ = xp_;
+      P_ = (I_big_ - K_.leftCols(z_dim) * H_.topRows(z_dim))*P_;
+    } 
     NAN_CHECK;
   }
   
-  //  fix_depth();
+  fix_depth();
   
   NAN_CHECK;
   NEGATIVE_DEPTH;

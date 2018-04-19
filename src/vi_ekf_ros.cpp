@@ -148,9 +148,6 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
   u_.block<3,1>(0,0) = q_b_IMU_.invrot(u_.block<3,1>(0,0));
   u_.block<3,1>(3,0) = q_b_IMU_.invrot(u_.block<3,1>(3,0));
   
-  if (u_(2) > 0.0)
-    return;
-  
   imu_ = (1. - IMU_LPF_) * u_ + IMU_LPF_ * imu_;
   
   if (!truth_init_)
@@ -260,8 +257,11 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
     z_depth_ << depth;
     ekf_mtx_.lock();
     bool new_feature = ekf_.update(z_feat_, vi_ekf::VIEKF::FEAT, feat_R_, use_features_, ids_[i], (use_depth_) ? depth : NAN);
-    if (!new_feature && got_depth_)
-      ekf_.update(z_depth_, vi_ekf::VIEKF::DEPTH, depth_R_, use_depth_, ids_[i]);
+    if (!new_feature && got_depth_ && !(depth != depth))
+        ekf_.update(z_depth_, vi_ekf::VIEKF::DEPTH, depth_R_, use_depth_, ids_[i]);
+    if (depth != depth)
+      ekf_.log_depth(ids_[i], depth);
+    
     ekf_mtx_.unlock();   
     
     // Draw depth and position of tracked features

@@ -68,11 +68,6 @@ int main(int argc, char * argv[])
     {
       continue;
     }
-    else
-    {
-      cout << "Unrecognized command: " << arg << ". Type -h for help menu\n";
-      return 0;
-    }
   }
   
   if (bag_filename.empty())
@@ -149,7 +144,7 @@ int main(int argc, char * argv[])
     {
       double bag_elapsed = (m.getTime() - bag_start).toSec();
       double system_elapsed = (now - system_start).toSec();      
-      cout << "\r" <<  bag_elapsed << "/" << bag_end.toSec() << "\t(" << bag_elapsed / system_elapsed << "x)" << endl;
+      cout << "\r" <<  bag_elapsed << "/" << bag_end.toSec() - bag_start.toSec() << "\t(" << bag_elapsed / system_elapsed << "x)" << endl;
       last_print = now;
     }
     

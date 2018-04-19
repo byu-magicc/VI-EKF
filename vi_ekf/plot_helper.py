@@ -20,11 +20,11 @@ def init_plots(start, end, fig_directory="plots/"):
     if fig_directory:
         global figure_directory
         figure_directory = fig_directory
-    os.system("mkdir " + fig_directory + r"/lambda")
-    os.system("mkdir " + fig_directory + r"/rho")
-    os.system("rm " + fig_directory + r"/" + r"*.svg")
-    os.system("rm " + fig_directory + r"/lambda/*.svg")
-    os.system("rm " + fig_directory + r"/rho/*.svg")
+    if not os.path.isdir(fig_directory + r"/lambda"): os.system("mkdir " + fig_directory + r"/lambda")
+    if not os.path.isdir(fig_directory + r"/rho"): os.system("mkdir " + fig_directory + r"/rho")
+    os.system("rm -f " + fig_directory + r"/" + r"*.svg")
+    os.system("rm -f " + fig_directory + r"/lambda/*.svg")
+    os.system("rm -f " + fig_directory + r"/rho/*.svg")
 
     global plot_start, plot_end
     plot_start = start

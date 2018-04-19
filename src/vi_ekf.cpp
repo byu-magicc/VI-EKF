@@ -579,18 +579,30 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
   if (log_.stream && log_.update_count[(int)meas_type] > 1)
   {
     log_.update_count[(int)meas_type] = 0;
-    (*log_.stream)[LOG_MEAS] << measurement_names[meas_type] << "\t" << prev_t_-start_t_ << "\t"
-                             << z.transpose() << "\t" << zhat_.topRows(z_dim).transpose() << "\t";
     if (meas_type == DEPTH || meas_type == INV_DEPTH)
     {
-      int i = global_to_local_feature_id(id);
-      (*log_.stream)[LOG_MEAS] << P_(dxZ + 3*i + 2, dxZ + 3*i + 2) << "\t";
+      log_depth(id, zhat_(0,0));
     }
-    (*log_.stream)[LOG_MEAS] << id << "\n";
+    else
+    {
+      
+      (*log_.stream)[LOG_MEAS] << measurement_names[meas_type] << "\t" << prev_t_-start_t_ << "\t"
+                               << z.transpose() << "\t" << zhat_.topRows(z_dim).transpose() << "\t" << id << "\n";
+      
+    }
   }
   log_.update_times[(int)meas_type] += 0.1 * (now() - start - log_.update_times[(int)meas_type]);
   log_.count++;
   return false;
+}
+
+void VIEKF::log_depth(const int id, double zhat)
+{
+  int i = global_to_local_feature_id(id);
+  double z = x_(xZ+5*i + 4, 0);
+  (*log_.stream)[LOG_MEAS] << measurement_names[DEPTH] << "\t" << prev_t_-start_t_ << "\t"
+                           << z << "\t" << zhat << "\t";
+  (*log_.stream)[LOG_MEAS] << P_(dxZ + 3*i + 2, dxZ + 3*i + 2) << "\t" << id << "\n";
 }
 
 void VIEKF::keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N)

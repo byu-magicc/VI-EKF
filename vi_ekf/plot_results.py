@@ -27,7 +27,7 @@ conf_file = open(log_dir + str(latest_folder) + "/conf.txt")
 input_file = open(log_dir + str(latest_folder) + "/input.txt")
 xdot_file = open(log_dir + str(latest_folder) + "/xdot.txt")
 fig_dir = log_dir + str(latest_folder) + "/plots"
-os.system("mkdir " + fig_dir)
+if not os.path.isdir(fig_dir): os.system("mkdir " + fig_dir)
 
 h = History()
 len_prop_file = 0
@@ -185,13 +185,14 @@ print "gyro", np.mean(h.u_gyro, axis=0)
 
 
 for i in tqdm(ids):
-    if i not in h.depth_hat: continue
+    if i not in h.feat_hat:
+        continue
     plot_side_by_side('x_{}'.format(i), 0, 2, h.t.feat_hat[i], h.feat_hat[i], truth_t=h.t.feat[i],
-                      truth=h.feat[i], labels=['u', 'v'], start_t=start, end_t=end, truth_offset=None, subdir='lambda')
-    if hasattr(h, 'depth') and hasattr(h, 'depth_hat'): 
-        plot_side_by_side('x_{}'.format(i), 0, 1, h.t.depth_hat[i], h.depth_hat[i][:, None], truth_t=h.t.depth[i],
-                      truth=h.depth[i][:, None], labels=[r'\frac{1}{\rho}'], start_t=start, end_t=end,
-                      cov=h.depth_cov[i] if plot_cov else None, truth_offset=None, subdir='rho')
+                      truth=h.feat[i], labels=['u', 'v'], start_t=start, end_t=end, subdir='lambda')
+    if hasattr(h, 'depth_hat'):
+        plot_side_by_side('x_{}'.format(i), 0, 1, h.t.depth_hat[i], h.depth_hat[i][:, None], truth_t=h.t.depth[i] if hasattr(h, 'depth') else None,
+                      truth=h.depth[i][:, None] if hasattr(h, 'depth') else None, labels=[r'\frac{1}{\rho}'], start_t=start, end_t=end,
+                      cov=h.depth_cov[i] if plot_cov else None, subdir='rho')
 
 
 

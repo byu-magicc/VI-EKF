@@ -10,29 +10,29 @@ P0_feat: [0.15, 0.15, 0.1],
 
 ## Additive Process Noise
 Qx: [0.000, 0.000, 0.000,
-     0.1, 0.1, 0.1,
+     0.001, 0.001, 0.001,
      0.000, 0.000, 0.000,
-     0.01, 0.01, 0.01,
-     0.01, 0.01, 0.01,
+     0.005, 0.005, 0.005,
+     0.001, 0.001, 0.001,
      0.00],
-Qx_feat: [0.1, 0.1, 0.2],
+Qx_feat: [0.01, 0.01, 0.1],
 
 # Input Process Noise
 Qu: [0.01, 0.01, 0.01,      # u_acc
-     0.01, 0.01, 0.01],  # u_gyro
+     0.001, 0.001, 0.001],  # u_gyro
 
 ## Partial Update Gain
 lambda: [1.0, 1.0, 1.0,     # POS
          1.0, 1.0, 1.0,     # VEL
          1.0, 1.0, 1.0,     # ATT
-         0.0, 0.0, 0.0,     # B_A
-         0.0, 0.0, 0.0,     # B_G
+         0.5, 0.5, 1.0,     # B_A
+         1.0, 1.0, 0.5,     # B_G
          0.1],              # MU
 lambda_feat: [1.0, 1.0, 0.75],            
 
 ## Sensor Noise
 depth_R: 0.5,
-feat_R: [5.0, 5.0],
+feat_R: [2.0, 2.0],
 acc_R: [1.3, 1.3],
 att_R: [0.01, 0.01, 0.01],
 pos_R: [0.1, 0.1, 0.1],
@@ -49,13 +49,13 @@ truth_LPF: 0.0,
 use_truth: false,
 use_depth: false,
 use_features: true,
-use_acc: false,
+use_acc: true,
 use_imu_att: false,
-use_alt: false,
+use_alt: true,
 
 ## Feature Flags
-drag_term: false,
-partial_update: false,
+drag_term: true,
+partial_update: true,
 keyframe_reset: false,
 
 ## Tracking Paramters
@@ -67,7 +67,7 @@ feature_radius: 30,
 ## CPU Threads
 num_threads: 1,
 
-record_video: false
+record_video: true
 
 
 }

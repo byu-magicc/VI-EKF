@@ -13,7 +13,7 @@ from pyquat import Quaternion
 offset = 0.0
 
 plot_cov = True
-pose_cov = False
+pose_cov = True
 
 log_dir = os.path.dirname(os.path.realpath(__file__)) + "/../logs/"
 log_folders =  [int(name) for name in os.listdir(log_dir) if os.path.isdir(log_dir + name)]

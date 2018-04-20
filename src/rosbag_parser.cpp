@@ -144,7 +144,7 @@ int main(int argc, char * argv[])
     {
       double bag_elapsed = (m.getTime() - bag_start).toSec();
       double system_elapsed = (now - system_start).toSec();      
-      cout << "\r" <<  bag_elapsed << "/" << bag_end.toSec() - bag_start.toSec() << "\t(" << bag_elapsed / system_elapsed << "x)";
+      cout << "\r" <<  bag_elapsed << "/" << bag_end.toSec() - bag_start.toSec() << "\t(" << bag_elapsed / system_elapsed << "x)                              ";
       last_print = now;
     }
     

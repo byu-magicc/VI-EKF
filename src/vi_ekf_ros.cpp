@@ -368,11 +368,7 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att)
   
   ekf_mtx_.lock();
   ekf_.update(z_pos, vi_ekf::VIEKF::POS, pos_R_, use_truth_);
-  ekf_.update(z_alt_, vi_ekf::VIEKF::ALT, alt_R_, (use_truth_) ? false : use_alt_);
-  if (!use_imu_att_)
-  {
-    ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, use_truth_);
-  }
+  ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, use_truth_);
   ekf_mtx_.unlock();
 }
 

@@ -360,7 +360,7 @@ void VIEKF::propagate(const uVector &u, const double t)
   NAN_CHECK;
   NEGATIVE_DEPTH;
   
-  log_.prop_time += 0.1 * (now() - start - log_.prop_time);
+  log_.prop_time = (0.1 * (now() - start)) + 0.9 * log_.prop_time;
   log_.count++;
   
   if (log_.count > 10 && log_.stream)
@@ -575,10 +575,10 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
   NAN_CHECK;
   NEGATIVE_DEPTH;
   
-  log_.update_count[(int)meas_type]++;
-  if (log_.stream && log_.update_count[(int)meas_type] > 1)
+  log_.update_count[meas_type]++;
+  if (log_.stream && log_.update_count[meas_type] > 1)
   {
-    log_.update_count[(int)meas_type] = 0;
+    log_.update_count[meas_type] = 0;
     if (meas_type == DEPTH || meas_type == INV_DEPTH)
     {
       log_depth(id, zhat_(0,0));
@@ -591,8 +591,7 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
       
     }
   }
-  log_.update_times[(int)meas_type] += 0.1 * (now() - start - log_.update_times[(int)meas_type]);
-  log_.count++;
+  log_.update_times[meas_type] = now() - start;
   return false;
 }
 
@@ -877,6 +876,16 @@ void VIEKF::init_logger(string root_filename)
   (*log_.stream)[LOG_CONF] << "keyframe overlap: " << keyframe_overlap_threshold_ << "\n";
   (*log_.stream)[LOG_CONF] << "num features: " << NUM_FEATURES << "\n";
   (*log_.stream)[LOG_CONF] << "min_depth: " << min_depth_ << std::endl;
+  
+  // Start Performance Log
+  (*log_.stream)[LOG_PERF] << "time\tprop\t";
+  for (int i = 0; i < TOTAL_MEAS; i++)
+  {
+    log_.update_times[i] = 0;
+    log_.update_count[i] = 0;
+    (*log_.stream)[LOG_PERF] << measurement_names[i] << "\t";
+  }
+  (*log_.stream)[LOG_PERF] << endl;
 }
 
 

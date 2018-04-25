@@ -6,6 +6,7 @@ from data import History
 from plot_helper import plot_side_by_side, init_plots
 from tqdm import tqdm
 import scipy.signal
+import matplotlib.pyplot as plt
 from pyquat import Quaternion
 
 # Shift truth timestamp
@@ -41,11 +42,13 @@ for line in prop_file:
     t = line_arr[0]
     h.store(t, xhat=line_arr[1:18], cov=np.diag(line_arr[COV:]), num_features=num_features)
 
-for line in perf_file:
+for i, line in enumerate(perf_file):
+    if i == 0: continue
     line_arr = np.array([float(item) for item in line.split()])
     if len(line_arr) == 12:
         t = line_arr[0]
         h.store(t, prop_time=line_arr[1], acc_time=line_arr[2], pos_time=line_arr[5], feat_time=line_arr[8], depth_time=line_arr[10])
+
 
 ids = []
 for line in meas_file:
@@ -133,6 +136,13 @@ start = h.t.xhat[0]
 end = h.t.xhat[-1]
 init_plots(start, end, fig_dir)
 
+# PLOT Performance Results
+plt.hist(h.prop_time[h.prop_time > 0.001], bins=35, alpha=0.5, label='propagation')
+plt.hist(h.feat_time[h.feat_time > 0], bins=5, alpha=0.5, label='feature update')
+plt.legend()
+plt.savefig(fig_dir+"plots/perf.svg", bbox_inches='tight')
+plt.close()
+
 # PLOT STATES
 plot_side_by_side(r'$p_{b/n}^n$', 0, 3, h.t.xhat, h.xhat, cov=h.cov if pose_cov else None, truth_t=h.t.pos, truth=h.pos, labels=['p_x', 'p_y', 'p_z'], start_t=start, end_t=end, truth_offset=offset)
 plot_side_by_side(r'$p_{b/I}^I$', 0, 3, h.t.global_pos_hat, h.global_pos_hat, cov=h.cov if pose_cov else None, truth_t=h.t.global_pos, truth=h.global_pos, labels=['p_x', 'p_y', 'p_z'], start_t=start, end_t=end, truth_offset=offset)
@@ -157,7 +167,7 @@ plot_side_by_side('global_euler', 0, 3, h.t.global_att_hat, est_euler, truth_t=h
 b_acc, a_acc = scipy.signal.butter(6, 0.05)
 acc_smooth = scipy.signal.filtfilt(b_acc, a_acc, h.acc, axis=0)
 plot_side_by_side('$y_{a}$', 0, 2, h.t.acc, acc_smooth, truth=h.acc, truth_t=h.t.acc, labels=[r'y_{a,x}', r'y_{a,y}'], start_t=start, end_t=end, truth_offset=offset)
-plot_side_by_side('$y_{alt}$', 0, 1, h.t.alt, h.alt_hat[:,None], truth=h.alt[:,None], truth_t=h.t.alt, labels=[r'-p_z'], start_t=start, end_t=end)
+# plot_side_by_side('$y_{alt}$', 0, 1, h.t.alt, h.alt_hat[:,None], truth=h.alt[:,None], truth_t=h.t.alt, labels=[r'-p_z'], start_t=start, end_t=end)
 plot_side_by_side(r'$\beta_{a}$', 10, 13, h.t.xhat, h.xhat, labels=[r'\beta_{a,x}', r'\beta_{a,y}', r'\beta_{a,z}'], start_t=start, end_t=end, cov=h.cov if plot_cov else None, cov_bounds=(9,12), truth_offset=offset)
 plot_side_by_side(r'$\beta_{\omega}$', 13, 16, h.t.xhat, h.xhat, labels=[r'\beta_{\omega,x}', r'\beta_{\omega,y}', r'\beta_{\omega,z}'], start_t=start, end_t=end, cov=h.cov if plot_cov else None, cov_bounds=(12,15), truth_offset=offset)
 plot_side_by_side('drag', 16, 17, h.t.xhat, h.xhat, labels=['b'], start_t=start, end_t=end, cov=h.cov if plot_cov else None, cov_bounds=(15,16), truth_offset=offset)

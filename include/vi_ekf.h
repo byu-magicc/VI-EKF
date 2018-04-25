@@ -180,8 +180,8 @@ private:
   typedef struct
   {
     std::vector<std::ofstream>* stream = nullptr;
-    double update_times[12];
-    int update_count[12];
+    double update_times[TOTAL_MEAS];
+    int update_count[TOTAL_MEAS];
     double prop_time;
     int prop_log_count;
     int count;
@@ -201,7 +201,7 @@ public:
 
   inline double now() const
   {
-    std::chrono::microseconds now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch());
+    std::chrono::microseconds now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch());
     return (double)now.count()*1e-6;
   }
 

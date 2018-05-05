@@ -140,7 +140,7 @@ init_plots(start, end, fig_dir)
 plt.hist(h.prop_time[h.prop_time > 0.001], bins=35, alpha=0.5, label='propagation')
 plt.hist(h.feat_time[h.feat_time > 0], bins=5, alpha=0.5, label='feature update')
 plt.legend()
-plt.savefig(fig_dir+"plots/perf.svg", bbox_inches='tight')
+plt.savefig(fig_dir+"perf.svg", bbox_inches='tight')
 plt.close()
 
 # PLOT STATES

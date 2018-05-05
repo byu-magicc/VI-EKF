@@ -10,7 +10,7 @@ P0_feat: [0.15, 0.15, 0.1],
 
 ## Additive Process Noise
 Qx: [0.000, 0.000, 0.000,
-     0.001, 0.001, 0.001,
+     0.01, 0.01, 0.01,
      0.000, 0.000, 0.000,
      0.005, 0.005, 0.005,
      0.001, 0.001, 0.001,
@@ -18,7 +18,7 @@ Qx: [0.000, 0.000, 0.000,
 Qx_feat: [0.01, 0.01, 0.1],
 
 # Input Process Noise
-Qu: [0.01, 0.01, 0.01,      # u_acc
+Qu: [0.1, 0.1, 0.1,      # u_acc
      0.001, 0.001, 0.001],  # u_gyro
 
 ## Partial Update Gain
@@ -33,7 +33,7 @@ lambda_feat: [1.0, 1.0, 0.75],
 ## Sensor Noise
 depth_R: 0.5,
 feat_R: [2.0, 2.0],
-acc_R: [1.3, 1.3],
+acc_R: [1.5, 1.5],
 att_R: [0.01, 0.01, 0.01],
 pos_R: [0.1, 0.1, 0.1],
 # pos_R: [0.1, 0.1, 0.1],
@@ -49,12 +49,12 @@ truth_LPF: 0.0,
 use_truth: false,
 use_depth: false,
 use_features: true,
-use_acc: false,
+use_acc: true,
 use_imu_att: false,
 use_alt: true,
 
 ## Feature Flags
-drag_term: false,
+drag_term: true,
 partial_update: false,
 keyframe_reset: false,
 

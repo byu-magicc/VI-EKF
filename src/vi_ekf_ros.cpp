@@ -145,8 +145,8 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
       msg->angular_velocity.x,
       msg->angular_velocity.y,
       msg->angular_velocity.z;
-  u_.block<3,1>(0,0) = q_b_IMU_.invrot(u_.block<3,1>(0,0));
-  u_.block<3,1>(3,0) = q_b_IMU_.invrot(u_.block<3,1>(3,0));
+  u_.block<3,1>(0,0) = q_b_IMU_.rotp(u_.block<3,1>(0,0));
+  u_.block<3,1>(3,0) = q_b_IMU_.rotp(u_.block<3,1>(3,0));
   
   imu_ = (1. - IMU_LPF_) * u_ + IMU_LPF_ * imu_;
   
@@ -206,7 +206,7 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
 void VIEKF_ROS::keyframe_reset_callback()
 {
   kf_pos_ = truth_pos_;
-  Vector3d u_rot = truth_att_.rot(vi_ekf::khat);
+  Vector3d u_rot = truth_att_.rota(vi_ekf::khat);
   Vector3d v = vi_ekf::khat.cross(u_rot); // Axis of rotation (without rotation about khat)
   double theta = vi_ekf::khat.transpose() * u_rot; // Angle of rotation
   Quat qp = Quat::exp(theta * v); // This is the same quaternion, but without rotation about z
@@ -321,8 +321,8 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att)
   }
   else counter = 0;
   // Rotate measurements into the proper frame
-  z_pos = q_I_truth_.invrot(z_pos);
-  z_att.block<3,1>(1,0) = q_I_truth_.invrot(z_att.block<3,1>(1,0));
+  z_pos = q_I_truth_.rotp(z_pos);
+  z_att.block<3,1>(1,0) = q_I_truth_.rotp(z_att.block<3,1>(1,0));
   
   // Make sure that the truth quaternion is the right sign (for plotting)
   if (sign(z_att(0,0)) != sign(ekf_.get_state()(vi_ekf::VIEKF::xATT, 0)))

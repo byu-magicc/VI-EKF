@@ -2,15 +2,26 @@
 
 #define NO_NANS(mat) (mat.array() == mat.array()).all()
 
-#ifndef NDEBUG
+//#ifndef NDEBUG
 #define NAN_CHECK if (NaNsInTheHouse()) { std::cout << "NaNs In The House at line " << __LINE__ << "!!!\n"; exit(0); }
 #define NEGATIVE_DEPTH if (NegativeDepth()) std::cout << "Negative Depth " << __LINE__ << "!!!\n"
-#define CHECK_MAT_FOR_NANS(mat) if ((K_.array() != K_.array()).any()) { std::cout << "NaN detected in " << #mat << " at line " << __LINE__ << "!!!\n" << mat << "\n"; exit(0); }
-#else
-#define NAN_CHECK {}
-#define NEGATIVE_DEPTH {}
-#define CHECK_MAT_FOR_NANS(mat) {}
-#endif
+#define CHECK_MAT_FOR_NANS(mat) if ((mat.array() != mat.array()).any()) { \
+    std::cout << "NaNs detected in " << #mat << " at line " << __LINE__ << "\n"; \
+    std::cout << "meas_type = " << meas_type << "\n";\
+    std::cout << "z = " << z.transpose() << "\n";\
+    std::cout << "zhat = " << zhat_.transpose() << "\n";\
+    std::cout << #mat << " = " << mat << std::endl; \
+    std::cout << "innovation = \n" << (R + H_.topRows(z_dim)*P_ * H_.topRows(z_dim).transpose()) << std::endl; \
+    std::cout << "R = \n" << R << "\n";\
+    std::cout << "H_ = \n " << H_.topLeftCorner(z_dim, dxZ) << std::endl;\
+    std::cout << "P_ = \n" << P_.topLeftCorner(dxZ, dxZ) << std::endl;\
+    exit(0); \
+  }
+//#else
+//#define NAN_CHECK {}
+//#define NEGATIVE_DEPTH {}
+//#define CHECK_MAT_FOR_NANS(mat) {}
+//#endif
 
 namespace vi_ekf
 {
@@ -139,7 +150,7 @@ MatrixXd VIEKF::get_zetas() const
   for (int i = 0; i < len_features_; i++)
   {
     Vector4d qzeta = x_.block<4,1>(xZ + 5*i,0);
-    out.block<3,1>(0,i) = Quat(qzeta).rot(e_z);
+    out.block<3,1>(0,i) = Quat(qzeta).rota(e_z);
   }
   return out;
 }
@@ -157,7 +168,7 @@ MatrixXd VIEKF::get_qzetas() const
 VectorXd VIEKF::get_zeta(const int i) const
 {
   Vector4d qzeta_i = x_.block<4,1>(xZ + 5*i,0);
-  return Quat(qzeta_i).rot(e_z);
+  return Quat(qzeta_i).rota(e_z);
 }
 
 double VIEKF::get_depth(const int id) const
@@ -170,7 +181,7 @@ Vector2d VIEKF::get_feat(const int id) const
 {
   int i = global_to_local_feature_id(id);
   Quat q_zeta(x_.block<4,1>(xZ+i*5, 0));
-  Vector3d zeta = q_zeta.rot(e_z);
+  Vector3d zeta = q_zeta.rota(e_z);
   double ezT_zeta = e_z.transpose() * zeta;
   return cam_F_ * zeta / ezT_zeta + cam_center_;
 }
@@ -409,12 +420,12 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
   double mu = x((int)xMU);
   
   Matrix3d R_I_b = q_I_b.R();
-  Vector3d gravity_B = q_I_b.invrot(gravity); // R_I^b * vel
+  Vector3d gravity_B = q_I_b.rotp(gravity); // R_I^b * vel
   Vector3d vel_xy;  
   vel_xy << vel(0), vel(1), 0.0;
   
   // Calculate State Dynamics
-  dx_.block<3,1>((int)dxPOS,0) = q_I_b.rot(vel); // R_I^b.T * vel
+  dx_.block<3,1>((int)dxPOS,0) = q_I_b.rota(vel); // R_I^b.T * vel
   if (use_drag_term_)
     dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc_z + gravity_B - mu*vel_xy;
   else
@@ -448,8 +459,8 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
   G_.block<3,3>((int)dxATT, (int)uG) = I_3x3;
   
   // Camera Dynamics
-  Vector3d vel_c_i = q_b_c_.invrot(vel - omega.cross(p_b_c_));
-  Vector3d omega_c_i = q_b_c_.invrot(omega);
+  Vector3d vel_c_i = q_b_c_.rotp(vel - omega.cross(p_b_c_));
+  Vector3d omega_c_i = q_b_c_.rotp(omega);
   
   
   Quat q_zeta;
@@ -470,7 +481,7 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
     
     q_zeta = (x.block<4,1>(xZETA_i, 0));
     rho = x(xRHO_i);
-    zeta = q_zeta.rot(e_z);
+    zeta = q_zeta.rota(e_z);
     T_z = T_zeta(q_zeta);
     skew_zeta = skew(zeta);
     
@@ -549,25 +560,28 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
     K_.leftCols(z_dim) = P_ * H_.topRows(z_dim).transpose() * (R + H_.topRows(z_dim)*P_ * H_.topRows(z_dim).transpose()).inverse();
     NAN_CHECK;
     
-    //    CHECK_MAT_FOR_NANS(H_);
-    //    CHECK_MAT_FOR_NANS(K_);
+    CHECK_MAT_FOR_NANS(H_);
+    CHECK_MAT_FOR_NANS(K_);
     
-    if (partial_update_ && NO_NANS(K_))
+    if (NO_NANS(K_) && NO_NANS(H_))
     {
-      // Apply Fixed Gain Partial update per
-      // "Partial-Update Schmidt-Kalman Filter" by Brink
-      // Modified to operate inline and on the manifold 
-      boxplus(x_, lambda_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), xp_);
-      x_ = xp_;
-      P_ -= (Lambda_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*P_);
+      if (partial_update_)
+      {      
+        // Apply Fixed Gain Partial update per
+        // "Partial-Update Schmidt-Kalman Filter" by Brink
+        // Modified to operate inline and on the manifold 
+        boxplus(x_, lambda_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), xp_);
+        x_ = xp_;
+        P_ -= (Lambda_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*P_);
+      }
+      else
+      {
+        boxplus(x_, K_.leftCols(z_dim) * residual.topRows(z_dim), xp_);  
+        x_ = xp_;
+        P_ = (I_big_ - K_.leftCols(z_dim) * H_.topRows(z_dim))*P_;
+      } 
+      NAN_CHECK;
     }
-    else
-    {
-      boxplus(x_, K_.leftCols(z_dim) * residual.topRows(z_dim), xp_);  
-      x_ = xp_;
-      P_ = (I_big_ - K_.leftCols(z_dim) * H_.topRows(z_dim))*P_;
-    } 
-    NAN_CHECK;
   }
   
   fix_depth();
@@ -627,7 +641,7 @@ void VIEKF::keyframe_reset()
   
   // precalculate some things
   Quat qm(x_.block<4,1>((int)xATT, 0));
-  Vector3d u_rot = qm.rot(khat);
+  Vector3d u_rot = qm.rota(khat);
   Vector3d v = khat.cross(u_rot); // Axis of rotation (without rotation about khat)
   double theta = khat.transpose() * u_rot; // Angle of rotation
   Matrix3d sk_tv = skew(theta*v);
@@ -748,7 +762,7 @@ void VIEKF::h_feat(const xVector& x, zVector& h, hMatrix& H, const int id) const
 {
   int i = global_to_local_feature_id(id);
   Quat q_zeta(x.block<4,1>(xZ+i*5, 0));
-  Vector3d zeta = q_zeta.rot(e_z);
+  Vector3d zeta = q_zeta.rota(e_z);
   Matrix3d sk_zeta = skew(zeta);
   double ezT_zeta = e_z.transpose() * zeta;
   MatrixXd T_z = T_zeta(q_zeta);

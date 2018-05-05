@@ -230,10 +230,8 @@ TEST(Quat, rotation_direction)
   // Compare against a known active and passive rotation
   Vector3d v, beta, v_active_rotated, v_passive_rotated;
   v << 0, 0, 1;
-  v_active_rotated << 0, -1.0*std::pow(0.5,0.5), std::pow(0.5,0.5);
   beta << 1, 0, 0;
   Quat q_x_45 = Quat::from_axis_angle(beta, 45.0*M_PI/180.0);
-  Eigen::Vector3d v_x_45 = q_x_45.rot(v);
   
   Matrix3d R_true;
   R_true << 1.0000000,  0.0000000,  0.0000000,
@@ -241,16 +239,57 @@ TEST(Quat, rotation_direction)
             0.0000000,  -0.70710678118654757, 0.70710678118654757;
   Matrix3d qR = q_x_45.R();
   MATRIX_EQUAL(qR, R_true, 1e-6);
+  
+  v_active_rotated << 0, -1.0*std::pow(0.5,0.5), std::pow(0.5,0.5);
+  Eigen::Vector3d v_x_45 = q_x_45.rota(v);
   VECTOR3_EQUALS(qR.transpose() * v, v_active_rotated);
   VECTOR3_EQUALS(R_true.transpose() * v, v_active_rotated);
-  
   VECTOR3_EQUALS(v_x_45, v_active_rotated);
   
   v_passive_rotated << 0, std::pow(0.5, 0.5), std::pow(0.5, 0.5);
-  Vector3d v_x_45_T = q_x_45.invrot(v);
+  Vector3d v_x_45_T = q_x_45.rotp(v);
   VECTOR3_EQUALS(v_x_45_T, v_passive_rotated);
   VECTOR3_EQUALS(qR * v, v_passive_rotated);
   VECTOR3_EQUALS(R_true * v, v_passive_rotated);
+}
+
+TEST(Quat, dRvdq)
+{
+	// Derivative of passively rotated vector wrt rotation
+	Quat q;
+	Matrix3d analytical, finite_difference;
+	Vector3d u, v;
+	double epsilon = 1e-8;
+	
+	for (int j = 0; j < NUM_ITERS; j++)
+	{
+		v.setRandom();
+		q = Quat::Random();
+		
+		analytical = -skew(q.rotp(v));
+
+		for (int i = 0; i < 3; i++)
+		{
+			finite_difference.col(i) = ((q + (epsilon * I_3x3.col(i))).rotp(v) - q.rotp(v)) / epsilon;
+		}
+		
+		MATRIX_EQUAL(analytical, finite_difference, 1e-6);
+	}
+	
+	// Derivative of actively rotated vector wrt rotation
+	for (int j = 0; j < 3; j++)
+	{
+		v.setRandom();
+		q = Quat::Random();
+		
+		analytical = q.R().transpose() * skew(v);
+		
+		for (int i = 0; i < 3; i++)
+		{
+			finite_difference.col(i) = ((q + (epsilon * I_3x3.col(i))).rota(v) - q.rota(v)) / epsilon;
+		}
+		MATRIX_EQUAL(analytical, finite_difference, 1e-6);		
+	}
 }
 
 TEST(Quat, rot_invrot_R)
@@ -263,8 +302,8 @@ TEST(Quat, rot_invrot_R)
     q1 = Quat::Random();
     
     // Check that rotations are inverses of each other
-    VECTOR3_EQUALS(q1.rot(v), q1.R().transpose() * v);
-    VECTOR3_EQUALS(q1.invrot(v), q1.R() * v);
+    VECTOR3_EQUALS(q1.rota(v), q1.R().transpose() * v);
+    VECTOR3_EQUALS(q1.rotp(v), q1.R() * v);
   }
 }
 
@@ -278,8 +317,8 @@ TEST(Quat, from_two_unit_vectors)
     v1 /= v1.norm();
     v2 /= v2.norm();
     
-    VECTOR3_EQUALS(Quat::from_two_unit_vectors(v1, v2).rot(v1), v2);
-    VECTOR3_EQUALS(Quat::from_two_unit_vectors(v2, v1).invrot(v1), v2);
+    VECTOR3_EQUALS(Quat::from_two_unit_vectors(v1, v2).rota(v1), v2);
+    VECTOR3_EQUALS(Quat::from_two_unit_vectors(v2, v1).rotp(v1), v2);
   }
 }
 
@@ -292,10 +331,10 @@ TEST(Quat, from_R)
     Matrix3d R = q1.R();
     Quat qR = Quat::from_R(R);
     v.setRandom();
-    VECTOR3_EQUALS(qR.rot(v), R.transpose() * v);
-    VECTOR3_EQUALS(q1.rot(v), R.transpose() * v);
-    VECTOR3_EQUALS(qR.invrot(v), R * v);
-    VECTOR3_EQUALS(q1.invrot(v), R * v);
+    VECTOR3_EQUALS(qR.rota(v), R.transpose() * v);
+    VECTOR3_EQUALS(q1.rota(v), R.transpose() * v);
+    VECTOR3_EQUALS(qR.rotp(v), R * v);
+    VECTOR3_EQUALS(q1.rotp(v), R * v);
     MATRIX_EQUAL(R, qR.R(), 1e-6);
     QUATERNION_EQUALS(qR, q1);
   }
@@ -463,7 +502,7 @@ TEST(math_helper, manifold_operations)
     // (x [+] 0) == x 
     QUATERNION_EQUALS( q_feat_boxplus(x, zeros), x);
     // (x [+] (x2 [-] x)) = x2
-    VECTOR3_EQUALS( q_feat_boxplus( x, q_feat_boxminus(y, x)).rot(e_z), y.rot(e_z));
+    VECTOR3_EQUALS( q_feat_boxplus( x, q_feat_boxminus(y, x)).rota(e_z), y.rota(e_z));
     // ((x [+] dx) [-] x) == dx
     VECTOR2_EQUALS( q_feat_boxminus(q_feat_boxplus(x, dx), x), dx);
   }
@@ -481,7 +520,7 @@ void XVECTOR_EQUAL(xVector& x1, xVector& x2)
   
   for (int i = 0; i < NUM_FEATURES; i++)
   {
-    VECTOR3_EQUALS(Quat(x1.block<4,1>(VIEKF::xZ+i*5,0)).rot(e_z), Quat(x2.block<4,1>(VIEKF::xZ+i*5,0)).rot(e_z));
+    VECTOR3_EQUALS(Quat(x1.block<4,1>(VIEKF::xZ+i*5,0)).rota(e_z), Quat(x2.block<4,1>(VIEKF::xZ+i*5,0)).rota(e_z));
     EXPECT_NEAR(x1(VIEKF::xZ+i*5+4), x1(VIEKF::xZ+i*5+4), 1e-8);
   }
 }

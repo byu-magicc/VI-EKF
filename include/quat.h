@@ -35,10 +35,10 @@ public:
   Quat operator* (const Quat q) { return otimes(q); }
   Quat& operator *= (const Quat q)
   {
-    arr_ <<  w() * q.w() - x() *q.x() - y() * q.y() - z() * q.z(),
-             w() * q.x() + x() *q.w() + y() * q.z() - z() * q.y(),
-             w() * q.y() - x() *q.z() + y() * q.w() + z() * q.x(),
-             w() * q.z() + x() *q.y() - y() * q.x() + z() * q.w();
+    arr_ <<  q.w()*w() - q.x()*x() - q.y()*y() - q.z()*z(),
+             q.w()*x() + q.x()*w() + q.y()*z() - q.z()*y(),
+             q.w()*y() - q.x()*z() + q.y()*w() + q.z()*x(),
+             q.w()*z() + q.x()*y() - q.y()*x() + q.z()*w();
   }
 
   Quat& operator= (const Quat q) { arr_ = q.elements(); }
@@ -276,14 +276,14 @@ public:
 
 
   // The same as R.T * v but faster
-  Vector3d rot(Vector3d v)
+  Vector3d rota(Vector3d v)
   {
     Vector3d t = 2.0 * arr_.block<3,1>(1,0).cross(v);
     return v + w() * t + arr_.block<3,1>(1,0).cross(t);
   }
 
   // The same as R * v but faster
-  Vector3d invrot(Vector3d v)
+  Vector3d rotp(Vector3d v)
   {
     Vector3d t = -2.0 * arr_.block<3,1>(1,0).cross(v);
     return v + w() * t - arr_.block<3,1>(1,0).cross(t);
@@ -304,10 +304,10 @@ public:
   Quat otimes(const Quat q)
   {
     Vector4d new_arr;
-    new_arr <<  w() * q.w() - x() *q.x() - y() * q.y() - z() * q.z(),
-                w() * q.x() + x() *q.w() + y() * q.z() - z() * q.y(),
-                w() * q.y() - x() *q.z() + y() * q.w() + z() * q.x(),
-                w() * q.z() + x() *q.y() - y() * q.x() + z() * q.w();
+    new_arr <<  q.w()*w() - q.x()*x() - q.y()*y() - q.z()*z(),
+                q.w()*x() + q.x()*w() + q.y()*z() - q.z()*y(),
+                q.w()*y() - q.x()*z() + q.y()*w() + q.z()*x(),
+                q.w()*z() + q.x()*y() - q.y()*x() + q.z()*w();
     return Quat(new_arr);
   }
 

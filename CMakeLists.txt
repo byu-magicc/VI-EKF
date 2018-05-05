@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(vi_ekf)
 
-set(CMAKE_CXX_FLAGS "-std=c++17 -mavx -mfma")
+set(CMAKE_CXX_FLAGS "-std=c++17 -mavx -mfma -fopenmp")
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -35,6 +35,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
+# Core Library
 add_library(vi_ekf
   src/vi_ekf.cpp
   include/vi_ekf.h
@@ -42,16 +43,13 @@ add_library(vi_ekf
   include/quat.h
 )
 
+# KLT Tracker Library
 add_library(klt_tracker
   src/klt_tracker.cpp
   include/klt_tracker.h
 )
 
-add_executable(vi_ekf_test
-    src/test.cpp
-)
-target_link_libraries(vi_ekf_test ${GTEST_LIBRARIES} pthread vi_ekf)
-
+# ROS wrapper Library
 add_library(vi_ekf_ros
   src/vi_ekf_ros.cpp
   include/vi_ekf_ros.h
@@ -64,6 +62,17 @@ target_link_libraries(vi_ekf_ros
   klt_tracker
 )
 
+# Test
+add_executable(vi_ekf_test
+    src/test.cpp
+)
+target_link_libraries(vi_ekf_test 
+    ${GTEST_LIBRARIES} 
+    pthread
+    vi_ekf
+)
+
+# ROS Node
 add_executable(vi_ekf_node
   src/vi_ekf_node.cpp
   )
@@ -72,6 +81,7 @@ target_link_libraries(vi_ekf_node
   vi_ekf_ros  
 )
 
+# ROSbag Parser
 add_executable(vi_ekf_rosbag
   src/rosbag_parser.cpp
   )

@@ -297,8 +297,9 @@ public:
   void keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N);
   void keyframe_reset();
   void register_keyframe_reset_callback(std::function<void(void)> cb);
-  void log_global_position(const eVector truth_global_transform);
-  void log_depth(const int id, double zhat);
+  void log_global_position(const eVector truth_global_transform) const;
+  void log_depth(const int id, const double z_meas) const;
+  void log_feat(const int id, const zVector &zhat, const VectorXd &z_meas, const hMatrix &H) const;
 
   // Inequality Constraint on Depth
   void fix_depth();

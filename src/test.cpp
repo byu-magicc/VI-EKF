@@ -15,37 +15,37 @@ using namespace Eigen;
 #define QUATERNION_EQUALS(q1, q2) \
   if (sign((q1).w()) != sign((q2).w())) \
   { \
-    EXPECT_NEAR((-1.0*(q1).w()), (q2).w(), 1e-8); \
-    EXPECT_NEAR((-1.0*(q1).x()), (q2).x(), 1e-8); \
-    EXPECT_NEAR((-1.0*(q1).y()), (q2).y(), 1e-8); \
-    EXPECT_NEAR((-1.0*(q1).z()), (q2).z(), 1e-8); \
+    ASSERT_NEAR((-1.0*(q1).w()), (q2).w(), 1e-8); \
+    ASSERT_NEAR((-1.0*(q1).x()), (q2).x(), 1e-8); \
+    ASSERT_NEAR((-1.0*(q1).y()), (q2).y(), 1e-8); \
+    ASSERT_NEAR((-1.0*(q1).z()), (q2).z(), 1e-8); \
   } \
   else\
   {\
-    EXPECT_NEAR((q1).w(), (q2).w(), 1e-8); \
-    EXPECT_NEAR((q1).x(), (q2).x(), 1e-8); \
-    EXPECT_NEAR((q1).y(), (q2).y(), 1e-8); \
-    EXPECT_NEAR((q1).z(), (q2).z(), 1e-8); \
+    ASSERT_NEAR((q1).w(), (q2).w(), 1e-8); \
+    ASSERT_NEAR((q1).x(), (q2).x(), 1e-8); \
+    ASSERT_NEAR((q1).y(), (q2).y(), 1e-8); \
+    ASSERT_NEAR((q1).z(), (q2).z(), 1e-8); \
   }
 
 #define VECTOR3_EQUALS(v1, v2) \
-  EXPECT_NEAR((v1)(0,0), (v2)(0,0), 1e-8); \
-  EXPECT_NEAR((v1)(1,0), (v2)(1,0), 1e-8); \
-  EXPECT_NEAR((v1)(2,0), (v2)(2,0), 1e-8)
+  ASSERT_NEAR((v1)(0,0), (v2)(0,0), 1e-8); \
+  ASSERT_NEAR((v1)(1,0), (v2)(1,0), 1e-8); \
+  ASSERT_NEAR((v1)(2,0), (v2)(2,0), 1e-8)
 
 #define VECTOR2_EQUALS(v1, v2) \
-  EXPECT_NEAR((v1)(0,0), (v2)(0,0), 1e-8); \
-  EXPECT_NEAR((v1)(1,0), (v2)(1,0), 1e-8)
+  ASSERT_NEAR((v1)(0,0), (v2)(0,0), 1e-8); \
+  ASSERT_NEAR((v1)(1,0), (v2)(1,0), 1e-8)
 
 #define MATRIX_EQUAL(m1, m2, tol) {\
   for (int row = 0; row < m1.rows(); row++ ) \
-{ \
-  for (int col = 0; col < m1.cols(); col++) \
-{ \
-  EXPECT_NEAR((m1)(row, col), (m2)(row, col), tol); \
+  { \
+    for (int col = 0; col < m1.cols(); col++) \
+    { \
+      ASSERT_NEAR((m1)(row, col), (m2)(row, col), tol); \
+    } \
   } \
-  } \
-  }
+}
 
 #define CALL_MEMBER_FN(objectptr,ptrToMember) ((objectptr).*(ptrToMember))
 #define HEADER "\033[95m"
@@ -235,8 +235,8 @@ TEST(Quat, rotation_direction)
   
   Matrix3d R_true;
   R_true << 1.0000000,  0.0000000,  0.0000000,
-            0.0000000,  0.70710678118654757,  0.70710678118654757,
-            0.0000000,  -0.70710678118654757, 0.70710678118654757;
+      0.0000000,  0.70710678118654757,  0.70710678118654757,
+      0.0000000,  -0.70710678118654757, 0.70710678118654757;
   Matrix3d qR = q_x_45.R();
   MATRIX_EQUAL(qR, R_true, 1e-6);
   
@@ -253,43 +253,64 @@ TEST(Quat, rotation_direction)
   VECTOR3_EQUALS(R_true * v, v_passive_rotated);
 }
 
+TEST(Quat, otimes)
+{
+  for (int j = 0; j < NUM_ITERS; j++)
+  {
+    // Make sure that quaternions multiply forwards while rotation matrices multiply backwards
+    Quat q1 = Quat::Random();
+    Quat q2 = Quat::Random();
+    Matrix3d R1 = q1.R();
+    Matrix3d R2 = q2.R();
+    
+    QUATERNION_EQUALS(q1 * q2, Quat::from_R(R2 * R1));
+    MATRIX_EQUAL((q1*q2).R(), R2 * R1, 1e-6);
+    QUATERNION_EQUALS(q2 * q1, Quat::from_R(R1 * R2));
+    MATRIX_EQUAL((q2*q1).R(), R1 * R2, 1e-6); 
+    
+    // Check that otimes does inverse right
+    QUATERNION_EQUALS(q1 * q1.inverse(), Quat::Identity());
+    QUATERNION_EQUALS(q2 * q2.inverse(), Quat::Identity());
+  }
+}
+
 TEST(Quat, dRvdq)
 {
-	// Derivative of passively rotated vector wrt rotation
-	Quat q;
-	Matrix3d analytical, finite_difference;
-	Vector3d u, v;
-	double epsilon = 1e-8;
-	
-	for (int j = 0; j < NUM_ITERS; j++)
-	{
-		v.setRandom();
-		q = Quat::Random();
-		
-		analytical = -skew(q.rotp(v));
-
-		for (int i = 0; i < 3; i++)
-		{
-			finite_difference.col(i) = ((q + (epsilon * I_3x3.col(i))).rotp(v) - q.rotp(v)) / epsilon;
-		}
-		
-		MATRIX_EQUAL(analytical, finite_difference, 1e-6);
-	}
-	
-	// Derivative of actively rotated vector wrt rotation
-	for (int j = 0; j < 3; j++)
-	{
-		v.setRandom();
-		q = Quat::Random();
-		
-		analytical = q.R().transpose() * skew(v);
-		
-		for (int i = 0; i < 3; i++)
-		{
-			finite_difference.col(i) = ((q + (epsilon * I_3x3.col(i))).rota(v) - q.rota(v)) / epsilon;
-		}
-		MATRIX_EQUAL(analytical, finite_difference, 1e-6);		
-	}
+  // Derivative of passively rotated vector wrt rotation
+  Quat q;
+  Matrix3d analytical, finite_difference;
+  Vector3d u, v;
+  double epsilon = 1e-8;
+  
+  for (int j = 0; j < NUM_ITERS; j++)
+  {
+    v.setRandom();
+    q = Quat::Random();
+    
+    analytical = skew(q.rotp(v));
+    
+    for (int i = 0; i < 3; i++)
+    {
+      finite_difference.col(i) = ((q + (epsilon * I_3x3.col(i))).rotp(v) - q.rotp(v)) / epsilon;
+    }
+    
+    MATRIX_EQUAL(analytical, finite_difference, 1e-6);
+  }
+  
+  // Derivative of actively rotated vector wrt rotation
+  for (int j = 0; j < 3; j++)
+  {
+    v.setRandom();
+    q = Quat::Random();
+    
+    analytical = -q.R().transpose() * skew(v);
+    
+    for (int i = 0; i < 3; i++)
+    {
+      finite_difference.col(i) = ((q + (epsilon * I_3x3.col(i))).rota(v) - q.rota(v)) / epsilon;
+    }
+    MATRIX_EQUAL(analytical, finite_difference, 1e-6);		
+  }
 }
 
 TEST(Quat, rot_invrot_R)
@@ -338,13 +359,6 @@ TEST(Quat, from_R)
     MATRIX_EQUAL(R, qR.R(), 1e-6);
     QUATERNION_EQUALS(qR, q1);
   }
-}
-
-TEST(Quat, otimes)
-{
-  Quat q1 = Quat::Random();
-  Quat qI = Quat::Identity();
-  QUATERNION_EQUALS(q1 * q1.inverse(), qI);
 }
 
 TEST(Quat, exp_log_axis_angle)
@@ -706,7 +720,7 @@ TEST(VI_EKF, KF_reset_test)
     
     d_dxpdxm.setZero();
     double epsilon = 1e-6;
-
+    
     // Perform Numerical Differentiation
     for (int i = 0; i < d_dxpdxm.cols(); i++)
     {

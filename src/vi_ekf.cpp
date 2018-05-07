@@ -15,6 +15,8 @@
     std::cout << "R = \n" << R << "\n";\
     std::cout << "H_ = \n " << H_.topLeftCorner(z_dim, dxZ) << std::endl;\
     std::cout << "P_ = \n" << P_.topLeftCorner(dxZ, dxZ) << std::endl;\
+	(*log_.stream)[LOG_DEBUG] << "x: \n" << x_ << "\n\n"; \
+	(*log_.stream)[LOG_DEBUG] << "p: \n" << P_ << std::endl; \
     exit(0); \
   }
 //#else
@@ -34,6 +36,9 @@ void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<doub
                  Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, bool partial_update,
                  bool use_keyframe_reset, double keyframe_overlap)
 {
+  x_.setZero();
+  P_.setZero();
+  
   x_.block<(int)xZ, 1>(0,0) = x0;
   P_.block<(int)dxZ, (int)dxZ>(0,0) = P0.asDiagonal();
   Qx_.block<(int)dxZ, (int)dxZ>(0,0) = Qx.asDiagonal();
@@ -595,7 +600,11 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
     log_.update_count[meas_type] = 0;
     if (meas_type == DEPTH || meas_type == INV_DEPTH)
     {
-      log_depth(id, zhat_(0,0));
+      log_depth(id, z(0,0));
+    }
+    else if (meas_type == FEAT)
+    {
+      log_feat(id, zhat_, z, H_);
     }
     else
     {
@@ -609,13 +618,22 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
   return false;
 }
 
-void VIEKF::log_depth(const int id, double zhat)
+void VIEKF::log_depth(const int id, const double z_meas) const
 {
   int i = global_to_local_feature_id(id);
-  double z = x_(xZ+5*i + 4, 0);
+  double zhat = x_(xZ+5*i + 4, 0);
   (*log_.stream)[LOG_MEAS] << measurement_names[DEPTH] << "\t" << prev_t_-start_t_ << "\t"
-                           << z << "\t" << zhat << "\t";
+                           << zhat << "\t" << z_meas << "\t";
   (*log_.stream)[LOG_MEAS] << P_(dxZ + 3*i + 2, dxZ + 3*i + 2) << "\t" << id << "\n";
+}
+
+void VIEKF::log_feat(const int id, const zVector& zhat, const VectorXd &z_meas, const hMatrix &H) const
+{
+  int i = global_to_local_feature_id(id);
+  (*log_.stream)[LOG_MEAS] << measurement_names[FEAT] << "\t" << prev_t_-start_t_ << "\t"
+                             << zhat.topRows(2).transpose() << "\t" << z_meas.transpose() << "\t";
+  Matrix2d cov = H.block<2,2>(0, dxZ+3*i) * P_.block<2,2>(dxZ+3*i, dxZ+3*i) * H.block<2,2>(0, dxZ+3*i).transpose();
+  (*log_.stream)[LOG_MEAS] << cov(0,0) << "\t" << cov(1,1) << "\t" << id << "\n";
 }
 
 void VIEKF::keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N)
@@ -831,7 +849,7 @@ void VIEKF::fix_depth()
   }
 }
 
-void VIEKF::log_global_position(const eVector truth_global_transform) //Vector3d pos, const Vector4d att)
+void VIEKF::log_global_position(const eVector truth_global_transform) const //Vector3d pos, const Vector4d att)
 { 
   // cut off initial state from truth - for plotting comparison
   //  concatenate_edges(invert_fed );

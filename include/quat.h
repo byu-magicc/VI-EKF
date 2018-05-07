@@ -35,10 +35,10 @@ public:
   Quat operator* (const Quat q) { return otimes(q); }
   Quat& operator *= (const Quat q)
   {
-    arr_ <<  q.w()*w() - q.x()*x() - q.y()*y() - q.z()*z(),
-             q.w()*x() + q.x()*w() + q.y()*z() - q.z()*y(),
-             q.w()*y() - q.x()*z() + q.y()*w() + q.z()*x(),
-             q.w()*z() + q.x()*y() - q.y()*x() + q.z()*w();
+    arr_ <<  w()*q.w() - x()*q.x() - y()*q.y() - z()*q.z(),
+             w()*q.x() + x()*q.w() + y()*q.z() - z()*q.y(),
+             w()*q.y() - x()*q.z() + y()*q.w() + z()*q.x(),
+             w()*q.z() + x()*q.y() - y()*q.x() + z()*q.w();
   }
 
   Quat& operator= (const Quat q) { arr_ = q.elements(); }
@@ -304,10 +304,10 @@ public:
   Quat otimes(const Quat q)
   {
     Vector4d new_arr;
-    new_arr <<  q.w()*w() - q.x()*x() - q.y()*y() - q.z()*z(),
-                q.w()*x() + q.x()*w() + q.y()*z() - q.z()*y(),
-                q.w()*y() - q.x()*z() + q.y()*w() + q.z()*x(),
-                q.w()*z() + q.x()*y() - q.y()*x() + q.z()*w();
+    new_arr <<  w()*q.w() - x()*q.x() - y()*q.y() - z()*q.z(),
+                w()*q.x() + x()*q.w() + y()*q.z() - z()*q.y(),
+                w()*q.y() - x()*q.z() + y()*q.w() + z()*q.x(),
+                w()*q.z() + x()*q.y() - y()*q.x() + z()*q.w();
     return Quat(new_arr);
   }
 

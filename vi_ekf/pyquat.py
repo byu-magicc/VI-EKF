@@ -389,7 +389,16 @@ def run_tests():
         qR = Quaternion.from_R(R)
         assert norm(qR.rot(v) - R.T.dot(v)) < 1e-8
 
-        assert norm((q * q.inverse).elements - np.array([[1., 0, 0, 0]]).T) < 1e-8
+        # Check that Quaternion multiplication is forward while rotation matrices are backwards
+        q1 = Quaternion.random()
+        q2 = Quaternion.random()
+        R1 = q1.R
+        R2 = q2.R
+        assert norm((q1 * q2) - Quaternion.from_R(R2.dot(R1))) < 1e-8
+        assert norm((q2 * q1) - Quaternion.from_R(R1.dot(R2))) < 1e-8
+
+        # Check that Inverse Works
+        assert norm((q * q.inverse) - Quaternion.Identity()) < 1e-8
 
         # Check that qexp is right by comparing with rotation matrix qexp and axis-angle
         import scipy.linalg

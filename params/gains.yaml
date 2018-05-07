@@ -5,7 +5,7 @@ P0: [0.001, 0.001, 0.001,
      0.001, 0.001, 0.001,
      0.01, 0.01, 0.01,
      0.01, 0.01, 0.01,
-     0.01],
+     0.2],
 P0_feat: [0.15, 0.15, 0.1],
 
 ## Additive Process Noise
@@ -46,7 +46,7 @@ imu_LPF: 0.0,
 truth_LPF: 0.0,
 
 ## Measurement Model Flags
-use_truth: false,
+use_truth: true,
 use_depth: false,
 use_features: true,
 use_acc: true,
@@ -55,7 +55,7 @@ use_alt: true,
 
 ## Feature Flags
 drag_term: true,
-partial_update: false,
+partial_update: true,
 keyframe_reset: false,
 
 ## Tracking Paramters

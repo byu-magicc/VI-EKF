@@ -2,15 +2,15 @@
 
 #define NO_NANS(mat) (mat.array() == mat.array()).all()
 
-#ifndef NDEBUG
+//#ifndef NDEBUG
 #define NAN_CHECK if (NaNsInTheHouse()) { std::cout << "NaNs In The House at line " << __LINE__ << "!!!\n"; exit(0); }
 #define NEGATIVE_DEPTH if (NegativeDepth()) std::cout << "Negative Depth " << __LINE__ << "!!!\n"
 #define CHECK_MAT_FOR_NANS(mat) if ((K_.array() != K_.array()).any()) { std::cout << "NaN detected in " << #mat << " at line " << __LINE__ << "!!!\n" << mat << "\n"; exit(0); }
-#else
-#define NAN_CHECK {}
-#define NEGATIVE_DEPTH {}
-#define CHECK_MAT_FOR_NANS(mat) {}
-#endif
+//#else
+//#define NAN_CHECK {}
+//#define NEGATIVE_DEPTH {}
+//#define CHECK_MAT_FOR_NANS(mat) {}
+//#endif
 
 namespace vi_ekf
 {
@@ -139,7 +139,7 @@ MatrixXd VIEKF::get_zetas() const
   for (int i = 0; i < len_features_; i++)
   {
     Vector4d qzeta = x_.block<4,1>(xZ + 5*i,0);
-    out.block<3,1>(0,i) = Quat(qzeta).rot(e_z);
+    out.block<3,1>(0,i) = Quat(qzeta).rota(e_z);
   }
   return out;
 }
@@ -157,7 +157,7 @@ MatrixXd VIEKF::get_qzetas() const
 VectorXd VIEKF::get_zeta(const int i) const
 {
   Vector4d qzeta_i = x_.block<4,1>(xZ + 5*i,0);
-  return Quat(qzeta_i).rot(e_z);
+  return Quat(qzeta_i).rota(e_z);
 }
 
 double VIEKF::get_depth(const int id) const
@@ -170,7 +170,7 @@ Vector2d VIEKF::get_feat(const int id) const
 {
   int i = global_to_local_feature_id(id);
   Quat q_zeta(x_.block<4,1>(xZ+i*5, 0));
-  Vector3d zeta = q_zeta.rot(e_z);
+  Vector3d zeta = q_zeta.rota(e_z);
   double ezT_zeta = e_z.transpose() * zeta;
   return cam_F_ * zeta / ezT_zeta + cam_center_;
 }
@@ -261,6 +261,11 @@ void VIEKF::clear_feature(const int id)
     P_.block(dxZETA_i, 0, (P_.rows() - (dxZETA_i+3)), P_.cols()) = P_.bottomRows(P_.rows() - (dxZETA_i+3));
     P_.block(0, dxZETA_i, P_.rows(), (P_.cols() - (dxZETA_i+3))) = P_.rightCols(P_.cols() - (dxZETA_i+3));
   }
+  
+  // Clean up the rest of the matrix
+  x_.bottomRows(x_.cols() - dx_max).setZero();
+  P_.rightCols(P_.cols() - dx_max).setZero();
+  P_.bottomRows(P_.rows() - dx_max).setZero();
   
   NAN_CHECK;
 }
@@ -409,12 +414,12 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
   double mu = x((int)xMU);
   
   Matrix3d R_I_b = q_I_b.R();
-  Vector3d gravity_B = q_I_b.invrot(gravity); // R_I^b * vel
+  Vector3d gravity_B = q_I_b.rotp(gravity); // R_I^b * vel
   Vector3d vel_xy;  
   vel_xy << vel(0), vel(1), 0.0;
   
   // Calculate State Dynamics
-  dx_.block<3,1>((int)dxPOS,0) = q_I_b.rot(vel); // R_I^b.T * vel
+  dx_.block<3,1>((int)dxPOS,0) = q_I_b.rota(vel); // R_I^b.T * vel
   if (use_drag_term_)
     dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc_z + gravity_B - mu*vel_xy;
   else
@@ -448,8 +453,8 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
   G_.block<3,3>((int)dxATT, (int)uG) = I_3x3;
   
   // Camera Dynamics
-  Vector3d vel_c_i = q_b_c_.invrot(vel - omega.cross(p_b_c_));
-  Vector3d omega_c_i = q_b_c_.invrot(omega);
+  Vector3d vel_c_i = q_b_c_.rotp(vel - omega.cross(p_b_c_));
+  Vector3d omega_c_i = q_b_c_.rotp(omega);
   
   
   Quat q_zeta;
@@ -470,7 +475,7 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
     
     q_zeta = (x.block<4,1>(xZETA_i, 0));
     rho = x(xRHO_i);
-    zeta = q_zeta.rot(e_z);
+    zeta = q_zeta.rota(e_z);
     T_z = T_zeta(q_zeta);
     skew_zeta = skew(zeta);
     
@@ -497,7 +502,7 @@ void VIEKF::dynamics(const xVector& x, const uVector &u)
 }
 
 bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
-                   const MatrixXd& R, const bool active, const int id, const double depth)
+                   const MatrixXd& R, bool active, const int id, const double depth)
 {
   double start = now();
   
@@ -552,21 +557,24 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
     //    CHECK_MAT_FOR_NANS(H_);
     //    CHECK_MAT_FOR_NANS(K_);
     
-    if (partial_update_ && NO_NANS(K_))
+    if (NO_NANS(K_) && NO_NANS(H_))
     {
-      // Apply Fixed Gain Partial update per
-      // "Partial-Update Schmidt-Kalman Filter" by Brink
-      // Modified to operate inline and on the manifold 
-      boxplus(x_, lambda_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), xp_);
-      x_ = xp_;
-      P_ -= (Lambda_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*P_);
+      if (partial_update_)
+      {
+        // Apply Fixed Gain Partial update per
+        // "Partial-Update Schmidt-Kalman Filter" by Brink
+        // Modified to operate inline and on the manifold 
+        boxplus(x_, lambda_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), xp_);
+        x_ = xp_;
+        P_ -= (Lambda_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*P_);
+      }
+      else
+      {
+        boxplus(x_, K_.leftCols(z_dim) * residual.topRows(z_dim), xp_);  
+        x_ = xp_;
+        P_ = (I_big_ - K_.leftCols(z_dim) * H_.topRows(z_dim))*P_;
+      }
     }
-    else
-    {
-      boxplus(x_, K_.leftCols(z_dim) * residual.topRows(z_dim), xp_);  
-      x_ = xp_;
-      P_ = (I_big_ - K_.leftCols(z_dim) * H_.topRows(z_dim))*P_;
-    } 
     NAN_CHECK;
   }
   
@@ -581,13 +589,13 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
     log_.update_count[meas_type] = 0;
     if (meas_type == DEPTH || meas_type == INV_DEPTH)
     {
-      log_depth(id, zhat_(0,0));
+      log_depth(id, zhat_(0,0), active);
     }
     else
     {
       
       (*log_.stream)[LOG_MEAS] << measurement_names[meas_type] << "\t" << prev_t_-start_t_ << "\t"
-                               << z.transpose() << "\t" << zhat_.topRows(z_dim).transpose() << "\t" << id << "\n";
+                               << z.transpose() << "\t" << zhat_.topRows(z.rows()).transpose() << "\t" << id << "\t" << active << "\n";
       
     }
   }
@@ -595,13 +603,13 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
   return false;
 }
 
-void VIEKF::log_depth(const int id, double zhat)
+void VIEKF::log_depth(const int id, double zhat, bool active)
 {
   int i = global_to_local_feature_id(id);
   double z = x_(xZ+5*i + 4, 0);
   (*log_.stream)[LOG_MEAS] << measurement_names[DEPTH] << "\t" << prev_t_-start_t_ << "\t"
                            << z << "\t" << zhat << "\t";
-  (*log_.stream)[LOG_MEAS] << P_(dxZ + 3*i + 2, dxZ + 3*i + 2) << "\t" << id << "\n";
+  (*log_.stream)[LOG_MEAS] << P_(dxZ + 3*i + 2, dxZ + 3*i + 2) << "\t" << id << "\t" << active << "\n";
 }
 
 void VIEKF::keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N)
@@ -625,47 +633,58 @@ void VIEKF::keyframe_reset()
   x_(xPOS, 0) = 0;
   x_(xPOS+1, 0) = 0;
   
-  // precalculate some things
-  Quat qm(x_.block<4,1>((int)xATT, 0));
-  Vector3d u_rot = qm.rot(khat);
-  Vector3d v = khat.cross(u_rot); // Axis of rotation (without rotation about khat)
-  double theta = khat.transpose() * u_rot; // Angle of rotation
-  Matrix3d sk_tv = skew(theta*v);
-  Matrix3d sk_u = skew(khat);
-  Matrix3d qmR = qm.R();
-  Quat qp = Quat::exp(theta * v); // q+
-  
-  // Save off quaternion and covariance /// TODO - do this right
-  edge.transform.block<4,1>((int)eATT,0) = (qm * qp.inverse()).elements();
-  edge.cov(2,2) = P_(xATT+2, xATT+2);
+  Quat qm(x_.block<4,1>((int)xATT, 0)); 
+
   
   ////  Cool way to reset z-axis rotation
-  // reset rotation about z
-  x_.block<4,1>((int)(xATT), 0) = qp.elements();
+//  // Save off quaternion and covariance /// TODO - do this right
+//  edge.transform.block<4,1>((int)eATT,0) = (qm * qp.inverse()).elements();
+//  edge.cov(2,2) = P_(xATT+2, xATT+2);
+  
+//  // precalculate some things
+//  Vector3d v = qm.rota(khat);
+//  Vector3d s = khat.cross(v); // Axis of rotation (without rotation about khat)
+//  double theta = khat.transpose() * v; // Angle of rotation
+//  Matrix3d sk_tv = skew(theta*s);
+//  Matrix3d sk_u = skew(khat);
+//  Matrix3d qmR = qm.R();
+//  Quat qp = Quat::exp(theta * s); // q+
+  
+//  // reset rotation about z
+//  x_.block<4,1>((int)(xATT), 0) = qp.elements();
+  
+//  // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
+//  A_ = I_big_;
+//  A_((int)xPOS, (int)xPOS) = 0;
+//  A_((int)xPOS+1, (int)xPOS+1) = 0;
+//  A_.block<3,3>((int)dxATT, (int)dxATT) = (I_3x3 + ((1.-cos(theta))*sk_tv)/(theta*theta) + ((theta - sin(theta))*sk_tv*sk_tv)/(theta*theta*theta)).transpose()
+//      * (-s * (khat.transpose() * qmR.transpose() * sk_u) - theta * sk_u * (qmR.transpose() * sk_u));
+  
+  
+  /// Old way to reset z-axis rotation
+  double yaw = qm.yaw();
+  double roll = qm.roll();
+  double pitch = qm.pitch();
+  
+  // Save off quaternion and covariance
+  edge.transform.block<4,1>((int)eATT, 0) = Quat::from_euler(0, 0, yaw).elements();
+  edge.cov(2,2) = P_(xATT+2, xATT+2); /// TODO - do this right
+  
+  x_.block<4,1>((int)(xATT), 0) << Quat::from_euler(roll, pitch, 0.0).elements();
+  x_.block<4,1>((int)(xATT), 0) /= x_.block<4,1>((int)(xATT), 0).norm();
+  
   // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
+  // RMEKF paper after Eq. 81
+  
+  double cp = std::cos(roll);
+  double sp = std::sin(roll);
+  double tt = std::tan(pitch);
   A_ = I_big_;
   A_((int)xPOS, (int)xPOS) = 0;
   A_((int)xPOS+1, (int)xPOS+1) = 0;
-  A_.block<3,3>((int)dxATT, (int)dxATT) = (I_3x3 + ((1.-cos(theta))*sk_tv)/(theta*theta) + ((theta - sin(theta))*sk_tv*sk_tv)/(theta*theta*theta)).transpose()
-      * (-v * (khat.transpose() * qmR.transpose() * sk_u) - theta * sk_u * (qmR.transpose() * sk_u));
-  
-  
-  ////// Old way to reset z-axis rotation
-  //  double cp = std::cos(qm.roll());
-  //  double ct = std::cos(qm.pitch());
-  //  double sp = std::sin(qm.roll());
-  //  double st = std::sin(qm.pitch());
-  //  double tt = std::tan(qm.pitch());
-  //  x_.block<4,1>((int)(xATT), 0) << ct*cp, ct*sp, st*cp, -st*sp;
-  //  x_.block<4,1>((int)(xATT), 0) /= x_.block<4,1>((int)(xATT), 0).norm();
-  //  // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
-  //  // RMEKF paper Eq 81
-  //  A_ = I_big_;
-  //  A_((int)xPOS, (int)xPOS) = 0;
-  //  A_((int)xPOS+1, (int)xPOS+1) = 0;
-  //  A_.block<3,3>((int)dxATT, (int)dxATT) << 1, st*tt, cp*tt,
-  //                                           0, cp*cp, -cp*sp,
-  //                                           0, -cp*sp, sp*sp;
+  A_.block<3,3>((int)dxATT, (int)dxATT) << 1, sp*tt, cp*tt,
+                                           0, cp*cp, -cp*sp,
+                                           0, -cp*sp, sp*sp;
   
   NAN_CHECK;
   
@@ -687,15 +706,30 @@ void VIEKF::keyframe_reset()
 void VIEKF::h_acc(const xVector& x, zVector& h, hMatrix& H, const int id) const
 {
   (void)id;
-  Vector3d vel = x.block<3,1>((int)xVEL,0);
-  Vector3d b_a = x.block<3,1>((int)xB_A,0);
-  double mu = x(xMU,0);
-  
-  h.topRows(2) = I_2x3 * (-mu * vel + b_a);
   H.setZero();
-  H.block<2, 3>(0, (int)dxVEL) = -mu * I_2x3;
-  H.block<2, 3>(0, (int)dxB_A) = I_2x3;
-  H.block<2, 1>(0, (int)dxMU) = -I_2x3*vel;
+  
+  Vector3d b_a = x.block<3,1>((int)xB_A,0);
+  
+  if (use_drag_term_)
+  {
+    Vector3d vel = x.block<3,1>((int)xVEL,0);
+    double mu = x(xMU,0);
+    
+    h.topRows(2) = I_2x3 * (-mu * vel + b_a);
+    
+    H.block<2, 3>(0, (int)dxVEL) = -mu * I_2x3;
+    H.block<2, 3>(0, (int)dxB_A) = I_2x3;
+    H.block<2, 1>(0, (int)dxMU) = -I_2x3*vel;
+  }
+  else
+  {
+    Vector3d gravity_B = Quat(x.block<4,1>((int)xATT, 0)).rotp(gravity); // R_I^b * vel
+    h.topRows(3) = b_a - gravity_B;
+    H.block<3,3>(0, (int)dxATT) = skew(-1.0 * gravity_B);
+    H.block<3,3>(0, (int)dxB_A) = I_3x3;
+  }
+  
+
 }
 
 void VIEKF::h_alt(const xVector& x, zVector& h, hMatrix& H, const int id) const
@@ -748,7 +782,7 @@ void VIEKF::h_feat(const xVector& x, zVector& h, hMatrix& H, const int id) const
 {
   int i = global_to_local_feature_id(id);
   Quat q_zeta(x.block<4,1>(xZ+i*5, 0));
-  Vector3d zeta = q_zeta.rot(e_z);
+  Vector3d zeta = q_zeta.rota(e_z);
   Matrix3d sk_zeta = skew(zeta);
   double ezT_zeta = e_z.transpose() * zeta;
   MatrixXd T_z = T_zeta(q_zeta);

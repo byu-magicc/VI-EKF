@@ -80,8 +80,8 @@ inline Eigen::Matrix<double, 3, 2> T_zeta(quat::Quat q)
 
 inline Eigen::Vector2d q_feat_boxminus(quat::Quat q0, quat::Quat q1)
 {
-  Eigen::Vector3d zeta0 = q0.rot(e_z);
-  Eigen::Vector3d zeta1 = q1.rot(e_z);
+  Eigen::Vector3d zeta0 = q0.rota(e_z);
+  Eigen::Vector3d zeta1 = q1.rota(e_z);
 
   Eigen::Vector2d dq;
   if ((zeta0 - zeta1).norm() > 1e-16)
@@ -132,7 +132,7 @@ const Eigen::Matrix<double,7,1> invert_edge(const Eigen::Matrix<double,7,1>& T1)
   quat::Quat qinv(T1.block<4,1>(3,0));
   qinv.invert();
   Eigen::Matrix<double, 7,1> Tout;
-  Tout.topRows(3) = qinv.invrot(T1.topRows(3));
+  Tout.topRows(3) = qinv.rotp(T1.topRows(3));
   Tout.bottomRows(4) = qinv.elements();
 }
 

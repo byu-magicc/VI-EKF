@@ -30,8 +30,8 @@ VIEKF_ROS::VIEKF_ROS() :
   Vector2d cam_center, focal_len;
   Vector4d q_b_c, q_b_IMU, q_I_truth;
   Vector3d p_b_c;
-  Vector2d feat_r_diag, acc_r_diag;
-  Vector3d att_r_diag, pos_r_diag, vel_r_diag;
+  Vector2d feat_r_diag, acc_r_drag_diag;
+  Vector3d att_r_diag, pos_r_diag, vel_r_diag, acc_r_grav_diag;
   Vector2i image_size;
   importMatrixFromParamServer(nh_private_, x0, "x0");
   importMatrixFromParamServer(nh_private_, P0diag, "P0");
@@ -46,7 +46,8 @@ VIEKF_ROS::VIEKF_ROS() :
   importMatrixFromParamServer(nh_private_, q_b_c, "q_b_c");
   importMatrixFromParamServer(nh_private_, p_b_c, "p_b_c");
   importMatrixFromParamServer(nh_private_, feat_r_diag, "feat_R");
-  importMatrixFromParamServer(nh_private_, acc_r_diag, "acc_R");
+  importMatrixFromParamServer(nh_private_, acc_r_drag_diag, "acc_R_drag");
+  importMatrixFromParamServer(nh_private_, acc_r_grav_diag, "acc_R_grav");
   importMatrixFromParamServer(nh_private_, att_r_diag, "att_R");
   importMatrixFromParamServer(nh_private_, pos_r_diag, "pos_R");
   importMatrixFromParamServer(nh_private_, vel_r_diag, "vel_R");
@@ -56,7 +57,7 @@ VIEKF_ROS::VIEKF_ROS() :
   q_b_IMU_.arr_ = q_b_IMU;
   q_I_truth_.arr_ = q_I_truth;
   double depth_r, alt_r, keyframe_overlap;
-  bool partial_update, drag_term, keyframe_reset;
+  bool partial_update, keyframe_reset;
   int feature_radius;
   ROS_FATAL_COND(!nh_private_.getParam("depth_R", depth_r), "you need to specify the 'depth_R' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("alt_R", alt_r), "you need to specify the 'alt_R' parameter");
@@ -66,7 +67,7 @@ VIEKF_ROS::VIEKF_ROS() :
   ROS_FATAL_COND(!nh_private_.getParam("num_features", num_features_), "you need to specify the 'num_features' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("invert_image", invert_image_), "you need to specify the 'invert_image' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("partial_update", partial_update), "you need to specify the 'partial_update' parameter");
-  ROS_FATAL_COND(!nh_private_.getParam("drag_term", drag_term), "you need to specify the 'drag_term' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("drag_term", use_drag_term_), "you need to specify the 'drag_term' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("keyframe_reset", keyframe_reset), "you need to specify the 'keyframe_reset' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("keyframe_overlap", keyframe_overlap), "you need to specify the 'keyframe_overlap' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("feature_radius", feature_radius), "you need to specify the 'feature_radius' parameter");
@@ -77,8 +78,11 @@ VIEKF_ROS::VIEKF_ROS() :
   
   ekf_.init(x0, P0diag, Qxdiag, lambda, Qudiag, P0feat, Qxfeat, lambdafeat,
             cam_center, focal_len, q_b_c, p_b_c, min_depth_, log_directory, 
-            drag_term, partial_update, keyframe_reset, keyframe_overlap);
+            use_drag_term_, partial_update, keyframe_reset, keyframe_overlap);
   ekf_.register_keyframe_reset_callback(std::bind(&VIEKF_ROS::keyframe_reset_callback, this));
+  
+  is_flying_ = false; // Start out not flying
+  ekf_.set_drag_term(false); // Start out not using the drag term
   
   klt_tracker_.init(num_features_, false, feature_radius, cv::Size(image_size(0,0), image_size(1,0)));
   if (!feature_mask.empty())
@@ -97,7 +101,8 @@ VIEKF_ROS::VIEKF_ROS() :
   // Initialize the measurement noise covariance matrices
   depth_R_ << depth_r;
   feat_R_ = feat_r_diag.asDiagonal();
-  acc_R_ = acc_r_diag.asDiagonal();
+  acc_R_drag_ = acc_r_drag_diag.asDiagonal();
+  acc_R_grav_ = acc_r_grav_diag.asDiagonal();
   att_R_ = att_r_diag.asDiagonal();
   pos_R_ = pos_r_diag.asDiagonal();
   vel_R_ = vel_r_diag.asDiagonal();
@@ -120,7 +125,7 @@ VIEKF_ROS::VIEKF_ROS() :
   cout << "imu_alt: " << use_alt_ << "\n";
   cout << "\nFEATURES\n=================================\n";
   cout << "partial update: " << partial_update << "\n";
-  cout << "drag_term: " << drag_term << "\n";
+  cout << "drag_term: " << use_drag_term_ << "\n";
   cout << "keyframe_reset: " << keyframe_reset << "\n";
   
   // Wait for truth to initialize pose
@@ -145,8 +150,8 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
       msg->angular_velocity.x,
       msg->angular_velocity.y,
       msg->angular_velocity.z;
-  u_.block<3,1>(0,0) = q_b_IMU_.invrot(u_.block<3,1>(0,0));
-  u_.block<3,1>(3,0) = q_b_IMU_.invrot(u_.block<3,1>(3,0));
+  u_.block<3,1>(0,0) = q_b_IMU_.rotp(u_.block<3,1>(0,0));
+  u_.block<3,1>(3,0) = q_b_IMU_.rotp(u_.block<3,1>(3,0));
   
   imu_ = (1. - IMU_LPF_) * u_ + IMU_LPF_ * imu_;
   
@@ -165,10 +170,20 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
   ekf_mtx_.unlock();
   
   // update accelerometer measurement
-  z_acc_ = imu_.block<2,1>(0, 0);
   ekf_mtx_.lock();
-  ekf_.update(z_acc_, vi_ekf::VIEKF::ACC, acc_R_, use_acc_);
-  ekf_mtx_.unlock();
+  if (ekf_.get_drag_term() == true)
+  {
+    z_acc_drag_ = imu_.block<2,1>(0, 0);
+    ekf_.update(z_acc_drag_, vi_ekf::VIEKF::ACC, acc_R_drag_, use_acc_ && is_flying_);
+  }
+  else
+  {
+    z_acc_grav_ = imu_.block<3,1>(0, 0);
+    double norm = z_acc_grav_.norm();
+    if (norm < 9.80665 * 1.15 && norm > 9.80665 * 0.85)
+      ekf_.update(z_acc_grav_, vi_ekf::VIEKF::ACC, acc_R_grav_, use_acc_);
+  }
+    ekf_mtx_.unlock();
   
   // update attitude measurement
   z_att_ << msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z;
@@ -205,14 +220,22 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
 
 void VIEKF_ROS::keyframe_reset_callback()
 {
-  kf_pos_ = truth_pos_;
-  Vector3d u_rot = truth_att_.rot(vi_ekf::khat);
-  Vector3d v = vi_ekf::khat.cross(u_rot); // Axis of rotation (without rotation about khat)
-  double theta = vi_ekf::khat.transpose() * u_rot; // Angle of rotation
-  Quat qp = Quat::exp(theta * v); // This is the same quaternion, but without rotation about z
   
-  // Extract z-rotation only
-  kf_att_ = (truth_att_ * qp.inverse());  
+  kf_pos_ = truth_pos_;
+  kf_pos_(2) = 0.0; // always at the ground
+  
+  /// OLD WAY
+  kf_att_ = Quat::from_euler(0, 0, truth_att_.yaw());
+  
+// ///COOL WAY
+//  Vector3d u_rot = truth_att_.rota(vi_ekf::khat);
+//  Vector3d v = vi_ekf::khat.cross(u_rot); // Axis of rotation (without rotation about khat)
+//  double theta = vi_ekf::khat.transpose() * u_rot; // Angle of rotation
+//  Quat qp = Quat::exp(theta * v); // This is the same quaternion, but without rotation about z
+//  // Extract z-rotation only
+//  kf_att_ = (truth_att_ * qp.inverse());  
+  
+  
 }
 
 void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
@@ -260,7 +283,7 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
     if (!new_feature && got_depth_ && !(depth != depth))
         ekf_.update(z_depth_, vi_ekf::VIEKF::DEPTH, depth_R_, use_depth_, ids_[i]);
     if (depth != depth)
-      ekf_.log_depth(ids_[i], depth);
+      ekf_.log_depth(ids_[i], depth, false);
     
     ekf_mtx_.unlock();   
     
@@ -302,17 +325,17 @@ void VIEKF_ROS::pose_truth_callback(const geometry_msgs::PoseStampedConstPtr &ms
 {
   z_pos_ << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z;
   z_att_ << msg->pose.orientation.w, msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z;
-  truth_callback(z_pos_, z_att_);
+  truth_callback(z_pos_, z_att_, msg->header.stamp);
 }
 
 void VIEKF_ROS::transform_truth_callback(const geometry_msgs::TransformStampedConstPtr &msg)
 {
   z_pos_ << msg->transform.translation.x, msg->transform.translation.y, msg->transform.translation.z;
   z_att_ << msg->transform.rotation.w, msg->transform.rotation.x, msg->transform.rotation.y, msg->transform.rotation.z;
-  truth_callback(z_pos_, z_att_);
+  truth_callback(z_pos_, z_att_, msg->header.stamp);
 }
 
-void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att)
+void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att, ros::Time time)
 {
   static int counter = 0;
   if (counter++ < 2)
@@ -321,8 +344,8 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att)
   }
   else counter = 0;
   // Rotate measurements into the proper frame
-  z_pos = q_I_truth_.invrot(z_pos);
-  z_att.block<3,1>(1,0) = q_I_truth_.invrot(z_att.block<3,1>(1,0));
+  z_pos = q_I_truth_.rotp(z_pos);
+  z_att.block<3,1>(1,0) = q_I_truth_.rotp(z_att.block<3,1>(1,0));
   
   // Make sure that the truth quaternion is the right sign (for plotting)
   if (sign(z_att(0,0)) != sign(ekf_.get_state()(vi_ekf::VIEKF::xATT, 0)))
@@ -350,8 +373,28 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att)
     return;
   }
   
-  Quat y_t(z_att);
+  // Decide whether we are flying or not
+  if (!is_flying_)
+  {
+    Vector3d error = truth_pos_ - kf_pos_;
+    // If we have moved a centimeter, then assume we are flying
+    if (error.norm() > 1e-2)
+    {
+      is_flying_ = true;
+      time_took_off_ = time;
+      // The drag term is now valid, activate it if we are supposed to use it.
+    }
+  }
   
+  if (time > time_took_off_ + ros::Duration(10.0))
+  {
+    // After 1 second of flying, turn on the drag term if we are supposed to
+    if (use_drag_term_ == true && ekf_.get_drag_term() ==  false)
+      ekf_.set_drag_term(true);
+  }
+  
+  // Low-pass filter Attitude (use manifold)
+  Quat y_t(z_att);  
   truth_att_ = y_t + (truth_LPF_ * (truth_att_ - y_t));
   
   z_alt_ << -z_pos(2,0);
@@ -363,12 +406,19 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att)
   ekf_mtx_.unlock();
   
   // Convert truth measurement into current node frame
-  z_pos.topRows(2) -= kf_pos_.topRows(2); // position offset
+  z_pos = kf_att_.rotp(z_pos - kf_pos_); // position offset, rotated into keyframe
   z_att = (kf_att_.inverse() * truth_att_).elements();  
   
+  bool truth_active = (use_truth_ || !is_flying_);
+  
   ekf_mtx_.lock();
-  ekf_.update(z_pos, vi_ekf::VIEKF::POS, pos_R_, use_truth_);
-  ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, use_truth_);
+  ekf_.update(z_pos, vi_ekf::VIEKF::POS, pos_R_, truth_active);
+  ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, truth_active);
+  ekf_mtx_.unlock();
+  
+  // Perform Altitude Measurement
+  ekf_mtx_.lock();
+  ekf_.update(z_alt_, vi_ekf::VIEKF::ALT, alt_R_, !truth_active);
   ekf_mtx_.unlock();
 }
 

@@ -106,6 +106,11 @@ public:
     INV_DEPTH,
     TOTAL_MEAS
   } measurement_type_t;
+  
+  typedef struct{
+    eVector transform;
+    Matrix3d cov;    
+  } edge_SE2_t;
 
 private:
   typedef enum {
@@ -142,10 +147,6 @@ private:
   std::vector<int> keyframe_features_;
   double keyframe_overlap_threshold_;
   
-  typedef struct{
-    eVector transform;
-    Matrix3d cov;    
-  } edge_SE2_t;
   std::deque<edge_SE2_t> edges_;
 
   // Matrix Workspace
@@ -222,7 +223,7 @@ public:
 
   inline bool BlowingUp() const
   {
-    if ( ((x_).array() > 1e8).any() || ((P_).array() > 1e8).any())
+    if ( ((x_).array() > 1e6).any() || ((P_).array() > 1e6).any())
       return true;
     else
       return false;
@@ -267,6 +268,8 @@ public:
 
   void set_x0(const Matrix<double, xZ, 1>& _x0);
   void set_imu_bias(const Vector3d& b_g, const Vector3d& b_a);
+  void set_drag_term(const bool use_drag_term) {use_drag_term_ = use_drag_term;}
+  bool get_drag_term() {return use_drag_term_;}
 
   bool init_feature(const Vector2d &l, const int id, const double depth=-1.0);
   void clear_feature(const int id);
@@ -281,7 +284,7 @@ public:
   void dynamics(const xVector &x, const uVector& u);
 
   // Measurement Updates
-  bool update(const VectorXd& z, const measurement_type_t& meas_type, const MatrixXd& R, const bool active=false, const int id=-1, const double depth=NAN);
+  bool update(const VectorXd& z, const measurement_type_t& meas_type, const MatrixXd& R, bool active=false, const int id=-1, const double depth=NAN);
   void h_acc(const xVector& x, zVector& h, hMatrix& H, const int id) const;
   void h_alt(const xVector& x, zVector& h, hMatrix& H, const int id) const;
   void h_att(const xVector& x, zVector& h, hMatrix& H, const int id) const;
@@ -298,7 +301,7 @@ public:
   void keyframe_reset();
   void register_keyframe_reset_callback(std::function<void(void)> cb);
   void log_global_position(const eVector truth_global_transform);
-  void log_depth(const int id, double zhat);
+  void log_depth(const int id, double zhat, bool active);
 
   // Inequality Constraint on Depth
   void fix_depth();

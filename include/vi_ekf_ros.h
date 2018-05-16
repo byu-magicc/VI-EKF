@@ -36,7 +36,7 @@ public:
   void depth_image_callback(const sensor_msgs::ImageConstPtr& msg);
   void pose_truth_callback(const geometry_msgs::PoseStampedConstPtr &msg);
   void transform_truth_callback(const geometry_msgs::TransformStampedConstPtr &msg);
-  void truth_callback(Vector3d &z_pos_, Vector4d &z_att_);
+  void truth_callback(Vector3d &z_pos_, Vector4d &z_att_, ros::Time time);
   void imu_callback(const sensor_msgs::ImuConstPtr& msg);
   void keyframe_reset_callback();
   
@@ -70,6 +70,8 @@ private:
   bool imu_init_ = false;
   bool truth_init_ = false;
   
+  bool use_drag_term_ = false;
+  bool is_flying_ = false;
   bool use_truth_;
   bool use_depth_;
   bool use_features_;
@@ -79,6 +81,7 @@ private:
   double IMU_LPF_;
   double truth_LPF_;
   double min_depth_;
+  ros::Time time_took_off_;
 
   Vector6d imu_;
   Vector3d kf_pos_;
@@ -87,7 +90,8 @@ private:
   Quat truth_att_;
   
   uVector u_;
-  Vector2d z_acc_;
+  Vector2d z_acc_drag_;
+  Vector3d z_acc_grav_;
   Vector4d z_att_;
   Vector2d z_feat_;
   Matrix1d z_depth_;
@@ -105,7 +109,8 @@ private:
   Quat q_I_truth_;
   
   Matrix2d feat_R_;
-  Matrix2d acc_R_;
+  Matrix2d acc_R_drag_;
+  Matrix3d acc_R_grav_;
   Matrix3d att_R_;
   Matrix<double, 1, 1> alt_R_;
   Matrix3d pos_R_;

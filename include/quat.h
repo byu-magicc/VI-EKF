@@ -276,14 +276,14 @@ public:
 
 
   // The same as R.T * v but faster
-  Vector3d rot(Vector3d v)
+  Vector3d rota(Vector3d v)
   {
     Vector3d t = 2.0 * arr_.block<3,1>(1,0).cross(v);
     return v + w() * t + arr_.block<3,1>(1,0).cross(t);
   }
 
   // The same as R * v but faster
-  Vector3d invrot(Vector3d v)
+  Vector3d rotp(Vector3d v)
   {
     Vector3d t = -2.0 * arr_.block<3,1>(1,0).cross(v);
     return v + w() * t - arr_.block<3,1>(1,0).cross(t);

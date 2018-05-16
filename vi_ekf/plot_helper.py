@@ -11,7 +11,7 @@ plot_start = None
 plot_end = None
 figure_directory = None
 
-def init_plots(start, end, fig_directory="plots/"):
+def init_plots(start, end, fig_directory="plots/", feature_plots=False):
     # Set the colormap to 'jet'
     plt.jet()
     plt.set_cmap('jet')
@@ -20,11 +20,15 @@ def init_plots(start, end, fig_directory="plots/"):
     if fig_directory:
         global figure_directory
         figure_directory = fig_directory
-    if not os.path.isdir(fig_directory + r"/lambda"): os.system("mkdir " + fig_directory + r"/lambda")
-    if not os.path.isdir(fig_directory + r"/rho"): os.system("mkdir " + fig_directory + r"/rho")
+
     os.system("rm -f " + fig_directory + r"/" + r"*.svg")
-    os.system("rm -f " + fig_directory + r"/lambda/*.svg")
-    os.system("rm -f " + fig_directory + r"/rho/*.svg")
+    if feature_plots:
+        if not os.path.isdir(fig_directory + r"/lambda"):
+            os.system("mkdir " + fig_directory + r"/lambda")
+        if not os.path.isdir(fig_directory + r"/rho"):
+            os.system("mkdir " + fig_directory + r"/rho")
+        os.system("rm -f " + fig_directory + r"/lambda/*.svg")
+        os.system("rm -f " + fig_directory + r"/rho/*.svg")
 
     global plot_start, plot_end
     plot_start = start
@@ -55,7 +59,8 @@ def plot_3d_side_by_side(h, p_b_c, q_b_c):
 
 
 def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None, truth=None, labels=None, skip=1, 
-    save=True, cov_bounds=None, start_t=None, end_t=None, truth_offset=None, subdir=None, ylim=None):
+    save=True, cov_bounds=None, start_t=None, end_t=None, truth_offset=None, subdir=None, ylim=None, show=False,
+    active_arr=None):
     estimate = estimate[:, start:end]
     if cov_bounds == None:
         cov_bounds = (start,end)
@@ -76,14 +81,25 @@ def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None
 
     if isinstance(truth, np.ndarray):
         truth_copy = truth[(truth_t > start_t) & (truth_t < end_t)].copy()
+        if isinstance(active_arr, np.ndarray):
+            active_arr_copy = active_arr[(truth_t > start_t) & (truth_t < end_t)].copy()
 
     plt.figure(figsize=(16, 10))
     colors = get_colors(2, plt.cm.jet)
 
+    ax = None
     for i in range(end - start):
-        plt.subplot(end-start, 1, i + 1)
+        ax = plt.subplot(end-start, 1, i + 1, sharex=(ax if ax is not None else None))
         if isinstance(truth, np.ndarray):
-            plt.plot(truth_t_copy[::skip], truth_copy[::skip, i], label=r'$'+labels[i]+r'$', color=colors[1])
+            if isinstance(active_arr, np.ndarray):
+                truth_t_copy_active = truth_t_copy[active_arr_copy ==1]
+                truth_t_copy_inactive = truth_t_copy[active_arr_copy ==0]
+                truth_copy_active = truth_copy[active_arr_copy ==1]
+                truth_copy_inactive = truth_copy[active_arr_copy ==0]
+                plt.plot(truth_t_copy_active[::skip], truth_copy_active[::skip, i], color='g')
+                plt.plot(truth_t_copy_inactive[::skip], truth_copy_inactive[::skip, i], label=r'$'+labels[i]+r'$', color=colors[1])
+            else:
+                plt.plot(truth_t_copy[::skip], truth_copy[::skip, i], label=r'$'+labels[i]+r'$', color=colors[1])
 
         if "_" in labels[i]:
             plt.plot(est_t[::skip], estimate[::skip, i], label=r'$\hat{' + labels[i].split("_")[0] + r'}' + r'_' + labels[i].split("_")[1] + r'$', color=colors[0])
@@ -102,6 +118,9 @@ def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None
         if i == 0:
             plt.title(title)
 
+    if show:
+        plt.show()
+
     if save:
         title = title.translate(None, r'!@#${}/\\')
         global figure_directory
@@ -111,6 +130,7 @@ def plot_side_by_side(title, start, end, est_t, estimate, cov=None, truth_t=None
             filename = figure_directory + '/' + title + '.svg'
         plt.savefig(filename , bbox_inches='tight')
         plt.close()
+
 
 def plot_cube(q_I_b, zetas, zeta_truth):
 

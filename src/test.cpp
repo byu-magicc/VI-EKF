@@ -121,7 +121,7 @@ VIEKF init_jacobians_test(xVector& x0, uVector& u0)
   x0(VIEKF::xMU) = 0.2;
   x0.block<3,1>((int)VIEKF::xPOS, 0) += Vector3d::Random() * 100.0;
   x0.block<3,1>((int)VIEKF::xVEL, 0) += Vector3d::Random() * 10.0;
-  x0.block<4,1>((int)VIEKF::xATT, 0) = (Quat(x0.block<4,1>((int)VIEKF::xATT, 0)) + Vector3d::Random() * 0.5).elements();
+  x0.block<4,1>((int)VIEKF::xATT, 0) = (Quat(x0.block<4,1>((int)VIEKF::xATT, 0)) + Vector3d::Random()).elements();
   x0.block<3,1>((int)VIEKF::xB_A, 0) += Vector3d::Random() * 1.0;
   x0.block<3,1>((int)VIEKF::xB_G, 0) += Vector3d::Random() * 0.5;
   x0((int)VIEKF::xMU, 0) += (static_cast <double> (rand()) / (static_cast <double> (RAND_MAX)))*0.05;
@@ -225,7 +225,8 @@ int htest(measurement_function_ptr fn, VIEKF& ekf, const VIEKF::measurement_type
   return num_errors;
 }
 
-TEST(Quat, rotation_direction)
+
+void quat_rotation_direction()
 {
   // Compare against a known active and passive rotation
   Vector3d v, beta, v_active_rotated, v_passive_rotated;
@@ -233,7 +234,7 @@ TEST(Quat, rotation_direction)
   v_active_rotated << 0, -1.0*std::pow(0.5,0.5), std::pow(0.5,0.5);
   beta << 1, 0, 0;
   Quat q_x_45 = Quat::from_axis_angle(beta, 45.0*M_PI/180.0);
-  Eigen::Vector3d v_x_45 = q_x_45.rot(v);
+  Eigen::Vector3d v_x_45 = q_x_45.rota(v);
   
   Matrix3d R_true;
   R_true << 1.0000000,  0.0000000,  0.0000000,
@@ -247,13 +248,14 @@ TEST(Quat, rotation_direction)
   VECTOR3_EQUALS(v_x_45, v_active_rotated);
   
   v_passive_rotated << 0, std::pow(0.5, 0.5), std::pow(0.5, 0.5);
-  Vector3d v_x_45_T = q_x_45.invrot(v);
+  Vector3d v_x_45_T = q_x_45.rotp(v);
   VECTOR3_EQUALS(v_x_45_T, v_passive_rotated);
   VECTOR3_EQUALS(qR * v, v_passive_rotated);
   VECTOR3_EQUALS(R_true * v, v_passive_rotated);
 }
+TEST(Quat, quat_rotation_direction) { quat_rotation_direction(); }
 
-TEST(Quat, rot_invrot_R)
+void quat_rot_invrot_R()
 {
   Vector3d v;
   Quat q1 = Quat::Random();
@@ -263,12 +265,13 @@ TEST(Quat, rot_invrot_R)
     q1 = Quat::Random();
     
     // Check that rotations are inverses of each other
-    VECTOR3_EQUALS(q1.rot(v), q1.R().transpose() * v);
-    VECTOR3_EQUALS(q1.invrot(v), q1.R() * v);
+    VECTOR3_EQUALS(q1.rota(v), q1.R().transpose() * v);
+    VECTOR3_EQUALS(q1.rotp(v), q1.R() * v);
   }
 }
+TEST(Quat, quat_rot_invrot_R){quat_rot_invrot_R();}
 
-TEST(Quat, from_two_unit_vectors)
+void quat_from_two_unit_vectors()
 {
   Vector3d v1, v2;
   for (int i = 0; i < NUM_ITERS; i++)
@@ -278,12 +281,13 @@ TEST(Quat, from_two_unit_vectors)
     v1 /= v1.norm();
     v2 /= v2.norm();
     
-    VECTOR3_EQUALS(Quat::from_two_unit_vectors(v1, v2).rot(v1), v2);
-    VECTOR3_EQUALS(Quat::from_two_unit_vectors(v2, v1).invrot(v1), v2);
+    VECTOR3_EQUALS(Quat::from_two_unit_vectors(v1, v2).rota(v1), v2);
+    VECTOR3_EQUALS(Quat::from_two_unit_vectors(v2, v1).rotp(v1), v2);
   }
 }
+TEST(Quat, quat_from_two_unit_vectors){quat_from_two_unit_vectors();}
 
-TEST(Quat, from_R)
+void quat_from_R()
 {
   Vector3d v;
   for (int i = 0; i < NUM_ITERS; i++)
@@ -292,21 +296,23 @@ TEST(Quat, from_R)
     Matrix3d R = q1.R();
     Quat qR = Quat::from_R(R);
     v.setRandom();
-    VECTOR3_EQUALS(qR.rot(v), R.transpose() * v);
-    VECTOR3_EQUALS(q1.rot(v), R.transpose() * v);
-    VECTOR3_EQUALS(qR.invrot(v), R * v);
-    VECTOR3_EQUALS(q1.invrot(v), R * v);
+    VECTOR3_EQUALS(qR.rota(v), R.transpose() * v);
+    VECTOR3_EQUALS(q1.rota(v), R.transpose() * v);
+    VECTOR3_EQUALS(qR.rotp(v), R * v);
+    VECTOR3_EQUALS(q1.rotp(v), R * v);
     MATRIX_EQUAL(R, qR.R(), 1e-6);
     QUATERNION_EQUALS(qR, q1);
   }
 }
+TEST(Quat, from_R){quat_from_R();}
 
-TEST(Quat, otimes)
+void quat_otimes()
 {
   Quat q1 = Quat::Random();
   Quat qI = Quat::Identity();
   QUATERNION_EQUALS(q1 * q1.inverse(), qI);
 }
+TEST(Quat, otimes){quat_otimes();}
 
 TEST(Quat, exp_log_axis_angle)
 {
@@ -347,7 +353,7 @@ TEST(Quat, boxplus_and_boxminus)
   }
 }
 
-TEST(Quat, inplace_add_and_mul)
+void quat_inplace_add_and_mul()
 {
   Vector3d delta1, delta2, zeros;
   zeros.setZero();
@@ -368,8 +374,9 @@ TEST(Quat, inplace_add_and_mul)
     QUATERNION_EQUALS(q_copy, q*q2);
   }
 }
+TEST(Quat, inplace_add_and_mul){quat_inplace_add_and_mul();}
 
-TEST(Quat, euler)
+void quat_euler()
 {
   for (int i =0; i < NUM_ITERS; i++)
   {
@@ -380,10 +387,13 @@ TEST(Quat, euler)
     ASSERT_NEAR(roll, q.roll(), 1e-8);
     ASSERT_NEAR(pitch, q.pitch(), 1e-8);
     ASSERT_NEAR(yaw, q.yaw(), 1e-8);    
+    Quat q2 = Quat::from_euler(q.roll(), q.pitch(), q.yaw());
+    QUATERNION_EQUALS(q, q2);
   }
 }
+TEST(Quat, euler){quat_euler();}
 
-TEST(math_helper, T_zeta)
+void math_helper_T_zeta()
 {
   Vector3d v2;
   for (int i = 0; i < NUM_ITERS; i++)
@@ -395,8 +405,9 @@ TEST(math_helper, T_zeta)
     ASSERT_LE(T_z_v2.norm(), 1e-8);
   }
 }
+TEST(math_helper, T_zeta){math_helper_T_zeta();}
 
-TEST(math_helper, d_dTdq)
+void math_helper_d_dTdq()
 {
   for (int j = 0; j < NUM_ITERS; j++)
   {
@@ -422,8 +433,9 @@ TEST(math_helper, d_dTdq)
     MATRIX_EQUAL(d_dTdq, a_dTdq, 1e-6);
   }
 }
+TEST(math_helper, d_dTdq){math_helper_d_dTdq();}
 
-TEST(math_helper, dqzeta_dqzeta)
+void math_helper_dqzeta_dqzeta()
 {
   for(int j = 0; j < NUM_ITERS; j++)
   {
@@ -443,8 +455,9 @@ TEST(math_helper, dqzeta_dqzeta)
     MATRIX_EQUAL(a_dqdq, d_dqdq, 1e-2);
   }
 }
+TEST(math_helper, dqzeta_dqzeta){math_helper_dqzeta_dqzeta();}
 
-TEST(math_helper, manifold_operations)
+void math_helper_manifold_operations()
 {
   Vector3d omega, omega2;
   Vector2d dx, zeros;
@@ -463,11 +476,12 @@ TEST(math_helper, manifold_operations)
     // (x [+] 0) == x 
     QUATERNION_EQUALS( q_feat_boxplus(x, zeros), x);
     // (x [+] (x2 [-] x)) = x2
-    VECTOR3_EQUALS( q_feat_boxplus( x, q_feat_boxminus(y, x)).rot(e_z), y.rot(e_z));
+    VECTOR3_EQUALS( q_feat_boxplus( x, q_feat_boxminus(y, x)).rota(e_z), y.rota(e_z));
     // ((x [+] dx) [-] x) == dx
     VECTOR2_EQUALS( q_feat_boxminus(q_feat_boxplus(x, dx), x), dx);
   }
 }
+TEST(math_helper, manifold_operations){math_helper_manifold_operations();}
 
 void XVECTOR_EQUAL(xVector& x1, xVector& x2)
 {
@@ -481,12 +495,12 @@ void XVECTOR_EQUAL(xVector& x1, xVector& x2)
   
   for (int i = 0; i < NUM_FEATURES; i++)
   {
-    VECTOR3_EQUALS(Quat(x1.block<4,1>(VIEKF::xZ+i*5,0)).rot(e_z), Quat(x2.block<4,1>(VIEKF::xZ+i*5,0)).rot(e_z));
+    VECTOR3_EQUALS(Quat(x1.block<4,1>(VIEKF::xZ+i*5,0)).rota(e_z), Quat(x2.block<4,1>(VIEKF::xZ+i*5,0)).rota(e_z));
     EXPECT_NEAR(x1(VIEKF::xZ+i*5+4), x1(VIEKF::xZ+i*5+4), 1e-8);
   }
 }
 
-TEST(VI_EKF, manifold)
+void VIEKF_manifold()
 {
   xVector x, x2, x3;
   uVector u;
@@ -521,8 +535,9 @@ TEST(VI_EKF, manifold)
     ASSERT_LE(dx.norm(), (dx - dx2).norm());    
   }
 }
+TEST(VI_EKF, manifold){VIEKF_manifold();}
 
-TEST(VI_EKF, dfdx_test)
+void VIEKF_dfdx_test()
 {  
   xVector x0;
   uVector u0;
@@ -578,8 +593,9 @@ TEST(VI_EKF, dfdx_test)
     }
   }
 }
+TEST(VI_EKF, dfdx_test){VIEKF_dfdx_test();}
 
-TEST(VI_EKF, dfdu_test)
+void VIEKF_dfdu_test()
 {
   xVector x0;
   uVector u0;
@@ -621,8 +637,9 @@ TEST(VI_EKF, dfdu_test)
     }
   }
 }
+TEST(VI_EKF, dfdu_test){VIEKF_dfdu_test();}
 
-TEST(VI_EKF, h_test)
+void VI_EKF_h_test()
 {
   xVector x0;
   uVector u0;
@@ -630,24 +647,28 @@ TEST(VI_EKF, h_test)
   {
     vi_ekf::VIEKF ekf = init_jacobians_test(x0, u0);
     
-    ASSERT_EQ(htest(&VIEKF::h_acc, ekf, VIEKF::ACC, 0, 2), 0);
-    ASSERT_EQ(htest(&VIEKF::h_pos, ekf, VIEKF::POS, 0, 3), 0);
-    ASSERT_EQ(htest(&VIEKF::h_vel, ekf, VIEKF::VEL, 0, 3), 0);
-    ASSERT_EQ(htest(&VIEKF::h_alt, ekf, VIEKF::ALT, 0, 1), 0);
-    ASSERT_EQ(htest(&VIEKF::h_att, ekf, VIEKF::ATT, 0, 3), 0);
+    ASSERT_FALSE(htest(&VIEKF::h_acc, ekf, VIEKF::ACC, 0, 2));
+    ASSERT_FALSE(htest(&VIEKF::h_pos, ekf, VIEKF::POS, 0, 3));
+    ASSERT_FALSE(htest(&VIEKF::h_vel, ekf, VIEKF::VEL, 0, 3));
+    ASSERT_FALSE(htest(&VIEKF::h_alt, ekf, VIEKF::ALT, 0, 1));
+    ekf.set_drag_term(true);
+    ASSERT_FALSE(htest(&VIEKF::h_att, ekf, VIEKF::ATT, 0, 3));
+    ekf.set_drag_term(false);
+    ASSERT_FALSE(htest(&VIEKF::h_att, ekf, VIEKF::ATT, 0, 3));
     for (int i = 0; i < ekf.get_len_features(); i++)
     {
-      ASSERT_EQ(htest(&VIEKF::h_feat, ekf, VIEKF::FEAT, i, 2, 5e-1), 0);
-      ASSERT_EQ(htest(&VIEKF::h_qzeta, ekf, VIEKF::QZETA, i, 2), 0);
-      ASSERT_EQ(htest(&VIEKF::h_depth, ekf, VIEKF::DEPTH, i, 1), 0);
-      ASSERT_EQ(htest(&VIEKF::h_inv_depth, ekf, VIEKF::INV_DEPTH, i, 1), 0);
+      ASSERT_FALSE(htest(&VIEKF::h_feat, ekf, VIEKF::FEAT, i, 2, 5e-1));
+      ASSERT_FALSE(htest(&VIEKF::h_qzeta, ekf, VIEKF::QZETA, i, 2));
+      ASSERT_FALSE(htest(&VIEKF::h_depth, ekf, VIEKF::DEPTH, i, 1));
+      ASSERT_FALSE(htest(&VIEKF::h_inv_depth, ekf, VIEKF::INV_DEPTH, i, 1));
       //        ASSERT_EQ(htest(VIEKF::h_pixel_vel, ekf, VIEKF::PIXEL_VEL, i), 0); // Still needs to be implemented
     }
   }
 }
+TEST(VI_EKF, h_test) {VI_EKF_h_test();}
 
 
-TEST(VI_EKF, KF_reset_test)
+void VIEKF_KF_reset_test()
 {
   uVector u0;
   dxMatrix d_dxpdxm;
@@ -664,6 +685,12 @@ TEST(VI_EKF, KF_reset_test)
   {
     vi_ekf::VIEKF ekf = init_jacobians_test(xm, u0);
     ekf.keyframe_reset(xm, xp, a_dxpdxm);
+    Quat qm(xm.block<4,1>((int)VIEKF::xATT, 0));
+    Quat qp(xp.block<4,1>((int)VIEKF::xATT, 0));
+    
+    ASSERT_NEAR(qm.roll(), qp.roll(), 1e-8);
+    ASSERT_NEAR(qm.pitch(), qp.pitch(), 1e-8);
+    ASSERT_NEAR(qp.yaw(), 0.0, 1e-8);    
     
     d_dxpdxm.setZero();
     double epsilon = 1e-6;
@@ -682,6 +709,7 @@ TEST(VI_EKF, KF_reset_test)
   }
   ASSERT_FALSE(check_all(a_dxpdxm, d_dxpdxm, "dfdx", 1e-1));
 }
+TEST(VI_EKF, KF_reset_test){VIEKF_KF_reset_test();}
 
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);

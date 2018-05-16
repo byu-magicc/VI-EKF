@@ -6,34 +6,35 @@ P0: [0.001, 0.001, 0.001,
      0.01, 0.01, 0.01,
      0.01, 0.01, 0.01,
      0.01],
-P0_feat: [0.15, 0.15, 0.1],
+P0_feat: [0.2, 0.2, 0.1],
 
 ## Additive Process Noise
 Qx: [0.000, 0.000, 0.000,
      0.001, 0.001, 0.001,
-     0.000, 0.000, 0.000,
-     0.005, 0.005, 0.005,
      0.001, 0.001, 0.001,
+     0.001, 0.001, 0.001,
+     0.0001, 0.0001, 0.0001,
      0.00],
-Qx_feat: [0.01, 0.01, 0.1],
+Qx_feat: [0.05, 0.05, 0.1],
 
 # Input Process Noise
-Qu: [0.01, 0.01, 0.01,      # u_acc
-     0.001, 0.001, 0.001],  # u_gyro
+Qu: [0.05, 0.05, 0.05,      # u_acc
+     0.01, 0.01, 0.01],  # u_gyro
 
 ## Partial Update Gain
-lambda: [1.0, 1.0, 1.0,     # POS
+lambda: [0.5, 0.5, 0.5,     # POS
          1.0, 1.0, 1.0,     # VEL
          1.0, 1.0, 1.0,     # ATT
-         0.5, 0.5, 1.0,     # B_A
-         1.0, 1.0, 0.5,     # B_G
-         0.1],              # MU
-lambda_feat: [1.0, 1.0, 0.75],            
+         0.1, 0.1, 0.1,     # B_A
+         0.3, 0.3, 0.1,     # B_G
+         0.001],              # MU
+lambda_feat: [1.0, 1.0, 0.7],
 
 ## Sensor Noise
 depth_R: 0.5,
-feat_R: [2.0, 2.0],
-acc_R: [1.3, 1.3],
+feat_R: [10.0, 10.0],
+acc_R_drag: [0.5, 0.5],
+acc_R_grav: [0.75, 0.75, 0.75],
 att_R: [0.01, 0.01, 0.01],
 pos_R: [0.1, 0.1, 0.1],
 # pos_R: [0.1, 0.1, 0.1],
@@ -49,25 +50,25 @@ truth_LPF: 0.0,
 use_truth: false,
 use_depth: false,
 use_features: true,
-use_acc: false,
+use_acc: true,
 use_imu_att: false,
-use_alt: true,
+use_alt: false,
 
 ## Feature Flags
-drag_term: false,
-partial_update: false,
-keyframe_reset: false,
+drag_term: true,
+partial_update: true,
+keyframe_reset: true,
 
 ## Tracking Paramters
 min_depth: 1.5,
-keyframe_overlap: 0.75,
-num_features: 25,
-feature_radius: 30,
+keyframe_overlap: 0.50,
+num_features: 20,
+feature_radius: 45,
 
 ## CPU Threads
 num_threads: 1,
 
-record_video: true
+record_video: false
 
 
 }

@@ -61,7 +61,7 @@ keyframe_reset: true,
 
 ## Tracking Paramters
 min_depth: 1.5,
-keyframe_overlap: 0.50,
+keyframe_overlap: 0.`z,
 num_features: 20,
 feature_radius: 45,
 

@@ -7,9 +7,9 @@
 	<!-- <node name="vi_ekf_node" type="vi_ekf_rosbag" pkg="vi_ekf" output="screen" args="-f /home/superjax/ocam_roll.bag"/> -->
 
 	<!--ETH Bags-->
-	<!--<node name="vi_ekf_node" type="vi_ekf_rosbag" pkg="vi_ekf" output="screen" args="-f /home/superjax/rosbag/EuRoC/V1_01_easy_NED.bag -s"/>-->
-	 <node name="vi_ekf_node" type="vi_ekf_rosbag" pkg="vi_ekf" output="screen" args="-f /home/superjax/rosbag/EuRoC/V1_02_medium_NED.bag -u 88"/>
-	<!--<node name="vi_ekf_node" type="vi_ekf_rosbag" pkg="vi_ekf" output="screen" args="-f /home/superjax/rosbag/EuRoC/V1_03_difficult_NED.bag"/>-->
+	<node name="vi_ekf_node" type="vi_ekf_rosbag" pkg="vi_ekf" output="screen" args="-f /home/superjax/rosbag/EuRoC/V1_01_easy_NED.bag -s"/>
+	 <!--<node name="vi_ekf_node" type="vi_ekf_rosbag" pkg="vi_ekf" output="screen" args="-f /home/superjax/rosbag/EuRoC/V1_02_medium_NED.bag -u 88"/>-->
+	<!--<node name="vi_ekf_node" type="vi_ekf_rosbag" pkg="vi_ekf" output="screen" args="-f /home/superjax/rosbag/EuRoC/V1_03_difficult_NED.bag -u 100"/>-->
 	<!--<node name="vi_ekf_node" type="vi_ekf_rosbag" pkg="vi_ekf" output="screen" args="-f /home/superjax/rosbag/EuRoC/V2_01_easy_NED.bag"/>-->
 	<!--<node name="vi_ekf_node" type="vi_ekf_rosbag" pkg="vi_ekf" output="screen" args="-f /home/superjax/rosbag/EuRoC/V2_02_medium_NED.bag"/>-->
 	<!--<node name="vi_ekf_node" type="vi_ekf_rosbag" pkg="vi_ekf" output="screen" args="-f /home/superjax/rosbag/EuRoC/V2_03_difficult_NED.bag"/>-->

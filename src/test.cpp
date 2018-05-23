@@ -14,18 +14,18 @@ using namespace Eigen;
 
 #define QUATERNION_EQUALS(q1, q2) \
   if (sign((q1).w()) != sign((q2).w())) \
-  { \
-    EXPECT_NEAR((-1.0*(q1).w()), (q2).w(), 1e-8); \
-    EXPECT_NEAR((-1.0*(q1).x()), (q2).x(), 1e-8); \
-    EXPECT_NEAR((-1.0*(q1).y()), (q2).y(), 1e-8); \
-    EXPECT_NEAR((-1.0*(q1).z()), (q2).z(), 1e-8); \
+{ \
+  EXPECT_NEAR((-1.0*(q1).w()), (q2).w(), 1e-8); \
+  EXPECT_NEAR((-1.0*(q1).x()), (q2).x(), 1e-8); \
+  EXPECT_NEAR((-1.0*(q1).y()), (q2).y(), 1e-8); \
+  EXPECT_NEAR((-1.0*(q1).z()), (q2).z(), 1e-8); \
   } \
   else\
-  {\
-    EXPECT_NEAR((q1).w(), (q2).w(), 1e-8); \
-    EXPECT_NEAR((q1).x(), (q2).x(), 1e-8); \
-    EXPECT_NEAR((q1).y(), (q2).y(), 1e-8); \
-    EXPECT_NEAR((q1).z(), (q2).z(), 1e-8); \
+{\
+  EXPECT_NEAR((q1).w(), (q2).w(), 1e-8); \
+  EXPECT_NEAR((q1).x(), (q2).x(), 1e-8); \
+  EXPECT_NEAR((q1).y(), (q2).y(), 1e-8); \
+  EXPECT_NEAR((q1).z(), (q2).z(), 1e-8); \
   }
 
 #define VECTOR3_EQUALS(v1, v2) \
@@ -238,8 +238,8 @@ void quat_rotation_direction()
   
   Matrix3d R_true;
   R_true << 1.0000000,  0.0000000,  0.0000000,
-            0.0000000,  0.70710678118654757,  0.70710678118654757,
-            0.0000000,  -0.70710678118654757, 0.70710678118654757;
+      0.0000000,  0.70710678118654757,  0.70710678118654757,
+      0.0000000,  -0.70710678118654757, 0.70710678118654757;
   Matrix3d qR = q_x_45.R();
   MATRIX_EQUAL(qR, R_true, 1e-6);
   VECTOR3_EQUALS(qR.transpose() * v, v_active_rotated);
@@ -392,6 +392,86 @@ void quat_euler()
   }
 }
 TEST(Quat, euler){quat_euler();}
+
+void quat_passive_derivative()
+{
+  Quat q0 = Quat::Random();
+  Vector3d v;
+  v.setRandom();
+  
+  Matrix3d a;
+  Matrix3d fd;
+  Matrix3d I = Matrix3d::Identity();
+  double epsilon = 1e-8;
+  
+  a = -skew(q0.rotp(v));  // -[R(q)v]
+  
+  for (int i = 0; i < 3; i++)
+  {
+    Quat qi = q0 + (epsilon * (I.col(i)));
+    fd.col(i) = (qi.rotp(v) - q0.rotp(v))/epsilon;
+  }
+  if ((fd - a).array().abs().sum() > 1e-6)
+  {
+    std::cout << "ERROR IN LINE " << __LINE__ << "\nA:\n" << a << "\nD:\nfd" << fd << std::endl;
+  }
+  ASSERT_LE((fd - a).array().abs().sum(), 1e-6);
+}
+TEST(Quat, passive_rotation_derivative){quat_passive_derivative();}
+
+void quat_active_derivative()
+{
+  Quat q0 = Quat::Random();
+  Vector3d v;
+  v.setRandom();
+  
+  Matrix3d a;
+  Matrix3d fd;
+  Matrix3d I = Matrix3d::Identity();
+  double epsilon = 1e-8;
+  
+  a = q0.R().transpose() * skew(v);  // R(q).T * [v]
+  
+  for (int i = 0; i < 3; i++)
+  {
+    Quat qi = q0 + (epsilon * (I.col(i)));
+    fd.col(i) = (qi.rota(v) - q0.rota(v))/epsilon;
+  }
+  if ((fd - a).array().abs().sum() > 1e-6)
+  {
+    std::cout << "ERROR IN LINE " << __LINE__ << "\nA:\n" << a << "\nD:\nfd" << fd << std::endl;
+  }
+  ASSERT_LE((fd - a).array().abs().sum(), 1e-6);
+}
+TEST(Quat, active_rotation_derivative){quat_active_derivative();}
+
+
+void exp_approx()
+{
+  for (int j = 0; j < NUM_ITERS; j++)
+  {
+    Quat q = Quat::Random();
+    if (j == 0)
+      q = Quat::Identity();
+    Vector3d delta;
+    Matrix3d I = Matrix3d::Identity();
+    delta.setRandom();
+    delta *= 0.1;
+    
+    Quat qp = q + delta;
+    
+    Matrix3d actual = qp.R();
+    Matrix3d approx = (I + skew(delta))*q.R();
+    
+    if ((actual - approx).array().abs().sum() > 1e-2)
+    {
+      std::cout << "ERROR IN LINE " << __LINE__ << "\nactual:\n" << actual << "\napprox:\nfd" << approx << std::endl;
+    } 
+    ASSERT_LE((actual - approx).array().abs().sum(), 1e-2);
+  }
+}
+TEST(Quat, exp_approx){exp_approx();}
+
 
 void math_helper_T_zeta()
 {
@@ -694,7 +774,7 @@ void VIEKF_KF_reset_test()
     
     d_dxpdxm.setZero();
     double epsilon = 1e-6;
-
+    
     // Perform Numerical Differentiation
     for (int i = 0; i < d_dxpdxm.cols(); i++)
     {

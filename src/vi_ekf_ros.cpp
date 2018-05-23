@@ -8,13 +8,13 @@ VIEKF_ROS::VIEKF_ROS() :
   imu_sub_ = nh_.subscribe("imu", 500, &VIEKF_ROS::imu_callback, this);
   pose_sub_ = nh_.subscribe("truth/pose", 10, &VIEKF_ROS::pose_truth_callback, this);
   transform_sub_ = nh_.subscribe("truth/transform", 10, &VIEKF_ROS::transform_truth_callback, this);
-  odometry_pub_ = nh_.advertise<nav_msgs::Odometry>("odom", 1);
-  bias_pub_ = nh_.advertise<sensor_msgs::Imu>("imu/bias", 1);
+//  odometry_pub_ = nh_.advertise<nav_msgs::Odometry>("odom", 1);
+//  bias_pub_ = nh_.advertise<sensor_msgs::Imu>("imu/bias", 1);
   
   image_sub_ = it_.subscribe("color", 10, &VIEKF_ROS::color_image_callback, this);
   depth_sub_ = it_.subscribe("depth", 10, &VIEKF_ROS::depth_image_callback, this);
-  output_pub_ = it_.advertise("tracked", 1);
-  cov_img_pub_ = it_.advertise("covariance", 1);
+//  output_pub_ = it_.advertise("tracked", 1);
+//  cov_img_pub_ = it_.advertise("covariance", 1);
   
   std::string log_directory, feature_mask;
   std::string default_log_folder = ros::package::getPath("vi_ekf") + "/logs/" + to_string(ros::Time::now().sec) + "/";
@@ -192,30 +192,30 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
     ekf_.update(z_att_, vi_ekf::VIEKF::ATT, att_R_, (use_truth_) ? true : use_imu_att_);
   ekf_mtx_.unlock();
   
-  odom_msg_.header.stamp = msg->header.stamp;
-  odom_msg_.pose.pose.position.x = ekf_.get_state()(vi_ekf::VIEKF::xPOS,0);
-  odom_msg_.pose.pose.position.y = ekf_.get_state()(vi_ekf::VIEKF::xPOS+1,0);
-  odom_msg_.pose.pose.position.z = ekf_.get_state()(vi_ekf::VIEKF::xPOS+2,0);
-  odom_msg_.pose.pose.orientation.w = ekf_.get_state()(vi_ekf::VIEKF::xATT,0);
-  odom_msg_.pose.pose.orientation.x = ekf_.get_state()(vi_ekf::VIEKF::xATT+1,0);
-  odom_msg_.pose.pose.orientation.y = ekf_.get_state()(vi_ekf::VIEKF::xATT+2,0);
-  odom_msg_.pose.pose.orientation.z = ekf_.get_state()(vi_ekf::VIEKF::xATT+3,0);
-  odom_msg_.twist.twist.linear.x = ekf_.get_state()(vi_ekf::VIEKF::xVEL,0);
-  odom_msg_.twist.twist.linear.y = ekf_.get_state()(vi_ekf::VIEKF::xVEL+1,0);
-  odom_msg_.twist.twist.linear.z = ekf_.get_state()(vi_ekf::VIEKF::xVEL+2,0);
-  odom_msg_.twist.twist.angular.x = imu_(3);
-  odom_msg_.twist.twist.angular.y = imu_(4);
-  odom_msg_.twist.twist.angular.z = imu_(5);
-  odometry_pub_.publish(odom_msg_);
+//  odom_msg_.header.stamp = msg->header.stamp;
+//  odom_msg_.pose.pose.position.x = ekf_.get_state()(vi_ekf::VIEKF::xPOS,0);
+//  odom_msg_.pose.pose.position.y = ekf_.get_state()(vi_ekf::VIEKF::xPOS+1,0);
+//  odom_msg_.pose.pose.position.z = ekf_.get_state()(vi_ekf::VIEKF::xPOS+2,0);
+//  odom_msg_.pose.pose.orientation.w = ekf_.get_state()(vi_ekf::VIEKF::xATT,0);
+//  odom_msg_.pose.pose.orientation.x = ekf_.get_state()(vi_ekf::VIEKF::xATT+1,0);
+//  odom_msg_.pose.pose.orientation.y = ekf_.get_state()(vi_ekf::VIEKF::xATT+2,0);
+//  odom_msg_.pose.pose.orientation.z = ekf_.get_state()(vi_ekf::VIEKF::xATT+3,0);
+//  odom_msg_.twist.twist.linear.x = ekf_.get_state()(vi_ekf::VIEKF::xVEL,0);
+//  odom_msg_.twist.twist.linear.y = ekf_.get_state()(vi_ekf::VIEKF::xVEL+1,0);
+//  odom_msg_.twist.twist.linear.z = ekf_.get_state()(vi_ekf::VIEKF::xVEL+2,0);
+//  odom_msg_.twist.twist.angular.x = imu_(3);
+//  odom_msg_.twist.twist.angular.y = imu_(4);
+//  odom_msg_.twist.twist.angular.z = imu_(5);
+//  odometry_pub_.publish(odom_msg_);
   
-  bias_msg_.header = msg->header;
-  bias_msg_.linear_acceleration.x = ekf_.get_state()(vi_ekf::VIEKF::xB_A, 0);
-  bias_msg_.linear_acceleration.y = ekf_.get_state()(vi_ekf::VIEKF::xB_A+1, 0);
-  bias_msg_.linear_acceleration.z = ekf_.get_state()(vi_ekf::VIEKF::xB_A+2, 0);
-  bias_msg_.angular_velocity.x = ekf_.get_state()(vi_ekf::VIEKF::xB_G, 0);
-  bias_msg_.angular_velocity.y = ekf_.get_state()(vi_ekf::VIEKF::xB_G+1, 0);
-  bias_msg_.angular_velocity.z = ekf_.get_state()(vi_ekf::VIEKF::xB_G+2, 0);
-  bias_pub_.publish(bias_msg_);
+//  bias_msg_.header = msg->header;
+//  bias_msg_.linear_acceleration.x = ekf_.get_state()(vi_ekf::VIEKF::xB_A, 0);
+//  bias_msg_.linear_acceleration.y = ekf_.get_state()(vi_ekf::VIEKF::xB_A+1, 0);
+//  bias_msg_.linear_acceleration.z = ekf_.get_state()(vi_ekf::VIEKF::xB_A+2, 0);
+//  bias_msg_.angular_velocity.x = ekf_.get_state()(vi_ekf::VIEKF::xB_G, 0);
+//  bias_msg_.angular_velocity.y = ekf_.get_state()(vi_ekf::VIEKF::xB_G+1, 0);
+//  bias_msg_.angular_velocity.z = ekf_.get_state()(vi_ekf::VIEKF::xB_G+2, 0);
+//  bias_pub_.publish(bias_msg_);
 }
 
 void VIEKF_ROS::keyframe_reset_callback()
@@ -286,20 +286,21 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
       ekf_.log_depth(ids_[i], depth, false);
     
     ekf_mtx_.unlock();   
-    
-    // Draw depth and position of tracked features
-    z_feat_ = ekf_.get_feat(ids_[i]);
-    circle(img_, features_[i], 5, Scalar(0,255,0));
-    circle(img_, Point(z_feat_.x(), z_feat_.y()), 5, Scalar(255, 0, 255));
-    double h_true = 50.0 /depth;
-    double h_est = 50.0 /ekf_.get_depth(ids_[i]);
-    rectangle(img_, Point(x-h_true, y-h_true), Point(x+h_true, y+h_true), Scalar(0, 255, 0));
-    rectangle(img_, Point(z_feat_.x()-h_est, z_feat_.y()-h_est), Point(z_feat_.x()+h_est, z_feat_.y()+h_est), Scalar(255, 0, 255));
   }
-  if (record_video_)
-    video_ << img_;
-  sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img_).toImageMsg();
-  output_pub_.publish(img_msg);
+    
+//    // Draw depth and position of tracked features
+//    z_feat_ = ekf_.get_feat(ids_[i]);
+//    circle(img_, features_[i], 5, Scalar(0,255,0));
+//    circle(img_, Point(z_feat_.x(), z_feat_.y()), 5, Scalar(255, 0, 255));
+//    double h_true = 50.0 /depth;
+//    double h_est = 50.0 /ekf_.get_depth(ids_[i]);
+//    rectangle(img_, Point(x-h_true, y-h_true), Point(x+h_true, y+h_true), Scalar(0, 255, 0));
+//    rectangle(img_, Point(z_feat_.x()-h_est, z_feat_.y()-h_est), Point(z_feat_.x()+h_est, z_feat_.y()+h_est), Scalar(255, 0, 255));
+//  }
+//  if (record_video_)
+//    video_ << img_;
+//  sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img_).toImageMsg();
+//  output_pub_.publish(img_msg);
 }
 
 void VIEKF_ROS::depth_image_callback(const sensor_msgs::ImageConstPtr &msg)

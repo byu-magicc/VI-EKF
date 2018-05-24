@@ -2,9 +2,9 @@
 
 rosparam load ../params/firefly.yaml vi_ekf_rosbag
 
-BAG_FILE=/home/superjax/rosbag/EuRoC/V1_02_medium_NED.bag
+BAG_FILE=/home/superjax/rosbag/EuRoC/V1_03_difficult_NED.bag
 START=0
-DURATION=88
+DURATION=100
 
 run_test () {
 	sed -i "s/^drag_term: .*$/drag_term: $1,/" ../params/gains.yaml

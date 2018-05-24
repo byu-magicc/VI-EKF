@@ -116,17 +116,18 @@ VIEKF_ROS::VIEKF_ROS() :
   ROS_FATAL_COND(!nh_private_.getParam("use_imu_att", use_imu_att_), "you need to specify the 'use_imu_att' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("use_alt", use_alt_), "you need to specify the 'use_alt' parameter");
   
-  cout << "\nMEASUREMENTS\n==============================\n";
-  cout << "truth: " << use_truth_ << "\n";
-  cout << "depth: " << use_depth_ << "\n";
-  cout << "features: " << use_features_ << "\n";
+  cout << "\nlog file: " << log_directory << "\n";
+  cout << "\nMEASUREMENTS\tFEATURES\n==============================\n";
+  cout << "truth: " << use_truth_ << "\t";
+  cout << "partial update: " << partial_update << "\n";
+  cout << "depth: " << use_depth_ << "\t";
+  cout << "drag_term: " << use_drag_term_ << "\n";
+  cout << "features: " << use_features_ << "\t";
+  cout << "keyframe_reset: " << keyframe_reset << "\n";
   cout << "acc: " << use_acc_ << "\n";
   cout << "imu_att: " << use_imu_att_ << "\n";
   cout << "imu_alt: " << use_alt_ << "\n";
-  cout << "\nFEATURES\n=================================\n";
-  cout << "partial update: " << partial_update << "\n";
-  cout << "drag_term: " << use_drag_term_ << "\n";
-  cout << "keyframe_reset: " << keyframe_reset << "\n";
+
   
   // Wait for truth to initialize pose
   imu_init_ = false;

@@ -9,7 +9,7 @@ from pyquat import Quaternion
 from import_log import import_log
 import sys
 
-bag_file = 'V1_01_easy'
+bag_file = 'V1_03_difficult'
 # bag_file = 'V1_02_medium'
 fig_dir = os.path.dirname(os.path.realpath(__file__)) + "/../results/" + bag_file + "/"
 
@@ -19,18 +19,20 @@ def plot_paper():
 
     global bag_file
 
-    data['V1_01_easy'] = {}
-    data['V1_01_easy']['KR'] = import_log(1527114159)
-    data['V1_01_easy']['B'] = import_log(1527114087)
-    data['V1_01_easy']['PU'] = import_log(1527114239)
-    data['V1_01_easy']['DT'] = import_log(1527114382)
-    data['V1_01_easy']['PU+DT+KF'] = import_log(1527114602)
+    # data['V1_01_easy'] = {}
+    # data['V1_01_easy']['KR'] = import_log(1527114159)
+    # data['V1_01_easy']['B'] = import_log(1527114087)
+    # data['V1_01_easy']['PU'] = import_log(1527114239)
+    # data['V1_01_easy']['DT'] = import_log(1527114382)
+    # data['V1_01_easy']['PU+DT+KF'] = import_log(1527114602)
 
     # V1_03_difficult
-    # data['V1_03_difficult'] = {}
-    # data['V1_03_difficult']['B'] = import_log(1527108535)
-    # data['V1_03_difficult']['DT'] = import_log(1527108630)
-    # data['V1_03_difficult']['PU'] = import_log(1527108346)
+    data['V1_03_difficult'] = {}
+    data['V1_03_difficult']['B'] = import_log(1527189096)
+    data['V1_03_difficult']['DT'] = import_log(1527189307)
+    data['V1_03_difficult']['PU'] = import_log(1527189202)
+    data['V1_03_difficult']['KR'] = import_log(1527189149)
+    data['V1_03_difficult']['PU+DT+KR'] = import_log(1527189489)
 
     # V1_02_medium
     # data['V1_02_medium'] = {}

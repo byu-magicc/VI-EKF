@@ -1,4 +1,5 @@
-  #include <iostream>
+#include <iostream>
+#include <stdio.h>
 #include <vector>
 #include <unistd.h>
 
@@ -12,10 +13,27 @@
 
 using namespace std;
 
+void print_progress(double progress, double rate)
+{
+  int total_width = 100;
+  int barwidth = 70;
+  cout << "[";
+  int pos = barwidth * progress;
+  for (int i = 0; i < barwidth; ++i)
+    if (i < pos) std::cout << "=";
+    else if (i == pos) std::cout << ">";
+    else std::cout << " ";
+  cout << "]  ";
+  printf("%.3f %\t", progress*100.0);
+  printf("(%.3fx)       \r", rate);
+  cout.flush();
+}
+
 int main(int argc, char * argv[])
 {
   string bag_filename = "";
   bool realtime = false;
+  bool verbose = false;
   double start_time = 0;
   double duration = INFINITY;
   for (int i = 0; i < argc; i++)
@@ -30,6 +48,7 @@ int main(int argc, char * argv[])
       cout << "\t -s START_TIME\tstart time of bag (seconds)\n";
       cout << "\t -r \t\tRun bag in real time\n";
       cout << "\t -u DURATION\tduration to run bag (seconds)\n";
+      cout << "\t -v Show Verbose Output\n";
       cout << endl;
       return 0;
     }
@@ -64,6 +83,10 @@ int main(int argc, char * argv[])
       }
       duration = atof(argv[++i]);
     }
+    else if (arg == "-v")
+    {
+      verbose = true;
+    }
     else if (i == 0)
     {
       continue;
@@ -90,21 +113,25 @@ int main(int argc, char * argv[])
   rosbag::View view(bag);
   
   // Get list of topics and print to screen - https://answers.ros.org/question/39345/rosbag-info-in-c/
-  vector<const rosbag::ConnectionInfo *> connections = view.getConnections();
-  vector<string> topics;
-  vector<string> types;
-  cout << "\nloaded bagfile: " << bag_filename << "\n===================================\n";
-  cout << "Topics\t\tTypes\n----------------------------\n\n" << endl;
-  foreach(const rosbag::ConnectionInfo *info, connections) {
-    topics.push_back(info->topic);
-    types.push_back(info->datatype);
-    cout << info->topic << "\t\t" << info->datatype << endl;
+  if (verbose)
+  {
+    vector<const rosbag::ConnectionInfo *> connections = view.getConnections();
+    vector<string> topics;
+    vector<string> types;
+    cout << "\nloaded bagfile: " << bag_filename << "\n===================================\n";
+    cout << "Topics\t\tTypes\n----------------------------\n\n" << endl;
+    foreach(const rosbag::ConnectionInfo *info, connections) {
+      topics.push_back(info->topic);
+      types.push_back(info->datatype);
+      cout << info->topic << "\t\t" << info->datatype << endl;
+    }
   }
   
   // Figure out the end time of the bag
   double end_time = start_time + duration;
   end_time = (end_time < view.getEndTime().toSec() - view.getBeginTime().toSec()) ? end_time : view.getEndTime().toSec() - view.getBeginTime().toSec();
-  cout << "Playing bag from: = " << start_time << "s to: " << end_time << "s" << endl;
+  if (verbose)
+    cout << "Playing bag from: = " << start_time << "s to: " << end_time << "s" << endl;
   
   // Create the VIEKF_ROS object
   VIEKF_ROS node;
@@ -143,8 +170,8 @@ int main(int argc, char * argv[])
     if (now - last_print > ros::Duration(0.03333))
     {
       double bag_elapsed = (m.getTime() - bag_start).toSec();
-      double system_elapsed = (now - system_start).toSec();      
-      cout << "\r" <<  bag_elapsed << "/" << bag_end.toSec() - bag_start.toSec() << "\t(" << bag_elapsed / system_elapsed << "x)                              ";
+      double system_elapsed = (now - system_start).toSec();  
+      print_progress(bag_elapsed / (bag_end - bag_start).toSec(), bag_elapsed / system_elapsed);
       last_print = now;
     }
     

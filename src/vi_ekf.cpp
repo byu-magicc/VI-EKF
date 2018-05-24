@@ -23,14 +23,27 @@ void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<doub
                  Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, bool partial_update,
                  bool use_keyframe_reset, double keyframe_overlap)
 {
-  x_.block<(int)xZ, 1>(0,0) = x0;
-  P_.block<(int)dxZ, (int)dxZ>(0,0) = P0.asDiagonal();
+  // clear the history
+  memset(thist_, 0, sizeof(thist_));
+  memset(xhist_, 0, sizeof(xhist_));
+  memset(Phist_, 0, sizeof(Phist_));
+  memset(zhist_, 0, sizeof(zhist_));
+  memset(meas_types_hist_, 0, sizeof(meas_types_hist_));
+  
+  // point to beginning of history
+  x_ = xhist_;
+  P_ = Phist_;
+  
+  // initialize state and covariance
+  x_->block<(int)xZ, 1>(0,0) = x0;
+  P_->block<(int)dxZ, (int)dxZ>(0,0) = P0.asDiagonal();
+  
   Qx_.block<(int)dxZ, (int)dxZ>(0,0) = Qx.asDiagonal();
   lambda_.block<(int)dxZ, 1>(0,0) = lambda;
   
   for (int i = 0; i < NUM_FEATURES; i++)
   {
-    P_.block<3,3>(dxZ+3*i, dxZ+3*i) = P0_feat.asDiagonal();
+    P_->block<3,3>(dxZ+3*i, dxZ+3*i) = P0_feat.asDiagonal();
     Qx_.block<3,3>(dxZ+3*i, dxZ+3*i) = Qx_feat.asDiagonal();
     lambda_.block<3,1>(dxZ+3*i,0) = lambda_feat;
   }
@@ -52,7 +65,7 @@ void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<doub
   // set camera intrinsics
   cam_center_ = cam_center;
   cam_F_ << focal_len(0), 0, 0,
-      0, focal_len(1), 0;
+            0, focal_len(1), 0;
   
   use_drag_term_ = use_drag_term;
   partial_update_ = partial_update;
@@ -78,7 +91,7 @@ void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<doub
 
 void VIEKF::set_x0(const Matrix<double, xZ, 1>& _x0)
 {
-  x_.topRows(xZ) = _x0;
+  x_->topRows(xZ) = _x0;
 }
 
 void VIEKF::register_keyframe_reset_callback(std::function<void(void)> cb)
@@ -101,14 +114,14 @@ VIEKF::~VIEKF()
 
 void VIEKF::set_imu_bias(const Vector3d& b_g, const Vector3d& b_a)
 {
-  x_.block<3,1>((int)xB_G,0) = b_g;
-  x_.block<3,1>((int)xB_A,0) = b_a;
+  x_->block<3,1>((int)xB_G,0) = b_g;
+  x_->block<3,1>((int)xB_A,0) = b_a;
 }
 
 
 const xVector& VIEKF::get_state() const
 {
-  return x_;
+  return (*x_);
 }
 
 const eVector& VIEKF::get_current_node_global_pose() const
@@ -116,9 +129,9 @@ const eVector& VIEKF::get_current_node_global_pose() const
   return current_node_global_pose_;
 }
 
-const MatrixXd VIEKF::get_covariance() const
+const MatrixXd& VIEKF::get_covariance() const
 {
-  MatrixXd ret = P_.topLeftCorner(dxZ+3*len_features_, dxZ+3*len_features_);
+  MatrixXd ret = P_->topLeftCorner(dxZ+3*len_features_, dxZ+3*len_features_);
   return ret;
 }
 
@@ -128,7 +141,7 @@ VectorXd VIEKF::get_depths() const
   VectorXd out(len_features_);
   for (int i = 0; i < len_features_; i++)
   {
-    out[i] = 1.0/x_((int)xZ + 4 + 5*i);
+    out[i] = 1.0/(*x_)((int)xZ + 4 + 5*i);
   }
   return out;
 }
@@ -138,7 +151,7 @@ MatrixXd VIEKF::get_zetas() const
   MatrixXd out(3, len_features_);
   for (int i = 0; i < len_features_; i++)
   {
-    Vector4d qzeta = x_.block<4,1>(xZ + 5*i,0);
+    Vector4d qzeta = x_->block<4,1>(xZ + 5*i,0);
     out.block<3,1>(0,i) = Quat(qzeta).rota(e_z);
   }
   return out;
@@ -149,27 +162,27 @@ MatrixXd VIEKF::get_qzetas() const
   MatrixXd out(4, len_features_);
   for (int i = 0; i < len_features_; i++)
   {
-    out.block<4,1>(0,i) = x_.block<4,1>(xZ + 5*i,0);
+    out.block<4,1>(0,i) = x_->block<4,1>(xZ + 5*i,0);
   }
   return out;
 }
 
 VectorXd VIEKF::get_zeta(const int i) const
 {
-  Vector4d qzeta_i = x_.block<4,1>(xZ + 5*i,0);
+  Vector4d qzeta_i = x_->block<4,1>(xZ + 5*i,0);
   return Quat(qzeta_i).rota(e_z);
 }
 
 double VIEKF::get_depth(const int id) const
 {
   int i = global_to_local_feature_id(id);
-  return 1.0/x_((int)xZ + 4 + 5*i);
+  return 1.0/(*x_)((int)xZ + 4 + 5*i);
 }
 
 Vector2d VIEKF::get_feat(const int id) const
 {
   int i = global_to_local_feature_id(id);
-  Quat q_zeta(x_.block<4,1>(xZ+i*5, 0));
+  Quat q_zeta(x_->block<4,1>(xZ+i*5, 0));
   Vector3d zeta = q_zeta.rota(e_z);
   double ezT_zeta = e_z.transpose() * zeta;
   return cam_F_ * zeta / ezT_zeta + cam_center_;
@@ -177,12 +190,12 @@ Vector2d VIEKF::get_feat(const int id) const
 
 void VIEKF::boxplus(const xVector& x, const dxVector& dx, xVector& out) const
 {
-  out.block<6,1>((int)xPOS, 0) = x.block<6,1>((int)xPOS, 0) + dx.block<6,1>((int)dxPOS, 0);
-  out.block<4,1>((int)xATT, 0) = (Quat(x.block<4,1>((int)xATT, 0)) + dx.block<3,1>((int)dxATT, 0)).elements();
-  out.block<7,1>((int)xB_A, 0) = x.block<7,1>((int)xB_A, 0) + dx.block<7,1>((int)dxB_A, 0);
+  out.block<6,1>((int)xPOS, 0) = x.block<6,1>((int)xPOS, 0) + dx_.block<6,1>((int)dxPOS, 0);
+  out.block<4,1>((int)xATT, 0) = (Quat(x.block<4,1>((int)xATT, 0)) + dx_.block<3,1>((int)dxATT, 0)).elements();
+  out.block<7,1>((int)xB_A, 0) = x.block<7,1>((int)xB_A, 0) + dx_.block<7,1>((int)dxB_A, 0);
   for (int i = 0; i < len_features_; i++)
   {
-    out.block<4,1>(xZ+i*5,0) = q_feat_boxplus(Quat(x.block<4,1>(xZ+i*5,0)), dx.block<2,1>(dxZ+3*i,0)).elements();
+    out.block<4,1>(xZ+i*5,0) = q_feat_boxplus(Quat(x.block<4,1>(xZ+i*5,0)), dx_.block<2,1>(dxZ+3*i,0)).elements();
     out(xZ+i*5+4) = x(xZ+i*5+4) + dx(dxZ+3*i+2);
   }
 }
@@ -230,14 +243,14 @@ bool VIEKF::init_feature(const Vector2d& l, const int id, const double depth)
   
   //  Initialize the state vector
   int x_max = xZ + 5*len_features_;
-  x_.block<4,1>(x_max - 5, 0) = qzeta;
-  x_(x_max - 1 ) = 1.0/init_depth;
+  x_->block<4,1>(x_max - 5, 0) = qzeta;
+  (*x_)(x_max - 1 ) = 1.0/init_depth;
   
   // Zero out the cross-covariance and reset the uncertainty on this new feature
   int dx_max = dxZ+3*len_features_;
-  P_.block(dx_max-3, 0, 3, dx_max-3).setZero();
-  P_.block(0, dx_max-3, dx_max-3, 3).setZero();
-  P_.block<3,3>(dx_max-3, dx_max-3) = P0_feat_;
+  P_->block(dx_max-3, 0, 3, dx_max-3).setZero();
+  P_->block(0, dx_max-3, dx_max-3, 3).setZero();
+  P_->block<3,3>(dx_max-3, dx_max-3) = P0_feat_;
   
   NAN_CHECK;
   
@@ -257,15 +270,15 @@ void VIEKF::clear_feature(const int id)
   // Remove the right portions of state and covariance and shift everything to the upper-left corner of the matrix
   if (local_feature_id < len_features_)
   {
-    x_.block(xZETA_i, 0, (x_.rows() - (xZETA_i+5)), 1) = x_.bottomRows(x_.rows() - (xZETA_i + 5));
-    P_.block(dxZETA_i, 0, (P_.rows() - (dxZETA_i+3)), P_.cols()) = P_.bottomRows(P_.rows() - (dxZETA_i+3));
-    P_.block(0, dxZETA_i, P_.rows(), (P_.cols() - (dxZETA_i+3))) = P_.rightCols(P_.cols() - (dxZETA_i+3));
+    x_->block(xZETA_i, 0, (x_->rows() - (xZETA_i+5)), 1) = x_->bottomRows(x_->rows() - (xZETA_i + 5));
+    P_->block(dxZETA_i, 0, (P_->rows() - (dxZETA_i+3)), P_->cols()) = P_->bottomRows(P_->rows() - (dxZETA_i+3));
+    P_->block(0, dxZETA_i, P_->rows(), (P_->cols() - (dxZETA_i+3))) = P_->rightCols(P_->cols() - (dxZETA_i+3));
   }
   
   // Clean up the rest of the matrix
-  x_.bottomRows(x_.cols() - dx_max).setZero();
-  P_.rightCols(P_.cols() - dx_max).setZero();
-  P_.bottomRows(P_.rows() - dx_max).setZero();
+  x_->bottomRows(x_->cols() - dx_max).setZero();
+  P_->rightCols(P_->cols() - dx_max).setZero();
+  P_->bottomRows(P_->rows() - dx_max).setZero();
   
   NAN_CHECK;
 }
@@ -348,14 +361,14 @@ void VIEKF::propagate(const uVector &u, const double t)
   double dt = t - prev_t_;
   prev_t_ = t;
   
-  dynamics(x_, u);
+  dynamics((*x_), u);
   NAN_CHECK;
-  boxplus(x_, dx_*dt, xp_);
-  x_ = xp_;
+  boxplus((*x_), dx_*dt, xp_);
+  (*x_) = xp_;
   NAN_CHECK;
   int dx = dxZ+3*len_features_;
-  P_.topLeftCorner(dx, dx) += (A_.topLeftCorner(dx, dx) * P_.topLeftCorner(dx, dx) 
-                               + P_.topLeftCorner(dx, dx) * A_.topLeftCorner(dx, dx).transpose() 
+  P_->topLeftCorner(dx, dx) += (A_.topLeftCorner(dx, dx) * P_->topLeftCorner(dx, dx) 
+                               + P_->topLeftCorner(dx, dx) * A_.topLeftCorner(dx, dx).transpose() 
                                + G_.topRows(dx) * Qu_ * G_.topRows(dx).transpose()
                                + Qx_.topLeftCorner(dx, dx) ) * dt;
   NAN_CHECK;
@@ -383,8 +396,8 @@ void VIEKF::propagate(const uVector &u, const double t)
   if (log_.stream && log_.prop_log_count > 1)
   {
     log_.prop_log_count = 0;
-    (*log_.stream)[LOG_PROP] << t-start_t_ << " " << x_.transpose() << " " <<  P_.diagonal().transpose() << " \n";
-    (*log_.stream)[LOG_INPUT] << t-start_t_ << " " << (u - x_.block<6,1>((int)xB_A, 0)).transpose() << "\n";
+    (*log_.stream)[LOG_PROP] << t-start_t_ << " " << x_->transpose() << " " <<  P_->diagonal().transpose() << " \n";
+    (*log_.stream)[LOG_INPUT] << t-start_t_ << " " << (u - x_->block<6,1>((int)xB_A, 0)).transpose() << "\n";
     (*log_.stream)[LOG_XDOT] << t-start_t_ << " " << dt << " " <<  dx_.transpose() << "\n";
   }
 }
@@ -527,7 +540,7 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
   H_.setZero();
   K_.setZero();
   
-  (this->*(measurement_functions[meas_type]))(x_, zhat_, H_, id);
+  (this->*(measurement_functions[meas_type]))((*x_), zhat_, H_, id);
   
   NAN_CHECK;
   
@@ -551,7 +564,7 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
   
   if (active)
   {
-    K_.leftCols(z_dim) = P_ * H_.topRows(z_dim).transpose() * (R + H_.topRows(z_dim)*P_ * H_.topRows(z_dim).transpose()).inverse();
+    K_.leftCols(z_dim) = (*P_) * H_.topRows(z_dim).transpose() * (R + H_.topRows(z_dim)*(*P_) * H_.topRows(z_dim).transpose()).inverse();
     NAN_CHECK;
     
     //    CHECK_MAT_FOR_NANS(H_);
@@ -564,15 +577,15 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
         // Apply Fixed Gain Partial update per
         // "Partial-Update Schmidt-Kalman Filter" by Brink
         // Modified to operate inline and on the manifold 
-        boxplus(x_, lambda_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), xp_);
-        x_ = xp_;
-        P_ -= (Lambda_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*P_);
+        boxplus((*x_), lambda_.asDiagonal() * K_.leftCols(z_dim) * residual.topRows(z_dim), xp_);
+        (*x_) = xp_;
+        (*P_) -= (Lambda_).cwiseProduct(K_.leftCols(z_dim) * H_.topRows(z_dim)*(*P_));
       }
       else
       {
-        boxplus(x_, K_.leftCols(z_dim) * residual.topRows(z_dim), xp_);  
-        x_ = xp_;
-        P_ = (I_big_ - K_.leftCols(z_dim) * H_.topRows(z_dim))*P_;
+        boxplus((*x_), K_.leftCols(z_dim) * residual.topRows(z_dim), xp_);  
+        (*x_) = xp_;
+        (*P_) = (I_big_ - K_.leftCols(z_dim) * H_.topRows(z_dim))*(*P_);
       }
     }
     NAN_CHECK;
@@ -606,17 +619,17 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
 void VIEKF::log_depth(const int id, double zhat, bool active)
 {
   int i = global_to_local_feature_id(id);
-  double z = x_(xZ+5*i + 4, 0);
+  double z = (*x_)(xZ+5*i + 4, 0);
   (*log_.stream)[LOG_MEAS] << measurement_names[DEPTH] << "\t" << prev_t_-start_t_ << "\t"
                            << z << "\t" << zhat << "\t";
-  (*log_.stream)[LOG_MEAS] << P_(dxZ + 3*i + 2, dxZ + 3*i + 2) << "\t" << id << "\t" << active << "\n";
+  (*log_.stream)[LOG_MEAS] << (*P_)(dxZ + 3*i + 2, dxZ + 3*i + 2) << "\t" << id << "\t" << active << "\n";
 }
 
 void VIEKF::keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N)
 {
-  x_ = xm;
+  (*x_) = xm;
   keyframe_reset();
-  xp = x_;
+  xp = (*x_);
   N = A_;    
 }
 
@@ -625,15 +638,15 @@ void VIEKF::keyframe_reset()
 {
   // Save off current position into the new edge
   edge_SE2_t edge;
-  edge.transform.block<2,1>(0,0) = x_.block<2,1>(xPOS,0);
+  edge.transform.block<2,1>(0,0) = x_->block<2,1>(xPOS,0);
   edge.transform(2,0) = 0.0; // no altitude information in the edge
-  edge.cov.block<2,2>((int)xPOS, (int)xPOS) = P_.block<2,2>((int)xPOS, (int)xPOS);
+  edge.cov.block<2,2>((int)xPOS, (int)xPOS) = P_->block<2,2>((int)xPOS, (int)xPOS);
   
   // reset global xy position
-  x_(xPOS, 0) = 0;
-  x_(xPOS+1, 0) = 0;
+  (*x_)(xPOS, 0) = 0;
+  (*x_)(xPOS+1, 0) = 0;
   
-  Quat qm(x_.block<4,1>((int)xATT, 0)); 
+  Quat qm(x_->block<4,1>((int)xATT, 0)); 
 
   
   ////  Cool way to reset z-axis rotation
@@ -651,7 +664,7 @@ void VIEKF::keyframe_reset()
 //  Quat qp = Quat::exp(theta * s); // q+
   
 //  // reset rotation about z
-//  x_.block<4,1>((int)(xATT), 0) = qp.elements();
+//  x_->block<4,1>((int)(xATT), 0) = qp.elements();
   
 //  // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
 //  A_ = I_big_;
@@ -668,10 +681,10 @@ void VIEKF::keyframe_reset()
   
   // Save off quaternion and covariance
   edge.transform.block<4,1>((int)eATT, 0) = Quat::from_euler(0, 0, yaw).elements();
-  edge.cov(2,2) = P_(xATT+2, xATT+2); /// TODO - do this right
+  edge.cov(2,2) = (*P_)(xATT+2, xATT+2); /// TODO - do this right
   
-  x_.block<4,1>((int)(xATT), 0) << Quat::from_euler(roll, pitch, 0.0).elements();
-  x_.block<4,1>((int)(xATT), 0) /= x_.block<4,1>((int)(xATT), 0).norm();
+  x_->block<4,1>((int)(xATT), 0) << Quat::from_euler(roll, pitch, 0.0).elements();
+  x_->block<4,1>((int)(xATT), 0) /= x_->block<4,1>((int)(xATT), 0).norm();
   
   // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
   // RMEKF paper after Eq. 81
@@ -690,7 +703,7 @@ void VIEKF::keyframe_reset()
   
   
   
-  P_ = A_ * P_ * A_.transpose();
+  (*P_) = A_ * (*P_) * A_.transpose();
   
   // Build Global Node Frame Position
   concatenate_edges(current_node_global_pose_, edge.transform, current_node_global_pose_);
@@ -830,23 +843,23 @@ void VIEKF::fix_depth()
   {
     int xRHO_i = xZ + 5*i + 4;
     int dxRHO_i = dxZ + 3*i + 2;
-    if (x_(xRHO_i, 0) != x_(xRHO_i, 0))
+    if ((*x_)(xRHO_i, 0) != (*x_)(xRHO_i, 0))
     {
       // if a depth state has gone NaN, reset it
-      x_(xRHO_i, 0) = 1.0/(2.0*min_depth_);
+      (*x_)(xRHO_i, 0) = 1.0/(2.0*min_depth_);
     }
-    if (x_(xRHO_i, 0) < 0.0)
+    if ((*x_)(xRHO_i, 0) < 0.0)
     {
       // If the state has gone negative, reset it
-      double err = 1.0/(2.0*min_depth_) - x_(xRHO_i, 0);
-      P_(dxRHO_i, dxRHO_i) += err*err;
-      x_(xRHO_i, 0) = 1.0/(2.0*min_depth_);
+      double err = 1.0/(2.0*min_depth_) - (*x_)(xRHO_i, 0);
+      (*P_)(dxRHO_i, dxRHO_i) += err*err;
+      (*x_)(xRHO_i, 0) = 1.0/(2.0*min_depth_);
     }
-    else if (x_(xRHO_i, 0) > 1e2)
+    else if ((*x_)(xRHO_i, 0) > 1e2)
     {
       // If the state has grown unreasonably large, reset it
-      P_(dxRHO_i, dxRHO_i) = P0_feat_(2,2);
-      x_(xRHO_i, 0) = 1.0/(2.0*min_depth_);
+      (*P_)(dxRHO_i, dxRHO_i) = P0_feat_(2,2);
+      (*x_)(xRHO_i, 0) = 1.0/(2.0*min_depth_);
     }
   }
 }
@@ -861,8 +874,8 @@ void VIEKF::log_global_position(const eVector truth_global_transform) //Vector3d
     // Log Global Position Estimate
     eVector global_pose;
     eVector rel_pose;
-    rel_pose.block<3,1>((int)ePOS, 0) = x_.block<3,1>((int)xPOS, 0);
-    rel_pose.block<4,1>((int)eATT, 0) = x_.block<4,1>((int)xATT, 0);
+    rel_pose.block<3,1>((int)ePOS, 0) = x_->block<3,1>((int)xPOS, 0);
+    rel_pose.block<4,1>((int)eATT, 0) = x_->block<4,1>((int)xATT, 0);
     concatenate_edges(current_node_global_pose_, rel_pose, global_pose);
     
     (*log_.stream)[LOG_MEAS] << "GLOBAL_POS" << "\t" << prev_t_-start_t_ << "\t"
@@ -896,8 +909,8 @@ void VIEKF::init_logger(string root_filename)
   
   // Save configuration
   (*log_.stream)[LOG_CONF] << "Test Num: " << root_filename << "\n";
-  (*log_.stream)[LOG_CONF] << "x0" << x_.block<(int)xZ, 1>(0,0).transpose() << "\n";
-  (*log_.stream)[LOG_CONF] << "P0: " << P_.diagonal().block<(int)xZ, 1>(0,0).transpose() << "\n";
+  (*log_.stream)[LOG_CONF] << "x0" << x_->block<(int)xZ, 1>(0,0).transpose() << "\n";
+  (*log_.stream)[LOG_CONF] << "P0: " << P_->diagonal().block<(int)xZ, 1>(0,0).transpose() << "\n";
   (*log_.stream)[LOG_CONF] << "P0_feat: " << P0_feat_.diagonal().transpose() << "\n";
   (*log_.stream)[LOG_CONF] << "Qx: " << Qx_.diagonal().block<(int)dxZ, 1>(0,0).transpose() << "\n";
   (*log_.stream)[LOG_CONF] << "Qx_feat: " << Qx_.diagonal().block<3, 1>((int)dxZ,0).transpose() << "\n";

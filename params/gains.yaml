@@ -54,9 +54,9 @@ use_imu_att: false,
 use_alt: false,
 
 ## Feature Flags
-drag_term: false,
+drag_term: true,
 partial_update: true,
-keyframe_reset: false,
+keyframe_reset: true,
 
 ## Tracking Paramters
 min_depth: 1.5,

@@ -19,18 +19,18 @@ def plot_paper():
 
     global bag_file
 
-    data['V1_01_easy'] = {}
-    data['V1_01_easy']['KR'] = import_log(1527114159)
-    data['V1_01_easy']['B'] = import_log(1527114087)
-    data['V1_01_easy']['PU'] = import_log(1527114239)
-    data['V1_01_easy']['DT'] = import_log(1527114382)
-    data['V1_01_easy']['PU+DT+KF'] = import_log(1527114602)
+    # data['V1_01_easy'] = {}
+    # data['V1_01_easy']['KR'] = import_log(1527114159)
+    # data['V1_01_easy']['B'] = import_log(1527114087)
+    # data['V1_01_easy']['PU'] = import_log(1527114239)
+    # data['V1_01_easy']['DT'] = import_log(1527114382)
+    # data['V1_01_easy']['PU+DT+KF'] = import_log(1527114602)
 
     # V1_03_difficult
-    # data['V1_03_difficult'] = {}
-    # data['V1_03_difficult']['B'] = import_log(1527108535)
-    # data['V1_03_difficult']['DT'] = import_log(1527108630)
-    # data['V1_03_difficult']['PU'] = import_log(1527108346)
+    data['V1_03_difficult'] = {}
+    data['V1_03_difficult']['B'] = import_log(1527108535)
+    data['V1_03_difficult']['DT'] = import_log(1527108630)
+    data['V1_03_difficult']['PU'] = import_log(1527108346)
 
     # V1_02_medium
     # data['V1_02_medium'] = {}

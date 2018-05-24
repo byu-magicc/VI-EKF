@@ -29,6 +29,9 @@ using namespace Eigen;
 #define MAX_X 17+NUM_FEATURES*5
 #define MAX_DX 16+NUM_FEATURES*3
 
+#define STATE_HISTORY_LENGTH 100
+#define MEAS_HISTORY_LENGTH 25
+
 typedef Matrix<double, MAX_X, 1> xVector;
 typedef Matrix<double, MAX_DX, 1> dxVector;
 typedef Matrix<double, MAX_X, MAX_X> xMatrix;
@@ -125,9 +128,22 @@ private:
     TOTAL_LOGS
   } log_type_t;
 
+  
+  // State and Measurement history
+  xVector xhist_[STATE_HISTORY_LENGTH];
+  dxMatrix Phist_[STATE_HISTORY_LENGTH];
+  double thist_[STATE_HISTORY_LENGTH];
+  int len_features_hist_[STATE_HISTORY_LENGTH];
+  
+  zVector zhist_[MEAS_HISTORY_LENGTH];
+  measurement_type_t meas_types_hist_[MEAS_HISTORY_LENGTH];
+  
+  
   // State and Covariance and Process Noise Matrices
-  xVector x_;
-  dxMatrix P_;
+  xVector* x_;
+  dxMatrix* P_;
+  int len_features_;
+  
   dxMatrix Qx_;
   Matrix<double, 6, 6> Qu_;
 
@@ -141,7 +157,7 @@ private:
   // Internal bookkeeping variables
   double prev_t_;
   double start_t_;
-  int len_features_;
+  
   int next_feature_id_;
   std::vector<int> current_feature_ids_;
   std::vector<int> keyframe_features_;
@@ -208,13 +224,13 @@ public:
 
   inline bool NaNsInTheHouse() const
   {
-    int x_max = xZ + len_features_ *5;
+    int x_max = xZ + len_features_ * 5;
     int dx_max = dxZ + len_features_*3;
-    if( ( (x_.topRows(x_max)).array() != (x_.topRows(x_max)).array()).any() 
-        || ((P_.topLeftCorner(dx_max,dx_max)).array() != (P_.topLeftCorner(dx_max,dx_max)).array()).any() )
+    if( ( (x_->topRows(x_max)).array() != (x_->topRows(x_max)).array()).any() 
+        || ((P_->topLeftCorner(dx_max,dx_max)).array() != (P_->topLeftCorner(dx_max,dx_max)).array()).any() )
     {
-      std::cout << "x:\n" << x_.block(0,0, xZ + len_features_, 1) << "\n";
-      std::cout << "P:\n" << P_.block(0, 0,xZ + len_features_, xZ + len_features_) << "\n";
+      std::cout << "x:\n" << x_->block(0, 0, xZ + len_features_, 1) << "\n";
+      std::cout << "P:\n" << P_->block(0, 0, xZ + len_features_, xZ + len_features_) << "\n";
       return true;
     }
     else
@@ -223,7 +239,7 @@ public:
 
   inline bool BlowingUp() const
   {
-    if ( ((x_).array() > 1e6).any() || ((P_).array() > 1e6).any())
+    if ( ((*x_).array() > 1e6).any() || ((*P_).array() > 1e6).any())
       return true;
     else
       return false;
@@ -234,7 +250,7 @@ public:
     for (int i = 0; i < len_features_; i++)
     {
       int xRHO_i = (int)xZ+5*i+4;
-      if (x_(xRHO_i,0) < 0)
+      if ((*x_)(xRHO_i,0) < 0)
         return true;
     }
     return false;
@@ -262,7 +278,7 @@ public:
   Vector2d get_feat(const int id) const;
   const eVector &get_current_node_global_pose() const;
   const xVector& get_state() const;
-  const MatrixXd get_covariance() const;
+  const MatrixXd &get_covariance() const;
   double get_depth(const int id) const;
   inline int get_len_features() const { return len_features_; }
 

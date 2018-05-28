@@ -57,7 +57,44 @@ def plot_paper():
     plot_attitude(data[bag_file])
     plot_positions(data[bag_file])
     plot_biases(data[bag_file])
+    plot_zoomed(data[bag_file])
     plt.show()
+
+def plot_zoomed(data):
+    global fig_dir, bag_file
+
+    colors = get_colors(len(data)+1, plt.cm.jet)
+
+    plt.figure(figsize=(16,10))
+    ax = None
+
+    # Plot x velocity
+    ax=plt.subplot(4,1,1, sharex=ax)
+    plt.plot(data['B'].t.vel, data['B'].vel[:,0], '--', label="truth", color=colors[0], linewidth=2)
+    for j, (key, d) in enumerate(data.iteritems()):
+        plt.plot(d.t.xhat, d.xhat[:, 3], lines[j], label=key, color=colors[j+1], linewidth=2)
+    plt.ylabel(r"$v_x$ (m/s)")
+    ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.3), fancybox=False, shadow=False, ncol=6)
+
+    # Plot pitch
+    ax=plt.subplot(4,1,2, sharex=ax)
+    plt.plot(data['B'].t.att, data['B'].euler[:,1], '--', label="truth", color=colors[0], linewidth=2)
+    for j, (key, d) in enumerate(data.iteritems()):
+        plt.plot(d.t.global_att, d.global_euler_hat[:,2], lines[j], label=key, color=colors[j+1], linewidth=2)
+    plt.ylabel(r"pitch (rad)")
+
+    # Plot Y gyro bias
+    ax=plt.subplot(4,1,3, sharex=ax)
+    for j, (key, d) in enumerate(data.iteritems()):
+        plt.plot(d.t.xhat, d.xhat[:,11], lines[j], label=key, color=colors[j+1], linewidth=2)
+    plt.ylabel(r"pitch (rad)")
+
+    # Plot X accel bias
+    ax=plt.subplot(4,1,4, sharex=ax)
+    for j, (key, d) in enumerate(data.iteritems()):
+        plt.plot(d.t.xhat, d.xhat[:,14], lines[j], label=key, color=colors[j+1], linewidth=2)
+    plt.ylabel(r"pitch (rad)")
+
 
 def plot_velocities(data):
     global fig_dir, bag_file
@@ -73,7 +110,7 @@ def plot_velocities(data):
         for j, (key, d) in enumerate(data.iteritems()):
             plt.plot(d.t.xhat, d.xhat[:, 3+i], lines[j], label=key, color=colors[j+1], linewidth=2)
         if i == 0:
-            ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.3), fancybox=False, shadow=False, ncol=5)
+            ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.3), fancybox=False, shadow=False, ncol=6)
         plt.ylabel("m/s")
     plt.xlabel("s")
     plt.savefig(fig_dir + "velocities.pdf", bbox_inches='tight', dpi=600)
@@ -94,7 +131,7 @@ def plot_attitude(data):
         for j, (key, d) in enumerate(data.iteritems()):
             plt.plot(d.t.global_att, d.global_euler_hat[:,i], lines[j], label=key, color=colors[j+1], linewidth=2)
         if i == 0:
-            ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.3), fancybox=False, shadow=False, ncol=5)
+            ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.3), fancybox=False, shadow=False, ncol=6)
         plt.ylabel(titles[i] + ' (rad)')
     plt.xlabel("s")
     plt.savefig(fig_dir + "attitude.pdf", bbox_inches='tight', dpi=600)
@@ -113,7 +150,7 @@ def plot_positions(data):
         for j, (key, d) in enumerate(data.iteritems()):
             plt.plot(d.t.global_pos_hat, d.global_pos_hat[:, i], lines[j], label=key, color=colors[j+1], linewidth=2)
         if i == 0:
-            ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.3), fancybox=False, shadow=False, ncol=5)
+            ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.3), fancybox=False, shadow=False, ncol=6)
         plt.ylabel("m")
     plt.xlabel("s")
     plt.savefig(fig_dir + "positions.pdf", bbox_inches='tight', dpi=600)
@@ -130,7 +167,7 @@ def plot_biases(data):
         for j, (key, d) in enumerate(data.iteritems()):
             plt.plot(d.t.xhat, d.xhat[:,10+i], lines[j], label=key, color=colors[j+1], linewidth=2)
         if i == 0:
-            ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.3), fancybox=False, shadow=False, ncol=5)
+            ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.3), fancybox=False, shadow=False, ncol=6)
         if i < 3:
             plt.xlabel(r"$\beta_a$ (m/s^2)")
         elif i < 6:
@@ -138,6 +175,7 @@ def plot_biases(data):
         else:
             plt.xlabel("b (1/s)")
     plt.xlabel("s")
+    plt.savefig(fig_dir + "biases.pdf", bbox_inches='tight', dpi=600)
 
 
 

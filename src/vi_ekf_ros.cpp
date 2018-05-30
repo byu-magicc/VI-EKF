@@ -259,10 +259,14 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
   else
     cv_ptr_->image.copyTo(img_);
   
+  
   // Track Features in Image
   klt_tracker_.load_image(img_, msg->header.stamp.toSec(), features_, ids_);
   
   ekf_mtx_.lock();
+  // Propagate the covariance
+//  ekf_.propagate_Image();
+  // Set which features we are keeping
   ekf_.keep_only_features(ids_);
   ekf_mtx_.unlock();
   

@@ -24,7 +24,7 @@ void print_progress(double progress, double rate)
     else if (i == pos) std::cout << ">";
     else std::cout << " ";
   cout << "]  ";
-  printf("%.3f %\t", progress*100.0);
+  printf("%.3f %%\t", progress*100.0);
   printf("(%.3fx)       \r", rate);
   cout.flush();
 }

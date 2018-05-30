@@ -1,4 +1,4 @@
-  #pragma once
+#pragma once
 
 #include "Eigen/Core"
 #include "Eigen/Geometry"
@@ -17,6 +17,18 @@
 using namespace quat;
 using namespace std;
 using namespace Eigen;
+
+#define NO_NANS(mat) (mat.array() == mat.array()).all()
+
+//#ifndef NDEBUG
+#define NAN_CHECK if (NaNsInTheHouse()) { std::cout << "NaNs In The House at line " << __LINE__ << "!!!\n"; exit(0); }
+#define NEGATIVE_DEPTH if (NegativeDepth()) std::cout << "Negative Depth " << __LINE__ << "!!!\n"
+#define CHECK_MAT_FOR_NANS(mat) if ((K_.array() != K_.array()).any()) { std::cout << "NaN detected in " << #mat << " at line " << __LINE__ << "!!!\n" << mat << "\n"; exit(0); }
+//#else
+//#define NAN_CHECK {}
+//#define NEGATIVE_DEPTH {}
+//#define CHECK_MAT_FOR_NANS(mat) {}
+//#endif
 
 #ifndef NUM_FEATURES
 #ifndef NDEBUG
@@ -147,6 +159,10 @@ private:
   std::vector<int> keyframe_features_;
   double keyframe_overlap_threshold_;
   
+  double prev_image_t_;
+  uVector imu_sum_;
+  int imu_count_;
+  
   std::deque<edge_SE2_t> edges_;
 
   // Matrix Workspace
@@ -206,55 +222,16 @@ public:
     return (double)now.count()*1e-6;
   }
 
-  inline bool NaNsInTheHouse() const
-  {
-    int x_max = xZ + len_features_ *5;
-    int dx_max = dxZ + len_features_*3;
-    if( ( (x_.topRows(x_max)).array() != (x_.topRows(x_max)).array()).any() 
-        || ((P_.topLeftCorner(dx_max,dx_max)).array() != (P_.topLeftCorner(dx_max,dx_max)).array()).any() )
-    {
-      std::cout << "x:\n" << x_.block(0,0, xZ + len_features_, 1) << "\n";
-      std::cout << "P:\n" << P_.block(0, 0,xZ + len_features_, xZ + len_features_) << "\n";
-      return true;
-    }
-    else
-      return false;
-  }
-
-  inline bool BlowingUp() const
-  {
-    if ( ((x_).array() > 1e6).any() || ((P_).array() > 1e6).any())
-      return true;
-    else
-      return false;
-  }
-
-  inline bool NegativeDepth() const
-  {
-    for (int i = 0; i < len_features_; i++)
-    {
-      int xRHO_i = (int)xZ+5*i+4;
-      if (x_(xRHO_i,0) < 0)
-        return true;
-    }
-    return false;
-  }
-
-  inline int global_to_local_feature_id(const int global_id) const
-  {
-    int dist = std::distance(current_feature_ids_.begin(), std::find(current_feature_ids_.begin(), current_feature_ids_.end(), global_id));
-    if (dist < current_feature_ids_.size())
-    {
-      return dist;
-    }
-    else
-    {
-         return -1;
-    }
-  }
+  // Errors  
+  bool NaNsInTheHouse() const;
+  bool BlowingUp() const;
+  bool NegativeDepth() const;
   
-  void handle_debug(int line_number);
+  // Helpers
+  int global_to_local_feature_id(const int global_id) const;
 
+  
+  // Getters and Setters
   VectorXd get_depths() const;
   MatrixXd get_zetas() const;
   MatrixXd get_qzetas() const;
@@ -280,8 +257,9 @@ public:
   void boxminus(const xVector& x1, const xVector &x2, dxVector& out) const;
   void step(const uVector& u, const double t);
   void propagate(const uVector& u, const double t);
+  void propagate_Image();
   void dynamics(const xVector &x, const uVector& u, dxVector& xdot, dxMatrix& dfdx, dxuMatrix& dfdu);
-  void dynamics(const xVector &x, const uVector& u);
+  void dynamics(const xVector &x, const uVector& u, bool state = true, bool jac = true);
 
   // Measurement Updates
   bool update(const VectorXd& z, const measurement_type_t& meas_type, const MatrixXd& R, bool active=false, const int id=-1, const double depth=NAN);
@@ -300,6 +278,8 @@ public:
   void keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N);
   void keyframe_reset();
   void register_keyframe_reset_callback(std::function<void(void)> cb);
+  
+  // Logger
   void log_global_position(const eVector truth_global_transform);
   void log_depth(const int id, double zhat, bool active);
 

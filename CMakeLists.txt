@@ -36,8 +36,16 @@ include_directories(
 )
 
 add_library(vi_ekf
-  src/vi_ekf.cpp
+  src/vi_ekf/vi_ekf.cpp
+  src/vi_ekf/vi_ekf_helper.cpp
+  src/vi_ekf/vi_ekf_feat.cpp
+  src/vi_ekf/vi_ekf_log.cpp
+  src/vi_ekf/vi_ekf_meas.cpp
+  src/vi_ekf/vi_ekf_error.cpp
+  src/vi_ekf/vi_ekf_kfr.cpp
+  src/vi_ekf/vi_ekf_dyn.cpp
   include/vi_ekf.h
+  src/math_helper.cpp
   include/math_helper.h
   include/quat.h
 )

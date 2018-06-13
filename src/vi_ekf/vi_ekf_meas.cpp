@@ -3,13 +3,13 @@
 namespace vi_ekf
 {
 
-bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
-                   const MatrixXd& R, bool active, const int id, const double depth)
+VIEKF::update_return_code_t VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
+    const MatrixXd& R, bool active, const int id, const double depth)
 {
   double start = now();
   
   if ((z.array() != z.array()).any())
-    return true;
+    return INVALID_MEASUREMENT;
   
   // If this is a new feature, initialize it
   if (meas_type == FEAT && id >= 0)
@@ -17,7 +17,7 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
     if (std::find(current_feature_ids_.begin(), current_feature_ids_.end(), id) == current_feature_ids_.end())
     {
       init_feature(z, id, depth);
-      return true; // Don't do a measurement update this time
+      return NEW_FEATURE; // Don't do a measurement update this time
     }
   }
   
@@ -26,7 +26,6 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
   NAN_CHECK;
   
   zhat_.setZero();
-  H_.setZero();
   K_.setZero();
   
   (this->*(measurement_functions[meas_type]))(x_, zhat_, H_, id);
@@ -49,9 +48,15 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
     residual.topRows(z_dim) = z - zhat_.topRows(z_dim);
   }
   
-  NAN_CHECK;
+  double mahal = residual.topRows(z_dim).transpose() * R.inverse() * residual.topRows(z_dim);
   
-  if (active)
+  if (meas_type == FEAT && mahal > 9.0)
+  {
+    cout << "dropping feature " << id << " mahal = " << mahal << ", res = " << residual.topRows(2).transpose() << ",  z = " << 
+            z.transpose() << ", zhat = " << zhat_.topRows(2).transpose() << "\n";
+  }
+  
+  if (active && mahal <= 9.0)
   {
     K_.leftCols(z_dim) = P_ * H_.topRows(z_dim).transpose() * (R + H_.topRows(z_dim)*P_ * H_.topRows(z_dim).transpose()).inverse();
     NAN_CHECK;
@@ -95,14 +100,16 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
     }
     else
     {
-      
       (*log_.stream)[LOG_MEAS] << measurement_names[meas_type] << "\t" << prev_t_-start_t_ << "\t"
-                               << z.transpose() << "\t" << zhat_.topRows(z.rows()).transpose() << "\t" << id << "\t" << active << "\n";
-      
+                               << z.transpose() << "\t" << zhat_.topRows(z.rows()).transpose() << "\t" << id << "\t" << active << "\n"; 
     }
   }
   log_.update_times[meas_type] = now() - start;
-  return false;
+  
+  if (mahal > 9.0)
+    return MEASUREMENT_GATED;
+  else
+    return OKAY;
 }
 
 

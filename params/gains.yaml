@@ -32,7 +32,7 @@ lambda_feat: [1.0, 1.0, 0.7],
 
 ## Sensor Noise
 depth_R: 0.5,
-feat_R: [10.0, 10.0],
+feat_R: [5.0, 5.0],
 acc_R_drag: [0.5, 0.5],
 acc_R_grav: [0.75, 0.75, 0.75],
 att_R: [0.01, 0.01, 0.01],

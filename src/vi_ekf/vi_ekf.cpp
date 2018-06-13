@@ -62,6 +62,8 @@ void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<doub
   
   K_.setZero();
   H_.setZero();
+  imu_sum_.setZero();
+  imu_count_ = 0; 
 }
 
 void VIEKF::set_x0(const Matrix<double, xZ, 1>& _x0)
@@ -172,7 +174,13 @@ void VIEKF::propagate_Image()
   imu_sum_ /= (double)imu_count_;
   
   // Update covariance over the interval
-//  dynamics(x_, imu_sum_, false, true);   
+//  std::cout << "dt = " << dt << " imu_sum: " << imu_sum_.transpose() << "\n";
+  dynamics(x_, imu_sum_, false, true);
+  int dx = dxZ+3*len_features_;
+  P_.topLeftCorner(dx, dx) += (A_.topLeftCorner(dx, dx) * P_.topLeftCorner(dx, dx) 
+                               + P_.topLeftCorner(dx, dx) * A_.topLeftCorner(dx, dx).transpose() 
+                               + G_.topRows(dx) * Qu_ * G_.topRows(dx).transpose()
+                               + Qx_.topLeftCorner(dx, dx) ) * dt;
 
   
   // zero out imu counters
@@ -180,7 +188,7 @@ void VIEKF::propagate_Image()
   imu_count_ = 0;
 }
 
-void VIEKF::propagate(const uVector &u, const double t)
+void VIEKF::propagate_IMU(const uVector &u, const double t)
 {
   double start = now();
   
@@ -201,14 +209,14 @@ void VIEKF::propagate(const uVector &u, const double t)
   
   // update the state, but not the covariance
   dynamics(x_, u, true, false);
+  
   NAN_CHECK;
   boxplus(x_, dx_*dt, xp_);
   x_ = xp_;
-  int dx = dxZ+3*len_features_;
-  P_.topLeftCorner(dx, dx) += (A_.topLeftCorner(dx, dx) * P_.topLeftCorner(dx, dx) 
-                               + P_.topLeftCorner(dx, dx) * A_.topLeftCorner(dx, dx).transpose() 
-                               + G_.topRows(dx) * Qu_ * G_.topRows(dx).transpose()
-                               + Qx_.topLeftCorner(dx, dx) ) * dt;
+  
+  static int count = 0;
+  if (count++ % 5 == 0)
+    propagate_Image();
   
   NAN_CHECK;
   

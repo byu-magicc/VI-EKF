@@ -13,7 +13,7 @@ VIEKF_ROS::VIEKF_ROS() :
   
   image_sub_ = it_.subscribe("color", 10, &VIEKF_ROS::color_image_callback, this);
   depth_sub_ = it_.subscribe("depth", 10, &VIEKF_ROS::depth_image_callback, this);
-//  output_pub_ = it_.advertise("tracked", 1);
+  output_pub_ = it_.advertise("tracked", 1);
 //  cov_img_pub_ = it_.advertise("covariance", 1);
   
   std::string log_directory, feature_mask;
@@ -167,7 +167,7 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
   
   // Propagate filter
   ekf_mtx_.lock();
-  ekf_.propagate(imu_, msg->header.stamp.toSec());
+  ekf_.propagate_IMU(imu_, msg->header.stamp.toSec());
   ekf_mtx_.unlock();
   
   // update accelerometer measurement
@@ -265,7 +265,7 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
   
   ekf_mtx_.lock();
   // Propagate the covariance
-//  ekf_.propagate_Image();
+  ekf_.propagate_Image();
   // Set which features we are keeping
   ekf_.keep_only_features(ids_);
   ekf_mtx_.unlock();
@@ -284,28 +284,34 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
     z_feat_ << features_[i].x, features_[i].y;
     z_depth_ << depth;
     ekf_mtx_.lock();
-    bool new_feature = ekf_.update(z_feat_, vi_ekf::VIEKF::FEAT, feat_R_, use_features_, ids_[i], (use_depth_) ? depth : NAN);
-    if (!new_feature && got_depth_ && !(depth != depth))
-        ekf_.update(z_depth_, vi_ekf::VIEKF::DEPTH, depth_R_, use_depth_, ids_[i]);
-    if (depth != depth)
-      ekf_.log_depth(ids_[i], depth, false);
-    
+    vi_ekf::VIEKF::update_return_code_t code;
+    code = ekf_.update(z_feat_, vi_ekf::VIEKF::FEAT, feat_R_, use_features_, ids_[i], (use_depth_) ? depth : NAN);
+    if (code == vi_ekf::VIEKF::OKAY)
+    {
+      if (got_depth_ && (depth == depth))
+          ekf_.update(z_depth_, vi_ekf::VIEKF::DEPTH, depth_R_, use_depth_, ids_[i]);
+      if (depth != depth)
+        ekf_.log_depth(ids_[i], depth, false);
+    }
+//    else if (code == vi_ekf::VIEKF::MEASUREMENT_GATED)
+//    {
+//      klt_tracker_.drop_feature(ids_[i]);
+//    }   
     ekf_mtx_.unlock();   
-  }
     
-//    // Draw depth and position of tracked features
-//    z_feat_ = ekf_.get_feat(ids_[i]);
-//    circle(img_, features_[i], 5, Scalar(0,255,0));
-//    circle(img_, Point(z_feat_.x(), z_feat_.y()), 5, Scalar(255, 0, 255));
-//    double h_true = 50.0 /depth;
-//    double h_est = 50.0 /ekf_.get_depth(ids_[i]);
-//    rectangle(img_, Point(x-h_true, y-h_true), Point(x+h_true, y+h_true), Scalar(0, 255, 0));
-//    rectangle(img_, Point(z_feat_.x()-h_est, z_feat_.y()-h_est), Point(z_feat_.x()+h_est, z_feat_.y()+h_est), Scalar(255, 0, 255));
-//  }
-//  if (record_video_)
-//    video_ << img_;
-//  sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img_).toImageMsg();
-//  output_pub_.publish(img_msg);
+    // Draw depth and position of tracked features
+    z_feat_ = ekf_.get_feat(ids_[i]);
+    circle(img_, features_[i], 5, Scalar(0,255,0));
+    circle(img_, Point(z_feat_.x(), z_feat_.y()), 5, Scalar(255, 0, 255));
+    double h_true = 50.0 /depth;
+    double h_est = 50.0 /ekf_.get_depth(ids_[i]);
+    rectangle(img_, Point(x-h_true, y-h_true), Point(x+h_true, y+h_true), Scalar(0, 255, 0));
+    rectangle(img_, Point(z_feat_.x()-h_est, z_feat_.y()-h_est), Point(z_feat_.x()+h_est, z_feat_.y()+h_est), Scalar(255, 0, 255));
+  }
+  if (record_video_)
+    video_ << img_;
+  sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img_).toImageMsg();
+  output_pub_.publish(img_msg);
 }
 
 void VIEKF_ROS::depth_image_callback(const sensor_msgs::ImageConstPtr &msg)

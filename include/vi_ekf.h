@@ -119,6 +119,13 @@ public:
     TOTAL_MEAS
   } measurement_type_t;
   
+  typedef enum{
+    OKAY,
+    NEW_FEATURE,
+    MEASUREMENT_GATED,
+    INVALID_MEASUREMENT
+  } update_return_code_t;
+  
   typedef struct{
     eVector transform;
     Matrix3d cov;    
@@ -256,13 +263,13 @@ public:
   void boxplus(const xVector &x, const dxVector &dx, xVector &out) const;
   void boxminus(const xVector& x1, const xVector &x2, dxVector& out) const;
   void step(const uVector& u, const double t);
-  void propagate(const uVector& u, const double t);
+  void propagate_IMU(const uVector& u, const double t);
   void propagate_Image();
   void dynamics(const xVector &x, const uVector& u, dxVector& xdot, dxMatrix& dfdx, dxuMatrix& dfdu);
   void dynamics(const xVector &x, const uVector& u, bool state = true, bool jac = true);
 
   // Measurement Updates
-  bool update(const VectorXd& z, const measurement_type_t& meas_type, const MatrixXd& R, bool active=false, const int id=-1, const double depth=NAN);
+  update_return_code_t update(const VectorXd& z, const measurement_type_t& meas_type, const MatrixXd& R, bool active=false, const int id=-1, const double depth=NAN);
   void h_acc(const xVector& x, zVector& h, hMatrix& H, const int id) const;
   void h_alt(const xVector& x, zVector& h, hMatrix& H, const int id) const;
   void h_att(const xVector& x, zVector& h, hMatrix& H, const int id) const;

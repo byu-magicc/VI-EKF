@@ -76,6 +76,12 @@ def f_s(zeta):
 def jac_s(zeta):
     return khat.T.dot(np.eye(3))
 
+def f_f(zeta, w, rho, v, dt):
+    return f_dyn(zeta, w, rho, v, dt)
+
+def jac_f(zeta, w, rho, v, dt):
+    z1 = f_f(zeta, w, rho, v, dt)
+    return zeta.dot(scipy.linalg.pinv(z1))
 
 def f_m(zeta):
     return np.arccos(f_s(zeta)) * f_l(zeta)
@@ -101,8 +107,8 @@ def f_r(zeta, w, rho, v, dt):
 def jac_r(zeta, w, rho, v, dt):
     return skew(khat).dot(jac_delta(zeta, w, rho, v, dt))
 
-
-
+def f_dist(eta, w, rho, v, dt, K, Kinv):
+    return f_pi(f_dyn(f_pi_inv(eta, Kinv), w, rho, v, dt), K)
 
 def jac_p(zeta, w):
     out = np.zeros((3,3))
@@ -148,8 +154,8 @@ if __name__ == '__main__':
     eq_test("Inv Proj Function", f_pi(f_pi_inv(eta,Kinv), K), eta)
 
     # Check jacobians of projection functions
-    # jac_test("Proj Jacobian", f_pi, 3, zeta, J_pi(zeta,K), args=[K])
-    # jac_test("Inv Proj Jacobian", f_pi_inv, 2, eta, J_pi_inv(eta,K), args=[K])
+    jac_test("Proj Jacobian", f_pi, 3, zeta, J_pi(zeta,K), args=[K])
+    jac_test("Inv Proj Jacobian", f_pi_inv, 2, eta, J_pi_inv(eta,K), args=[K])
 
     # Check that with no inputs the dynamics are static
     w = v = np.zeros((3,1))
@@ -161,20 +167,23 @@ if __name__ == '__main__':
     jac_test("s(zeta)", f_s, 3, zeta, jac_s(zeta))
     jac_test("m(zeta)", f_m, 3, zeta, jac_m(zeta))
 
-    # v = np.random.random((3,1))
-    # w = np.random.random((3,1))
+    v = np.random.random((3,1))
+    w = np.random.random((3,1))
     jac_test("p(zeta)", f_p, 3, zeta, jac_p(zeta, w), args=[w])
     jac_test("del(zeta)", f_delta, 3, zeta, jac_delta(zeta, w, p, v, dt), args=[w, p, v, dt])
     jac_test("r(zeta)", f_r, 3, zeta, jac_r(zeta, w, p, v, dt), args=[w, p, v, dt])
 
     eq_test("r_eq", f_r(zeta, w, p, v, dt), Quaternion.exp(-(np.eye(3) - zeta.dot(zeta.T)).dot(w + p*skew(zeta).dot(v)) * dt).R.dot(khat))
     eq_test("dyn_eq", f_dyn(zeta, w, p, v, dt), qz(zeta).R.T.dot(f_r(zeta, w, p, v, dt)), dec=2)
-    jac_test("dyn", f_dyn, 3, zeta, jac_dyn(zeta, w, p, v, dt), args=[w, p, v, dt])
+    jac_test("f(zeta)", f_f, 3, zeta, jac_f(zeta, w, p, v, dt), args=[w, p, v, dt])
 
 
+    # jac_test("D", f_dist, 2, eta, np.zeros((2,2)), args=[w, p, v, dt, K, Kinv])
 
 
-
+    z0 = zeta.copy()
+    z1 = f_dyn(zeta, w, p, v, dt)
+    F = z0.dot(scipy.linalg.pinv(z1))
 
 
     print(BOLD(FGRN("[ALL TESTS PASSED]")))

@@ -14,9 +14,9 @@ VIEKF::update_return_code_t VIEKF::update(const VectorXd& z, const measurement_t
   // If this is a new feature, initialize it
   if (meas_type == FEAT && id >= 0)
   {
-    if (std::find(current_feature_ids_.begin(), current_feature_ids_.end(), id) == current_feature_ids_.end())
+    if (global_to_local_feature_id(id) == -1)
     {
-      init_feature(z, id, depth);
+      init_feature(z, depth);
       return NEW_FEATURE; // Don't do a measurement update this time
     }
   }

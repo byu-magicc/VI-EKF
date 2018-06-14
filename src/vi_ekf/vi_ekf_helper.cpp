@@ -32,10 +32,14 @@ void VIEKF::boxminus(const xVector &x1, const xVector &x2, dxVector &out) const
 
 int VIEKF::global_to_local_feature_id(const int global_id) const
 {
-  int dist = std::distance(current_feature_ids_.begin(), std::find(current_feature_ids_.begin(), current_feature_ids_.end(), global_id));
-  if (dist < current_feature_ids_.size())
+  int i = 0;
+  while ( i != features_.size() && features_[i].global_id != global_id)
   {
-    return dist;
+    i++;
+  }
+  if (i < features_.size())
+  {
+    return i;
   }
   else
   {
@@ -71,6 +75,13 @@ void VIEKF::fix_depth()
       x_(xRHO_i, 0) = 1.0/(2.0*min_depth_);
     }
   }
+}
+
+void VIEKF::cv2Patch(const Mat& img, const pixVector& eta, PatchVector& patch) const
+{
+  (void) img;
+  (void) eta;
+  (void) patch;
 }
 
 }

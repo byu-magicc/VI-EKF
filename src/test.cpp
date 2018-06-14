@@ -153,7 +153,7 @@ VIEKF init_jacobians_test(xVector& x0, uVector& u0)
     Vector2d l;
     l << std::rand()%640, std::rand()%480;
     double depth = static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/10.0));
-    ekf.init_feature(l, i, depth);
+    ekf.init_feature(l, depth);
   }
   // Recover the new state to return
   x0 = ekf.get_state();

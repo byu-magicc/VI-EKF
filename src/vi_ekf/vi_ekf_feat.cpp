@@ -3,7 +3,7 @@
 namespace vi_ekf 
 {
 
-bool VIEKF::init_feature(const Vector2d& l, const PatchMatrix &patch, const double depth)
+bool VIEKF::init_feature(const pixVector& l, const double depth=NAN)
 {
   // If we already have a full set of features, we can't do anything about this new one
   if (len_features_ >= NUM_FEATURES)
@@ -25,8 +25,12 @@ bool VIEKF::init_feature(const Vector2d& l, const PatchMatrix &patch, const doub
     init_depth = 2.0 * min_depth_;
   }
   
-  // Increment feature counters
-  current_feature_ids_.push_back(next_feature_id_);
+  // Create a new feature object and add it to the features list
+  PatchVector patch;
+  cv2Patch(img_, l, patch);
+  double quality = calculate_quality(patch);
+  feature_t new_feature = {patch, quality, 0u, next_feature_id_ };
+  features_.push_back(new_feature);
   next_feature_id_ += 1;
   len_features_ += 1;
   
@@ -47,12 +51,12 @@ bool VIEKF::init_feature(const Vector2d& l, const PatchMatrix &patch, const doub
 }
 
 
-void VIEKF::clear_feature(const int id)
+void VIEKF::clear_feature_state(const int id)
 {
   int local_feature_id = global_to_local_feature_id(id);
   int xZETA_i = xZ + 5 * local_feature_id;
   int dxZETA_i = dxZ + 3 * local_feature_id;
-  current_feature_ids_.erase(current_feature_ids_.begin() + local_feature_id);
+  features_.erase(features_.begin() + local_feature_id);
   len_features_ -= 1;
   int dx_max = dxZ+3*len_features_;
   int x_max = xZ+5*len_features_;
@@ -73,68 +77,74 @@ void VIEKF::clear_feature(const int id)
   NAN_CHECK;
 }
 
-
-void VIEKF::keep_only_features(const vector<int> features)
+double VIEKF::calculate_quality(const PatchVector &I)
 {
-  std::vector<int> features_to_remove;
-  int num_overlapping_features = 0;
-  for (int local_id = 0; local_id < current_feature_ids_.size(); local_id++)
-  {
-    // See if we should keep this feature
-    bool keep_feature = false;
-    for (int i = 0; i < features.size(); i++)
-    {
-      if (current_feature_ids_[local_id] == features[i])
-      {
-        keep_feature = true;
-        if (keyframe_reset_)
-        {
-          // See if it overlaps with our keyframe features
-          for (int j = 0; j < keyframe_features_.size(); j++)
-          {
-            if (keyframe_features_[j] == features[i])
-            {
-              num_overlapping_features++;
-              break;
-            }
-          }
-        }
-        break;
-      }
-    }
-    if (!keep_feature)
-    {
-      features_to_remove.push_back(current_feature_ids_[local_id]);
-    }
-  }
-  for (int i = 0; i < features_to_remove.size(); i++)
-  {
-    clear_feature(features_to_remove[i]);
-  }
-  
-  if (keyframe_reset_ && keyframe_features_.size() > 0 
-      && (double)num_overlapping_features / (double)keyframe_features_.size() < keyframe_overlap_threshold_)
-  {
-    // perform keyframe reset
-    keyframe_reset();
-    // rebuild the list of features for overlap detection
-    keyframe_features_.resize(features.size());
-    for (int i = 0; i < features.size(); i++)
-    {
-      keyframe_features_[i] = features[i];
-    }
-  }
-  else if (keyframe_reset_ && keyframe_features_.size() == 0)
-  {    
-    // build the list of features for overlap detection
-    keyframe_features_.resize(features.size());
-    for (int i = 0; i < features.size(); i++)
-    {
-      keyframe_features_[i] = features[i];
-    }
-  }
-  
-  NAN_CHECK;
+  (void)I;
+  return 0.0;
 }
+
+
+//void VIEKF::keep_only_features(const vector<int> features)
+//{
+//  std::vector<int> features_to_remove;
+//  int num_overlapping_features = 0;
+//  for (int local_id = 0; local_id < current_feature_ids_.size(); local_id++)
+//  {
+//    // See if we should keep this feature
+//    bool keep_feature = false;
+//    for (int i = 0; i < features.size(); i++)
+//    {
+//      if (current_feature_ids_[local_id] == features[i])
+//      {
+//        keep_feature = true;
+//        if (keyframe_reset_)
+//        {
+//          // See if it overlaps with our keyframe features
+//          for (int j = 0; j < keyframe_features_.size(); j++)
+//          {
+//            if (keyframe_features_[j] == features[i])
+//            {
+//              num_overlapping_features++;
+//              break;
+//            }
+//          }
+//        }
+//        break;
+//      }
+//    }
+//    if (!keep_feature)
+//    {
+//      features_to_remove.push_back(current_feature_ids_[local_id]);
+//    }
+//  }
+//  for (int i = 0; i < features_to_remove.size(); i++)
+//  {
+//    clear_feature_state(features_to_remove[i]);
+//  }
+  
+//  if (keyframe_reset_ && keyframe_features_.size() > 0 
+//      && (double)num_overlapping_features / (double)keyframe_features_.size() < keyframe_overlap_threshold_)
+//  {
+//    // perform keyframe reset
+//    keyframe_reset();
+//    // rebuild the list of features for overlap detection
+//    keyframe_features_.resize(features.size());
+//    for (int i = 0; i < features.size(); i++)
+//    {
+//      keyframe_features_[i] = features[i];
+//    }
+//  }
+//  else if (keyframe_reset_ && keyframe_features_.size() == 0)
+//  {    
+//    // build the list of features for overlap detection
+//    keyframe_features_.resize(features.size());
+//    for (int i = 0; i < features.size(); i++)
+//    {
+//      keyframe_features_[i] = features[i];
+//    }
+//  }
+  
+//  NAN_CHECK;
+//}
 
 }

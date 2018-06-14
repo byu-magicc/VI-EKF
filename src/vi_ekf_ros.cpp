@@ -267,7 +267,7 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
   // Propagate the covariance
   ekf_.propagate_Image();
   // Set which features we are keeping
-  ekf_.keep_only_features(ids_);
+//  ekf_.keep_only_features(ids_);
   ekf_mtx_.unlock();
   
   for (int i = 0; i < features_.size(); i++)

@@ -44,6 +44,7 @@ using namespace cv;
 #define MAX_X 17+NUM_FEATURES*5
 #define MAX_DX 16+NUM_FEATURES*3
 #define PATCH_SIZE 6
+#define PYRAMID_LEVELS 2
 
 typedef Matrix<double, MAX_X, 1> xVector;
 typedef Matrix<double, MAX_DX, 1> dxVector;
@@ -53,7 +54,9 @@ typedef Matrix<double, MAX_DX, 6> dxuMatrix;
 typedef Matrix<double, 6, 1> uVector;
 typedef Matrix<double, 7, 1> eVector;
 typedef Matrix<double, 4, 1> zVector;
-typedef Matrix<double, PATCH_SIZE, PATCH_SIZE> PatchMatrix;
+typedef Matrix<double, 2, 1> pixVector;
+typedef Matrix<double, PATCH_SIZE*PATCH_SIZE*PYRAMID_LEVELS, 1> PatchVector;
+typedef Matrix<double, PATCH_SIZE*PATCH_SIZE*PYRAMID_LEVELS, 2> PatchJacMatrix;
 typedef Matrix<double, 3, MAX_DX> hMatrix;
 
 namespace vi_ekf
@@ -163,41 +166,42 @@ private:
   Matrix3d P0_feat_;
 
   // Internal bookkeeping variables
-  double prev_t_;
-  double start_t_;
+  double prev_t_; // Used for calculating propagation time in IMU updates
+  double start_t_; // Records the start time of the filter 
   
   // Feature Tracker Parameters
-  std::vector<int> keyframe_features_; // which features are in the current frame, which were also in frame at the last keyframe
-  double keyframe_overlap_threshold_; // when to declare a new keyframe
-  
-  // This defines a feature object - and all the associated information for a feature
   typedef struct
   {
-    PatchMatrix PatchIntensity;
+    PatchVector PatchIntensity;
     double quality;
     uint32_t frames;
     uint32_t global_id;
-  } feature_t;
+  } feature_t;   // This defines a feature object - and all the associated information for a feature
   std::vector<feature_t> features_; // The current features in the filter
   
-  
-  int len_features_; // How many features are in the filter
-  int next_feature_id_; // What the next global id is to assign to a feature
+  uint32_t len_features_; // How many features are in the filter
+  uint32_t next_feature_id_; // What the next global id is to assign to a feature
 //  std::vector<int> current_feature_ids_; // 
   uint32_t feature_nearby_radius_; // the distance between features
   
+  // Image Processing Variables
   Mat img_; // a greyscale, undistorted image
   Mat mask_; // The distortion mask
   Mat point_mask_; // Space to hold the point mask when looking for new features
+  
+  // Camera Intrinsics and Extrinsics
+  Vector2d cam_center_;
+  Matrix<double, 2, 3> cam_F_;
+  Quat q_b_c_;
+  Vector3d p_b_c_;
   
   // Used for delayed covariance update
   double prev_image_t_; // The time of the previous covariance update
   uVector imu_sum_; // The integrated IMU (input) since the last covariance update
   int imu_count_; // The number of imu messages since the last covariance update (used for finding the average input over the interval)
   
-  std::deque<edge_SE2_t> edges_;
-
-  // Matrix Workspace
+  // Matrix Workspace - dynamically allocating memory for Eigen is super slow.  So pre-allocate as much as possible,
+  // and reuse the workspace
   dxMatrix A_;
   dxuMatrix G_;
   dxVector dx_;
@@ -214,18 +218,15 @@ private:
   bool keyframe_reset_;
   bool partial_update_;
   double min_depth_;
-
-  // Camera Intrinsics and Extrinsics
-  Vector2d cam_center_;
-  Matrix<double, 2, 3> cam_F_;
-  Quat q_b_c_;
-  Vector3d p_b_c_;
   
-  eVector current_node_global_pose_;
-  
+  // Keyframing and Global Pose Reconstruction
+  std::vector<int> keyframe_features_; // which features are in the current frame, which were also in frame at the last keyframe
+  double keyframe_overlap_threshold_; // when to declare a new keyframe
+  std::deque<edge_SE2_t> edges_; // The list of transforms between keyframes
+  eVector current_node_global_pose_; // The current global pose calculated by concatenating the edges
   std::function<void(void)> keyframe_reset_callback_;
 
-  // Log Stuff
+  // Logging
   typedef struct
   {
     std::vector<std::ofstream>* stream = nullptr;
@@ -261,7 +262,7 @@ public:
   
   // Helpers
   int global_to_local_feature_id(const int global_id) const;
-
+  void cv2Patch(const Mat& img, const pixVector& eta, PatchVector& patch) const;
   
   // Getters and Setters
   VectorXd get_depths() const;
@@ -281,11 +282,17 @@ public:
   bool get_drag_term() {return use_drag_term_;}
 
   // Feature Tracking
-  void update_image(Mat& img);
-  void set_image(Mat& img);
+  bool init_feature(const pixVector& l, const double depth);
+  void set_image_mask(const Mat& img) { img.copyTo(mask_); }
+  void image_update(const Mat& img, const double t);
+  update_return_code_t iterated_feature_update(const int id);
+  void sample_pixels(const Quat& qz, const Matrix3d& cov, std::vector<pixVector>& eta) const;
   bool get_new_features();
+  void patch_error(const pixVector& etahat, const PatchVector& I, const PatchVector& I0, PatchVector& e, PatchJacMatrix& J) const;
   void clear_feature_state(const int id);
-  void keep_only_features(const std::vector<int> features);
+  void manage_features();
+  double calculate_quality(const PatchVector& I);
+//  void keep_only_features(const std::vector<int> features);
 
   // State Propagation
   void boxplus(const xVector &x, const dxVector &dx, xVector &out) const;

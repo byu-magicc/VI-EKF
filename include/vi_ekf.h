@@ -287,8 +287,7 @@ public:
   void image_update(const Mat& img, const double t);
   update_return_code_t iterated_feature_update(const int id);
   void sample_pixels(const Quat& qz, const Matrix3d& cov, std::vector<pixVector>& eta) const;
-  bool get_new_features();
-  void patch_error(const pixVector& etahat, const PatchVector& I, const PatchVector& I0, PatchVector& e, PatchJacMatrix& J) const;
+  void patch_error(const pixVector& etahat, const PatchVector& I0, PatchVector& e, PatchJacMatrix& J) const;
   void clear_feature_state(const int id);
   void manage_features();
   double calculate_quality(const PatchVector& I);

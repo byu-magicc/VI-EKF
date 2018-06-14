@@ -83,6 +83,37 @@ double VIEKF::calculate_quality(const PatchVector &I)
   return 0.0;
 }
 
+void VIEKF::image_update(const Mat& img, const double t)
+{
+  (void)img;
+  (void)t;
+}
+
+VIEKF::update_return_code_t VIEKF::iterated_feature_update(const int id)
+{
+  (void)id;
+}
+
+void VIEKF::sample_pixels(const Quat& qz, const Matrix3d& cov, std::vector<pixVector>& eta) const
+{
+  (void)qz;
+  (void)cov;
+  (void)eta;
+}
+
+void VIEKF::manage_features()
+{
+  
+}
+
+void VIEKF::patch_error(const pixVector &etahat, const PatchVector &I0, PatchVector &e, PatchJacMatrix &J) const
+{
+  (void)etahat;
+  (void)I0;
+  (void)e;
+  (void)J;
+}
+
 
 //void VIEKF::keep_only_features(const vector<int> features)
 //{

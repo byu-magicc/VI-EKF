@@ -255,7 +255,7 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
   }
   
   if (invert_image_)
-    cv::flip(cv_ptr_->image, img_, -1);
+    cv::flip(cv_ptr_->image, img_, ROTATE_180);
   else
     cv_ptr_->image.copyTo(img_);
   
@@ -432,6 +432,11 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att, ros::Time time)
   ekf_mtx_.lock();
   ekf_.update(z_alt_, vi_ekf::VIEKF::ALT, alt_R_, !truth_active);
   ekf_mtx_.unlock();
+}
+
+void VIEKF_ROS::plot_features()
+{
+  
 }
 
 

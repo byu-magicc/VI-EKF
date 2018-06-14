@@ -40,6 +40,8 @@ public:
   void imu_callback(const sensor_msgs::ImuConstPtr& msg);
   void keyframe_reset_callback();
   
+  void plot_features();
+  
 private:
 
   int num_features_;

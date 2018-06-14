@@ -16,6 +16,9 @@ void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<doub
   Qx_.block<(int)dxZ, (int)dxZ>(0,0) = Qx.asDiagonal();
   lambda_.block<(int)dxZ, 1>(0,0) = lambda;
   
+  patches_.clear();
+  patches_.reserve(NUM_FEATURES);
+  
   for (int i = 0; i < NUM_FEATURES; i++)
   {
     P_.block<3,3>(dxZ+3*i, dxZ+3*i) = P0_feat.asDiagonal();

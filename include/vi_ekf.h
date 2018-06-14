@@ -5,11 +5,13 @@
 
 #include <deque>
 #include <set>
-#include <map>
+#include <unordered_map>
 #include <functional>
 #include <fstream>
 #include <chrono>
 #include <iostream>
+#include <opencv2/opencv.hpp>
+#include <opencv2/highgui.hpp>
 
 #include "quat.h"
 #include "math_helper.h"
@@ -17,6 +19,7 @@
 using namespace quat;
 using namespace std;
 using namespace Eigen;
+using namespace cv;
 
 #define NO_NANS(mat) (mat.array() == mat.array()).all()
 
@@ -40,6 +43,7 @@ using namespace Eigen;
 
 #define MAX_X 17+NUM_FEATURES*5
 #define MAX_DX 16+NUM_FEATURES*3
+#define PATCH_SIZE 6
 
 typedef Matrix<double, MAX_X, 1> xVector;
 typedef Matrix<double, MAX_DX, 1> dxVector;
@@ -49,6 +53,7 @@ typedef Matrix<double, MAX_DX, 6> dxuMatrix;
 typedef Matrix<double, 6, 1> uVector;
 typedef Matrix<double, 7, 1> eVector;
 typedef Matrix<double, 4, 1> zVector;
+typedef Matrix<double, PATCH_SIZE, PATCH_SIZE> PatchMatrix;
 typedef Matrix<double, 3, MAX_DX> hMatrix;
 
 namespace vi_ekf
@@ -160,15 +165,35 @@ private:
   // Internal bookkeeping variables
   double prev_t_;
   double start_t_;
-  int len_features_;
-  int next_feature_id_;
-  std::vector<int> current_feature_ids_;
-  std::vector<int> keyframe_features_;
-  double keyframe_overlap_threshold_;
   
-  double prev_image_t_;
-  uVector imu_sum_;
-  int imu_count_;
+  // Feature Tracker Parameters
+  std::vector<int> keyframe_features_; // which features are in the current frame, which were also in frame at the last keyframe
+  double keyframe_overlap_threshold_; // when to declare a new keyframe
+  
+  // This defines a feature object - and all the associated information for a feature
+  typedef struct
+  {
+    PatchMatrix PatchIntensity;
+    double quality;
+    uint32_t frames;
+    uint32_t global_id;
+  } feature_t;
+  std::vector<feature_t> features_; // The current features in the filter
+  
+  
+  int len_features_; // How many features are in the filter
+  int next_feature_id_; // What the next global id is to assign to a feature
+//  std::vector<int> current_feature_ids_; // 
+  uint32_t feature_nearby_radius_; // the distance between features
+  
+  Mat img_; // a greyscale, undistorted image
+  Mat mask_; // The distortion mask
+  Mat point_mask_; // Space to hold the point mask when looking for new features
+  
+  // Used for delayed covariance update
+  double prev_image_t_; // The time of the previous covariance update
+  uVector imu_sum_; // The integrated IMU (input) since the last covariance update
+  int imu_count_; // The number of imu messages since the last covariance update (used for finding the average input over the interval)
   
   std::deque<edge_SE2_t> edges_;
 
@@ -255,8 +280,11 @@ public:
   void set_drag_term(const bool use_drag_term) {use_drag_term_ = use_drag_term;}
   bool get_drag_term() {return use_drag_term_;}
 
-  bool init_feature(const Vector2d &l, const int id, const double depth=-1.0);
-  void clear_feature(const int id);
+  // Feature Tracking
+  void update_image(Mat& img);
+  void set_image(Mat& img);
+  bool get_new_features();
+  void clear_feature_state(const int id);
   void keep_only_features(const std::vector<int> features);
 
   // State Propagation

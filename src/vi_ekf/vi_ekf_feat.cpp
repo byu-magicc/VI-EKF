@@ -3,7 +3,7 @@
 namespace vi_ekf 
 {
 
-bool VIEKF::init_feature(const Vector2d& l, const int id, const double depth)
+bool VIEKF::init_feature(const Vector2d& l, const PatchMatrix &patch, const double depth)
 {
   // If we already have a full set of features, we can't do anything about this new one
   if (len_features_ >= NUM_FEATURES)

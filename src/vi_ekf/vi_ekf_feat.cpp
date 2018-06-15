@@ -26,8 +26,8 @@ bool VIEKF::init_feature(const pixVector& l, const double depth=NAN)
   }
   
   // Create a new feature object and add it to the features list
-  PatchVector patch;
-  cv2Patch(img_, l, patch);
+  multiPatchVectorI patch;
+  multiLvlPatch(l, patch);
   double quality = calculate_quality(patch);
   feature_t new_feature = {patch, quality, 0u, next_feature_id_ };
   features_.push_back(new_feature);
@@ -77,7 +77,7 @@ void VIEKF::clear_feature_state(const int id)
   NAN_CHECK;
 }
 
-double VIEKF::calculate_quality(const PatchVector &I)
+double VIEKF::calculate_quality(const multiPatchVectorI &I)
 {
   (void)I;
   return 0.0;
@@ -106,7 +106,7 @@ void VIEKF::manage_features()
   
 }
 
-void VIEKF::patch_error(const pixVector &etahat, const PatchVector &I0, PatchVector &e, PatchJacMatrix &J) const
+void VIEKF::patch_error(const pixVector &etahat, const multiPatchVectorI &I0, multiPatchVectorD &e, multiPatchJacMatrix &J) const
 {
   (void)etahat;
   (void)I0;

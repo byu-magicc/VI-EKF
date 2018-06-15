@@ -60,6 +60,11 @@ add_executable(vi_ekf_test
 )
 target_link_libraries(vi_ekf_test ${GTEST_LIBRARIES} ${OpenCV_LIBS} pthread vi_ekf)
 
+add_executable(vi_ekf_cvtest
+    src/cvtest.cpp
+)
+target_link_libraries(vi_ekf_cvtest ${GTEST_LIBRARIES} ${OpenCV_LIBS} pthread vi_ekf)
+
 add_library(vi_ekf_ros
   src/vi_ekf_ros.cpp
   include/vi_ekf_ros.h

@@ -12,6 +12,7 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui.hpp>
+#include <opencv2/core/eigen.hpp>
 
 #include "quat.h"
 #include "math_helper.h"
@@ -43,7 +44,7 @@ using namespace cv;
 
 #define MAX_X 17+NUM_FEATURES*5
 #define MAX_DX 16+NUM_FEATURES*3
-#define PATCH_SIZE 6
+#define PATCH_SIZE 24
 #define PYRAMID_LEVELS 2
 
 typedef Matrix<double, MAX_X, 1> xVector;
@@ -55,8 +56,11 @@ typedef Matrix<double, 6, 1> uVector;
 typedef Matrix<double, 7, 1> eVector;
 typedef Matrix<double, 4, 1> zVector;
 typedef Matrix<double, 2, 1> pixVector;
-typedef Matrix<double, PATCH_SIZE*PATCH_SIZE*PYRAMID_LEVELS, 1> PatchVector;
-typedef Matrix<double, PATCH_SIZE*PATCH_SIZE*PYRAMID_LEVELS, 2> PatchJacMatrix;
+typedef Matrix<uint8_t, PATCH_SIZE, PATCH_SIZE> patchMat;
+typedef Matrix<uint8_t, PATCH_SIZE*PATCH_SIZE*PYRAMID_LEVELS, 1> multiPatchVectorI;
+typedef Matrix<uint8_t, PATCH_SIZE, PATCH_SIZE*PYRAMID_LEVELS> multiPatchMatrixI;
+typedef Matrix<double, PATCH_SIZE*PATCH_SIZE*PYRAMID_LEVELS, 1> multiPatchVectorD;
+typedef Matrix<double, PATCH_SIZE*PATCH_SIZE*PYRAMID_LEVELS, 2> multiPatchJacMatrix;
 typedef Matrix<double, 3, MAX_DX> hMatrix;
 
 namespace vi_ekf
@@ -172,7 +176,7 @@ private:
   // Feature Tracker Parameters
   typedef struct
   {
-    PatchVector PatchIntensity;
+    multiPatchVectorI PatchIntensity;
     double quality;
     uint32_t frames;
     uint32_t global_id;
@@ -185,7 +189,7 @@ private:
   uint32_t feature_nearby_radius_; // the distance between features
   
   // Image Processing Variables
-  Mat img_; // a greyscale, undistorted image
+  Mat img_[PYRAMID_LEVELS]; // the pyramid of greyscale, undistorted images
   Mat mask_; // The distortion mask
   Mat point_mask_; // Space to hold the point mask when looking for new features
   
@@ -262,7 +266,10 @@ public:
   
   // Helpers
   int global_to_local_feature_id(const int global_id) const;
-  void cv2Patch(const Mat& img, const pixVector& eta, PatchVector& patch) const;
+  void cv2Patch(const Mat& img, const pixVector& eta, patchMat& patch) const;
+  void multiLvlPatch(const pixVector& eta, multiPatchVectorI& patch) const;
+  void multiLvlPatchSideBySide(multiPatchVectorI &src, multiPatchMatrixI& dst) const;
+  void multiLvlPatchToCv(multiPatchVectorI& src, Mat& dst) const;
   
   // Getters and Setters
   VectorXd get_depths() const;
@@ -282,15 +289,16 @@ public:
   bool get_drag_term() {return use_drag_term_;}
 
   // Feature Tracking
+  void set_image(const Mat& mat);
   bool init_feature(const pixVector& l, const double depth);
   void set_image_mask(const Mat& img) { img.copyTo(mask_); }
   void image_update(const Mat& img, const double t);
   update_return_code_t iterated_feature_update(const int id);
   void sample_pixels(const Quat& qz, const Matrix3d& cov, std::vector<pixVector>& eta) const;
-  void patch_error(const pixVector& etahat, const PatchVector& I0, PatchVector& e, PatchJacMatrix& J) const;
+  void patch_error(const pixVector& etahat, const multiPatchVectorI& I0, multiPatchVectorD& e, multiPatchJacMatrix& J) const;
   void clear_feature_state(const int id);
   void manage_features();
-  double calculate_quality(const PatchVector& I);
+  double calculate_quality(const multiPatchVectorI& I);
 //  void keep_only_features(const std::vector<int> features);
 
   // State Propagation

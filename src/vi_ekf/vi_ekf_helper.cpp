@@ -77,11 +77,51 @@ void VIEKF::fix_depth()
   }
 }
 
-void VIEKF::cv2Patch(const Mat& img, const pixVector& eta, PatchVector& patch) const
+void VIEKF::set_image(const Mat &grey)
 {
-  (void) img;
-  (void) eta;
-  (void) patch;
+  // Build multilevel image
+  img_[0] = grey;
+  for (int i = 1; i < PYRAMID_LEVELS; i++)
+  {
+    pyrDown( img_[i-1], img_[i], Size( img_[i-1].cols/2, img_[i-1].rows/2 ) );
+  }
+}
+
+void VIEKF::multiLvlPatch(const pixVector &eta, multiPatchVectorI& dst) const
+{
+  int x = std::round(eta(0,0));
+  int y = std::round(eta(1,0));
+  Size sz(PATCH_SIZE, PATCH_SIZE);
+  for (int i = 0; i < PYRAMID_LEVELS; i++)
+  {
+    Point tl(x - PATCH_SIZE/2, y - PATCH_SIZE/2);
+    x /= 2;
+    y /= 2;
+    Mat ROI = img_[i](Rect(tl, sz));
+    
+    // Convert to Eigen, but just the part that we want to update
+    const Mat _dst(PATCH_SIZE, PATCH_SIZE, traits::Type<uint8_t>::value, 
+                   dst.data() + i*PATCH_SIZE*PATCH_SIZE, PATCH_SIZE);
+    if( ROI.type() == _dst.type() )
+        transpose(ROI, _dst);
+    else
+    {
+        ROI.convertTo(_dst, _dst.type());
+        transpose(_dst, _dst);
+    }
+  }
+}
+
+void VIEKF::multiLvlPatchSideBySide(multiPatchVectorI& src, multiPatchMatrixI& dst) const
+{
+   dst = Eigen::Map<multiPatchMatrixI>(src.data());
+}
+
+void VIEKF::multiLvlPatchToCv(multiPatchVectorI& src, Mat& dst) const
+{
+  multiPatchMatrixI side_by_side;
+  multiLvlPatchSideBySide(src, side_by_side);
+  eigen2cv(side_by_side, dst);
 }
 
 }

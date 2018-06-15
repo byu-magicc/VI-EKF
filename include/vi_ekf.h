@@ -44,7 +44,7 @@ using namespace cv;
 
 #define MAX_X 17+NUM_FEATURES*5
 #define MAX_DX 16+NUM_FEATURES*3
-#define PATCH_SIZE 24
+#define PATCH_SIZE 6
 #define PYRAMID_LEVELS 2
 
 typedef Matrix<double, MAX_X, 1> xVector;

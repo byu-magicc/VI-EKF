@@ -50,20 +50,10 @@ add_library(vi_ekf
   include/quat.h
 )
 
-add_library(klt_tracker
-  src/klt_tracker.cpp
-  include/klt_tracker.h
-)
-
 add_executable(vi_ekf_test
     src/test.cpp
 )
 target_link_libraries(vi_ekf_test ${GTEST_LIBRARIES} ${OpenCV_LIBS} pthread vi_ekf)
-
-add_executable(vi_ekf_cvtest
-    src/cvtest.cpp
-)
-target_link_libraries(vi_ekf_cvtest ${GTEST_LIBRARIES} ${OpenCV_LIBS} pthread vi_ekf)
 
 add_library(vi_ekf_ros
   src/vi_ekf_ros.cpp
@@ -74,7 +64,6 @@ target_link_libraries(vi_ekf_ros
   ${catkin_LIBRARIES}
   ${OpenCV_LIBS}
   vi_ekf
-  klt_tracker
 )
 
 add_executable(vi_ekf_node

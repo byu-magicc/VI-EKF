@@ -2,6 +2,16 @@
 
 namespace vi_ekf
 {
+
+/**
+ * @brief VIEKF::dynamics
+ * A wrapper to the dynamics for use in jacobians testing
+ * @param x
+ * @param u
+ * @param xdot
+ * @param dfdx
+ * @param dfdu
+ */
 void VIEKF::dynamics(const xVector &x, const uVector &u, dxVector &xdot, dxMatrix &dfdx, dxuMatrix &dfdu)
 {
   dynamics(x, u);
@@ -10,7 +20,16 @@ void VIEKF::dynamics(const xVector &x, const uVector &u, dxVector &xdot, dxMatri
   dfdu = G_;
 }
 
-
+/**
+ * @brief VIEKF::dynamics
+ * calculates the dynamics and state jacobians. xdot = f(x,u)
+ * To prevent dynamic memory allocation, xdot gets put into the dx_ variable
+ * while df/dx goes to the A_ variable and df/du goes into the G_ variable
+ * @param x - state
+ * @param u - input
+ * @param state - whether to compute state dynamics (default = true)
+ * @param jac - whether to compute state jacobians (default = true)
+ */
 void VIEKF::dynamics(const xVector& x, const uVector &u, bool state, bool jac)
 {
   if (state)

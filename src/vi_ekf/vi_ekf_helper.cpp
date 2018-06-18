@@ -3,7 +3,12 @@
 namespace vi_ekf
 {
 
-
+/**
+ * @brief VIEKF::boxplus
+ * @param x 
+ * @param dx
+ * @param out = x [+] dx
+ */
 void VIEKF::boxplus(const xVector& x, const dxVector& dx, xVector& out) const
 {
   out.block<6,1>((int)xPOS, 0) = x.block<6,1>((int)xPOS, 0) + dx.block<6,1>((int)dxPOS, 0);
@@ -16,6 +21,12 @@ void VIEKF::boxplus(const xVector& x, const dxVector& dx, xVector& out) const
   }
 }
 
+/**
+ * @brief VIEKF::boxminus
+ * @param x1
+ * @param x2
+ * @param out = x1 [-] x2
+ */
 void VIEKF::boxminus(const xVector &x1, const xVector &x2, dxVector &out) const
 {
   out.block<6,1>((int)dxPOS, 0) = x1.block<6,1>((int)xPOS, 0) - x2.block<6,1>((int)xPOS, 0);
@@ -29,7 +40,11 @@ void VIEKF::boxminus(const xVector &x1, const xVector &x2, dxVector &out) const
   }
 }
 
-
+/**
+ * @brief VIEKF::global_to_local_feature_id
+ * @param global_id
+ * @return the local id (the index of the feature in the state)
+ */
 int VIEKF::global_to_local_feature_id(const int global_id) const
 {
   int i = 0;
@@ -47,6 +62,11 @@ int VIEKF::global_to_local_feature_id(const int global_id) const
   }
 }
 
+/**
+ * @brief VIEKF::fix_depth
+ * Applies the inequality constraint per "Avoiding Negative Depth 
+ * in Inverse Depth Bearing-Only SLAM" by Parsley and Julier
+ */
 void VIEKF::fix_depth()
 {
   // Apply an Inequality Constraint per
@@ -77,9 +97,17 @@ void VIEKF::fix_depth()
   }
 }
 
+/**
+ * @brief VIEKF::set_image
+ * Builds the multilevel image from the supplied image, and saves it
+ * as a class member variable
+ * @param grey a greyscale image
+ */
 void VIEKF::set_image(const Mat &grey)
 {
   // Build multilevel image
+  ASSERT(grey.type() == CV_32FC1, "requires CV_32FC1 type image");
+  
   img_[0] = grey;
   for (int i = 1; i < PYRAMID_LEVELS; i++)
   {
@@ -87,41 +115,76 @@ void VIEKF::set_image(const Mat &grey)
   }
 }
 
-void VIEKF::multiLvlPatch(const pixVector &eta, multiPatchVectorI& dst) const
+
+/**
+ * @brief VIEKF::multiLvlPatch
+ * Creates a multilevel patch vector from the multilevel image stored in the class
+ * surrounding the pixel eta.
+ * @param eta
+ * @param dst
+ */
+void VIEKF::multiLvlPatch(const pixVector &eta, multiPatchVectorf& dst) const
 {
-  int x = std::round(eta(0,0));
-  int y = std::round(eta(1,0));
+  float x = eta(0,0);
+  float y = eta(1,0);
+  ASSERT(x > PATCH_SIZE/2 && x < img_[0].cols - PATCH_SIZE/2, "requested patch outside of image");
+  ASSERT(y > PATCH_SIZE/2 && y < img_[0].rows - PATCH_SIZE/2, "requested patch outside of image");
+  
   Size sz(PATCH_SIZE, PATCH_SIZE);
   for (int i = 0; i < PYRAMID_LEVELS; i++)
   {
-    Point tl(x - PATCH_SIZE/2, y - PATCH_SIZE/2);
-    x /= 2;
-    y /= 2;
-    Mat ROI = img_[i](Rect(tl, sz));
+    Mat ROI;
+    getRectSubPix(img_[i], sz, Point2f(x,y), ROI, CV_32FC1);
+    x /= 2.0;
+    y /= 2.0;
     
     // Convert to Eigen, but just the part that we want to update
-    const Mat _dst(PATCH_SIZE, PATCH_SIZE, traits::Type<uint8_t>::value, 
-                   dst.data() + i*PATCH_SIZE*PATCH_SIZE, PATCH_SIZE);
+    const Mat _dst(PATCH_SIZE, PATCH_SIZE, CV_32FC1, dst.data() + i * PATCH_SIZE*PATCH_SIZE, PATCH_SIZE * sizeof(float));
     if( ROI.type() == _dst.type() )
-        transpose(ROI, _dst);
+      transpose(ROI, _dst);
     else
     {
-        ROI.convertTo(_dst, _dst.type());
-        transpose(_dst, _dst);
+      ROI.convertTo(_dst, _dst.type());
+      transpose(_dst, _dst);
     }
   }
 }
 
-void VIEKF::multiLvlPatchSideBySide(multiPatchVectorI& src, multiPatchMatrixI& dst) const
+/**
+ * @brief VIEKF::extractLvlfromPatch
+ * Extracts a single level from the multilevel patch vector as a square patch matrix
+ * @param src
+ * @param level
+ * @param dst
+ */
+void VIEKF::extractLvlfromPatch(multiPatchVectorf &src, const uint32_t level, patchMat &dst) const
 {
-   dst = Eigen::Map<multiPatchMatrixI>(src.data());
+//  ASSERT(level < PYRAMID_LEVELS, "requested too large pyramid level");    
+//  dst = Eigen::Map<patchMat>(src.data() + PATCH_SIZE*PATCH_SIZE*level)  ;
 }
 
-void VIEKF::multiLvlPatchToCv(multiPatchVectorI& src, Mat& dst) const
+/**
+ * @brief VIEKF::multiLvlPatchSideBySide
+ * builds an Eigen matrix of the patches levels side by side
+ * @param src
+ * @param dst
+ */
+void VIEKF::multiLvlPatchSideBySide(multiPatchVectorf& src, multiPatchMatrixf& dst) const
 {
-  multiPatchMatrixI side_by_side;
-  multiLvlPatchSideBySide(src, side_by_side);
-  eigen2cv(side_by_side, dst);
+//   dst = Eigen::Map<multiPatchMatrixI>(src.data());
+}
+
+/**
+ * @brief VIEKF::multiLvlPatchToCv
+ * Creates an opencv array of the patch levels so you can view it
+ * @param src
+ * @param dst
+ */
+void VIEKF::multiLvlPatchToCv(multiPatchVectorf& src, Mat& dst) const
+{
+//  multiPatchMatrixI side_by_side;
+//  multiLvlPatchSideBySide(src, side_by_side);
+//  eigen2cv(side_by_side, dst);
 }
 
 }

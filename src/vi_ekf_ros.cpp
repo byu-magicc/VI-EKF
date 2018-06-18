@@ -167,7 +167,7 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
   
   // Propagate filter
   ekf_mtx_.lock();
-  ekf_.propagate_IMU(imu_, msg->header.stamp.toSec());
+  ekf_.propagate_state(imu_, msg->header.stamp.toSec());
   ekf_mtx_.unlock();
   
   // update accelerometer measurement
@@ -265,7 +265,7 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
   
   ekf_mtx_.lock();
   // Propagate the covariance
-  ekf_.propagate_Image();
+  ekf_.propagate_cov();
   // Set which features we are keeping
 //  ekf_.keep_only_features(ids_);
   ekf_mtx_.unlock();

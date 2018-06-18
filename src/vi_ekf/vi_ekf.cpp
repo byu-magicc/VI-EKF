@@ -166,7 +166,7 @@ Vector2d VIEKF::get_feat(const int id) const
   return cam_F_ * zeta / ezT_zeta + cam_center_;
 }
 
-void VIEKF::propagate_Image()
+void VIEKF::propagate_cov()
 {
   double dt = prev_t_ - prev_image_t_;
   prev_image_t_ = prev_t_;
@@ -175,7 +175,6 @@ void VIEKF::propagate_Image()
   imu_sum_ /= (double)imu_count_;
   
   // Update covariance over the interval
-//  std::cout << "dt = " << dt << " imu_sum: " << imu_sum_.transpose() << "\n";
   dynamics(x_, imu_sum_, false, true);
   int dx = dxZ+3*len_features_;
   P_.topLeftCorner(dx, dx) += (A_.topLeftCorner(dx, dx) * P_.topLeftCorner(dx, dx) 
@@ -189,7 +188,7 @@ void VIEKF::propagate_Image()
   imu_count_ = 0;
 }
 
-void VIEKF::propagate_IMU(const uVector &u, const double t)
+void VIEKF::propagate_state(const uVector &u, const double t)
 {
   double start = now();
   
@@ -217,7 +216,7 @@ void VIEKF::propagate_IMU(const uVector &u, const double t)
   
   static int count = 0;
   if (count++ % 5 == 0)
-    propagate_Image();
+    propagate_cov();
   
   NAN_CHECK;
   

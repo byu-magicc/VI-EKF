@@ -6,9 +6,7 @@ namespace vi_ekf
 
 void VIEKF::log_global_position(const eVector truth_global_transform) //Vector3d pos, const Vector4d att)
 { 
-  // cut off initial state from truth - for plotting comparison
-  //  concatenate_edges(invert_fed );
-  
+  // cut off initial state from truth - for plotting comparison  
   if (log_.stream)
   {  
     // Log Global Position Estimate

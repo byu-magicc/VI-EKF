@@ -3,14 +3,23 @@
 namespace vi_ekf 
 {
 
-bool VIEKF::init_feature(const pixVector& l, const double depth=NAN)
+/**
+ * @brief VIEKF::init_feature
+ * Initializes a new feature in the state.  qzeta is set using the inverse projection
+ * from the pixel location.  Optionally supplied depth will initialize the depth, otherwise
+ * depth will be initialized to the default (2*min_depth)
+ * @param l - pixel location
+ * @param depth - optional (default = NAN)
+ * @return false if unable to add feature, true if successfully added
+ */
+bool VIEKF::init_feature(const Vector2d& z, const double depth=NAN)
 {
   // If we already have a full set of features, we can't do anything about this new one
   if (len_features_ >= NUM_FEATURES)
     return false;
   
   // Adjust lambdas to be with respect to image center
-  Vector2d l_centered = l - cam_center_;
+  Vector2d l_centered = z - cam_center_;
   
   // Calculate Quaternion to Feature
   Vector3d zeta;
@@ -26,11 +35,12 @@ bool VIEKF::init_feature(const pixVector& l, const double depth=NAN)
   }
   
   // Create a new feature object and add it to the features list
-  multiPatchVectorI patch;
-  multiLvlPatch(l, patch);
-  double quality = calculate_quality(patch);
-  feature_t new_feature = {patch, quality, 0u, next_feature_id_ };
+  feature_t new_feature;
+  multiLvlPatch(z.cast<float>(), new_feature.PatchIntensity);
+  new_feature.quality = calculate_quality(new_feature.PatchIntensity);
   features_.push_back(new_feature);
+  new_feature.frames = 0u;
+  new_feature.global_id = next_feature_id_;
   next_feature_id_ += 1;
   len_features_ += 1;
   
@@ -50,7 +60,12 @@ bool VIEKF::init_feature(const pixVector& l, const double depth=NAN)
   return true;
 }
 
-
+/**
+ * @brief VIEKF::clear_feature_state
+ * Clears a feature by global id.  removes the associated rows out of the state vector
+ * as well as rows and columns from the covariance matrix
+ * @param id - global id of feature to remove
+ */
 void VIEKF::clear_feature_state(const int id)
 {
   int local_feature_id = global_to_local_feature_id(id);
@@ -77,41 +92,100 @@ void VIEKF::clear_feature_state(const int id)
   NAN_CHECK;
 }
 
-double VIEKF::calculate_quality(const multiPatchVectorI &I)
+
+/**
+ * @brief VIEKF::calculate_quality
+ * calculates the quality of the given patch
+ * @param I - multilevel patch vector
+ * @return quality level
+ */
+double VIEKF::calculate_quality(const multiPatchVectorf &I)
 {
   (void)I;
   return 0.0;
 }
 
+/**
+ * @brief VIEKF::image_update
+ * Main update function from an image - this performs the iterative
+ * update in the image and manages features
+ * @param img - new image
+ * @param t - current time in seconds
+ */
 void VIEKF::image_update(const Mat& img, const double t)
 {
   (void)img;
   (void)t;
 }
 
+/**
+ * @brief VIEKF::iterated_feature_update
+ * performs an iterated feature update of local feature id
+ * @param id - local feature id
+ * @return FEATURE_TRACKED - if the feature was tracked
+ *         FEATURE_LOST - if the feature was lost
+ */
 VIEKF::update_return_code_t VIEKF::iterated_feature_update(const int id)
 {
   (void)id;
 }
 
-void VIEKF::sample_pixels(const Quat& qz, const Matrix3d& cov, std::vector<pixVector>& eta) const
+/**
+ * @brief VIEKF::sample_pixels
+ * Takes a given bearing quaternion and associated covariance and samples pixels
+ * to start an iterated EKF update step with.
+ * @param qz Bearing Quaternion
+ * @param cov 2D covariance block of qz
+ * @param eta vector of pixel locations (length dependent on size of cov)
+ */
+void VIEKF::sample_pixels(const Quat& qz, const Matrix2d& cov, std::vector<pixVector>& eta) const
 {
   (void)qz;
   (void)cov;
   (void)eta;
+  
+  Eigen::SelfAdjointEigenSolver<Matrix2d> eigensolver(cov);
+  eigensolver.eigenvalues();
+  eigensolver.eigenvectors();
+  
+  
+  
 }
 
+/**
+ * @brief VIEKF::manage_features
+ * Tosses features if features have gotten too close together, finds
+ * new features if we need some new ones, Re-extracts patches if
+ * we have observed the same patch through several frames
+ */
 void VIEKF::manage_features()
 {
   
 }
 
-void VIEKF::patch_error(const pixVector &etahat, const multiPatchVectorI &I0, multiPatchVectorD &e, multiPatchJacMatrix &J) const
+/**
+ * @brief VIEKF::patch_error
+ * Calculates the error and jacobian between the multilevel patch at the current image
+ * and etahat.
+ * @param etahat - current estimated pixel location
+ * @param I0 - original intensities of the patch 
+ * @param e - intensity error
+ * @param J - de/detahat
+ */
+void VIEKF::patch_error(const pixVector &etahat, const multiPatchVectorf &I0, multiPatchVectorf &e, multiPatchJacMatrix &J) const
 {
-  (void)etahat;
-  (void)I0;
-  (void)e;
-  (void)J;
+  multiPatchVectorf Ip, Im;
+  multiLvlPatch(etahat, Ip);
+  
+  e = Ip - I0;
+  Matrix2f eye2 = Matrix2f::Identity();
+  // Perform central differencing
+  for (int i = 0; i < 2; i++)
+  {
+    multiLvlPatch(etahat + eye2.col(i), Ip);
+    multiLvlPatch(etahat - eye2.col(i), Im);
+    J.col(i) = ((Ip - I0) - (Im - I0))/2.0;
+  }
 }
 
 

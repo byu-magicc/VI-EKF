@@ -2,6 +2,7 @@
 
 #include "Eigen/Core"
 #include "Eigen/Geometry"
+#include "Eigen/Dense"
 
 #include <deque>
 #include <set>
@@ -28,10 +29,19 @@ using namespace cv;
 #define NAN_CHECK if (NaNsInTheHouse()) { std::cout << "NaNs In The House at line " << __LINE__ << "!!!\n"; exit(0); }
 #define NEGATIVE_DEPTH if (NegativeDepth()) std::cout << "Negative Depth " << __LINE__ << "!!!\n"
 #define CHECK_MAT_FOR_NANS(mat) if ((K_.array() != K_.array()).any()) { std::cout << "NaN detected in " << #mat << " at line " << __LINE__ << "!!!\n" << mat << "\n"; exit(0); }
+#define ASSERT(cond, message) \
+  { \
+    if (! (cond)) {\
+              std::cerr << "Assertion `" #cond "` failed in " << __FILE__ \
+                        << " line " << __LINE__ << ": " << message << std::endl; \
+              std::terminate(); \
+          } \
+  }
 //#else
 //#define NAN_CHECK {}
 //#define NEGATIVE_DEPTH {}
 //#define CHECK_MAT_FOR_NANS(mat) {}
+//#define ASSERT(condition, message) {}
 //#endif
 
 #ifndef NUM_FEATURES
@@ -55,11 +65,10 @@ typedef Matrix<double, MAX_DX, 6> dxuMatrix;
 typedef Matrix<double, 6, 1> uVector;
 typedef Matrix<double, 7, 1> eVector;
 typedef Matrix<double, 4, 1> zVector;
-typedef Matrix<double, 2, 1> pixVector;
+typedef Matrix<float, 2, 1> pixVector;
 typedef Matrix<uint8_t, PATCH_SIZE, PATCH_SIZE> patchMat;
-typedef Matrix<uint8_t, PATCH_SIZE*PATCH_SIZE*PYRAMID_LEVELS, 1> multiPatchVectorI;
-typedef Matrix<uint8_t, PATCH_SIZE, PATCH_SIZE*PYRAMID_LEVELS> multiPatchMatrixI;
-typedef Matrix<double, PATCH_SIZE*PATCH_SIZE*PYRAMID_LEVELS, 1> multiPatchVectorD;
+typedef Matrix<double, PATCH_SIZE*PATCH_SIZE*PYRAMID_LEVELS, 1> multiPatchVectorf;
+typedef Matrix<double, PATCH_SIZE, PATCH_SIZE*PYRAMID_LEVELS> multiPatchMatrixf;
 typedef Matrix<double, PATCH_SIZE*PATCH_SIZE*PYRAMID_LEVELS, 2> multiPatchJacMatrix;
 typedef Matrix<double, 3, MAX_DX> hMatrix;
 
@@ -135,7 +144,9 @@ public:
     OKAY,
     NEW_FEATURE,
     MEASUREMENT_GATED,
-    INVALID_MEASUREMENT
+    INVALID_MEASUREMENT,
+    FEATURE_LOST,
+    FEATURE_TRACKED
   } update_return_code_t;
   
   typedef struct{
@@ -176,7 +187,7 @@ private:
   // Feature Tracker Parameters
   typedef struct
   {
-    multiPatchVectorI PatchIntensity;
+    multiPatchVectorf PatchIntensity;
     double quality;
     uint32_t frames;
     uint32_t global_id;
@@ -259,7 +270,7 @@ public:
     return (double)now.count()*1e-6;
   }
 
-  // Errors  
+  // Errors
   bool NaNsInTheHouse() const;
   bool BlowingUp() const;
   bool NegativeDepth() const;
@@ -267,9 +278,10 @@ public:
   // Helpers
   int global_to_local_feature_id(const int global_id) const;
   void cv2Patch(const Mat& img, const pixVector& eta, patchMat& patch) const;
-  void multiLvlPatch(const pixVector& eta, multiPatchVectorI& patch) const;
-  void multiLvlPatchSideBySide(multiPatchVectorI &src, multiPatchMatrixI& dst) const;
-  void multiLvlPatchToCv(multiPatchVectorI& src, Mat& dst) const;
+  void multiLvlPatch(const pixVector& eta, multiPatchVectorf& patch) const;
+  void multiLvlPatchSideBySide(multiPatchVectorf &src, multiPatchMatrixf& dst) const;
+  void extractLvlfromPatch(multiPatchVectorf & src, const uint32_t level, patchMat& dst) const;
+  void multiLvlPatchToCv(multiPatchVectorf& src, Mat& dst) const;
   
   // Getters and Setters
   VectorXd get_depths() const;
@@ -290,23 +302,23 @@ public:
 
   // Feature Tracking
   void set_image(const Mat& mat);
-  bool init_feature(const pixVector& l, const double depth);
+  bool init_feature(const Vector2d &z, const double depth);
   void set_image_mask(const Mat& img) { img.copyTo(mask_); }
   void image_update(const Mat& img, const double t);
   update_return_code_t iterated_feature_update(const int id);
-  void sample_pixels(const Quat& qz, const Matrix3d& cov, std::vector<pixVector>& eta) const;
-  void patch_error(const pixVector& etahat, const multiPatchVectorI& I0, multiPatchVectorD& e, multiPatchJacMatrix& J) const;
+  void sample_pixels(const Quat& qz, const Matrix2d &cov, std::vector<pixVector>& eta) const;
+  void patch_error(const pixVector& etahat, const multiPatchVectorf& I0, multiPatchVectorf& e, multiPatchJacMatrix& J) const;
   void clear_feature_state(const int id);
   void manage_features();
-  double calculate_quality(const multiPatchVectorI& I);
+  double calculate_quality(const multiPatchVectorf& I);
 //  void keep_only_features(const std::vector<int> features);
 
   // State Propagation
   void boxplus(const xVector &x, const dxVector &dx, xVector &out) const;
   void boxminus(const xVector& x1, const xVector &x2, dxVector& out) const;
   void step(const uVector& u, const double t);
-  void propagate_IMU(const uVector& u, const double t);
-  void propagate_Image();
+  void propagate_state(const uVector& u, const double t);
+  void propagate_cov();
   void dynamics(const xVector &x, const uVector& u, dxVector& xdot, dxMatrix& dfdx, dxuMatrix& dfdu);
   void dynamics(const xVector &x, const uVector& u, bool state = true, bool jac = true);
 

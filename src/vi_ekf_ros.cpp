@@ -84,12 +84,6 @@ VIEKF_ROS::VIEKF_ROS() :
   is_flying_ = false; // Start out not flying
   ekf_.set_drag_term(false); // Start out not using the drag term
   
-  klt_tracker_.init(num_features_, false, feature_radius, cv::Size(image_size(0,0), image_size(1,0)));
-  if (!feature_mask.empty())
-  {
-    klt_tracker_.set_feature_mask(feature_mask);
-  }
-  
   // Initialize keyframe variables
   kf_att_ = Quat::Identity();
   kf_pos_.setZero();
@@ -244,6 +238,7 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
   if (!imu_init_)
     return;
   
+  // collect OpenCV image pointer from message
   try
   {
     cv_ptr_ = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
@@ -253,15 +248,16 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
     ROS_FATAL("cv_bridge exception: %s", e.what());
     return;
   }
-  
-  if (invert_image_)
-    cv::flip(cv_ptr_->image, img_, ROTATE_180);
+
+  // make image gray-scale so that following operations occur on single channel
+  if (cv_ptr_->image.channels() > 1)
+    cv::cvtColor(cv_ptr_->image, img_, COLOR_BGR2GRAY);
   else
     cv_ptr_->image.copyTo(img_);
   
-  
-  // Track Features in Image
-  klt_tracker_.load_image(img_, msg->header.stamp.toSec(), features_, ids_);
+  // if camera is upside down, invert for convenience
+  if (invert_image_)
+    cv::flip(img_, img_, ROTATE_180);
   
   ekf_mtx_.lock();
   // Propagate the covariance
@@ -293,10 +289,6 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
       if (depth != depth)
         ekf_.log_depth(ids_[i], depth, false);
     }
-//    else if (code == vi_ekf::VIEKF::MEASUREMENT_GATED)
-//    {
-//      klt_tracker_.drop_feature(ids_[i]);
-//    }   
     ekf_mtx_.unlock();   
     
     // Draw depth and position of tracked features

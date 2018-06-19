@@ -261,7 +261,8 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
     cv::flip(img_, img_, cv::ROTATE_180);
 
   // pass image to VIEKF class and manage the features
-  ekf_.image_update(img_, msg->header.stamp.toSec());
+  Matrix2d R_feat_;
+  ekf_.image_update(img_, R_feat_, msg->header.stamp.toSec());
   
   ekf_mtx_.lock();
   // Propagate the covariance

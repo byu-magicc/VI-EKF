@@ -90,21 +90,7 @@ VIEKF::update_return_code_t VIEKF::update(const VectorXd& z, const measurement_t
   NAN_CHECK;
   NEGATIVE_DEPTH;
   
-  log_.update_count[meas_type]++;
-  if (log_.stream && log_.update_count[meas_type] > 1)
-  {
-    log_.update_count[meas_type] = 0;
-    if (meas_type == DEPTH || meas_type == INV_DEPTH)
-    {
-      log_depth(id, zhat_(0,0), active);
-    }
-    else
-    {
-      (*log_.stream)[LOG_MEAS] << measurement_names[meas_type] << "\t" << prev_t_-start_t_ << "\t"
-                               << z.transpose() << "\t" << zhat_.topRows(z.rows()).transpose() << "\t" << id << "\t" << active << "\n"; 
-    }
-  }
-  log_.update_times[meas_type] = now() - start;
+  log_measurement(meas_type, z, active, id, now() - start);
   
   if (mahal > 9.0)
     return MEASUREMENT_GATED;

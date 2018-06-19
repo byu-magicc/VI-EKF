@@ -315,7 +315,7 @@ public:
   void set_image(const Mat& mat);
   bool init_feature(const Vector2d &z, const double depth);
   void set_image_mask(const Mat& img) { img.copyTo(mask_); }
-  void image_update(const Mat& img, const Matrix2f &R, const double t);
+  void image_update(const Mat& img, const Matrix2d &R, const double t);
   update_return_code_t iterated_feature_update(const int id, const Matrix2d &R);
   void sample_pixels(const Quat& qz, const Matrix2f &cov, std::vector<pixVector>& eta);
   void patch_error(const pixVector &etahat, const multiPatchVectorf &I0, multiPatchVectorf &e, multiPatchJacMatrix &J);
@@ -352,6 +352,7 @@ public:
   void register_keyframe_reset_callback(std::function<void(void)> cb);
   
   // Logger
+  void log_measurement(const measurement_type_t meas_type, const MatrixXd& z, const bool active, const int id, double time);
   void log_global_position(const eVector truth_global_transform);
   void log_depth(const int id, double zhat, bool active);
 

@@ -112,8 +112,10 @@ double VIEKF::calculate_quality(const multiPatchVectorf &I)
  * @param img - new image
  * @param t - current time in seconds
  */
-void VIEKF::image_update(const Mat& img, const Matrix2f& R, const double t)
+void VIEKF::image_update(const Mat& img, const Matrix2d& R, const double t)
 {
+  (void)t;
+  
   set_image(img);
   for (int i = 0; i < len_features_; i++)
   {
@@ -155,8 +157,6 @@ VIEKF::update_return_code_t VIEKF::iterated_feature_update(const int id, const M
   if (mask_.at<uint8_t>(eta0(0,0), eta0(1,0)) == 0)
     return FEATURE_LOST;
   
-  int min_patch_idx = 0;
-  double tol = 1e-2;
   multiPatchJacMatrix J;
   multiPatchVectorf e;
   
@@ -205,35 +205,29 @@ VIEKF::update_return_code_t VIEKF::iterated_feature_update(const int id, const M
       
       double mahal = r.transpose() * R.inverse().cast<float>() * r;
       
+      if (mahal > 9.0)
+        break;
+      
       // Perform an update step
-      if (mahal <= 9.0)
+      K_.leftCols(2) = P_ * H_.topRows(2).transpose() * (R + H_.topRows(2)*P_ * H_.topRows(2).transpose()).inverse();
+      
+        // NaNs in matrix, so don't update
+      if (!NO_NANS(K_) && !NO_NANS(H_))
+        break;
+      
+      boxplus(xs_[i], K_.leftCols(2) * r.cast<double>(), xp_);  
+      
+      // convergence calculation
+      eps = (xp_ - xs_[i]).norm();
+      if (eps < 1e-2)
       {
-        K_.leftCols(2) = P_ * H_.topRows(2).transpose() * (R + H_.topRows(2)*P_ * H_.topRows(2).transpose()).inverse();
-        
-        if (NO_NANS(K_) && NO_NANS(H_))
-        {
-          boxplus(xs_[i], K_.leftCols(2) * r.cast<double>(), xp_);  
-          // convergence calculation
-          eps = (xp_ - xs_[i]).norm();
-          if (eps < 1e-2)
-          {
-            done = true;
-            break;
-          }
-        }
-        else
-        {
-          // stop using this patch - it did bad things
-          break;
-        }
-      }
-      else
-      {
-        // Not a good measurement
+        done = true;
         break;
       }
+      
       iter++;
-    } while (!done && iter < 25 && std::abs(1.0 - current_err/prev_err) > 0.05);
+    } 
+    while (iter < 25 && std::abs(1.0 - current_err/prev_err) > 0.05);
     
     // If we converged, save the index
     if (done)

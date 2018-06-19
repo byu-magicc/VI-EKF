@@ -191,6 +191,7 @@ private:
   // Feature Tracker Parameters
   typedef struct
   {
+    Vector2f pix; // pixel position
     multiPatchVectorf PatchIntensity; // Stacked vector of intensities for all pyramid levels
     double quality; // Measure of combined quality for all pyramid level patches
     uint32_t frames; // Number of frames the feature has existed

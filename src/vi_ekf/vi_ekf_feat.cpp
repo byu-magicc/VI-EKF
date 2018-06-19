@@ -23,7 +23,7 @@ bool VIEKF::init_feature(const Vector2d& z, const double depth=NAN)
   
   // Calculate Quaternion to Feature
   Vector3d zeta;
-  zeta << l_centered(0), l_centered(1)*(cam_F_(1,1)/cam_F_(0,0)), cam_F_(0,0);
+  zeta << l_centered(0), l_centered(1)*(cam_F_(0,0)/cam_F_(1,1)), cam_F_(0,0);
   zeta.normalize();
   Vector4d qzeta = Quat::from_two_unit_vectors(e_z, zeta).elements();
   
@@ -137,7 +137,7 @@ void VIEKF::image_update(const Mat& img, const Matrix2d& R, const double t)
   {
     if (iterated_feature_update(i, R) != FEATURE_TRACKED)
     {
-      clear_feature_state(i);
+      clear_feature_state(features_[i].global_id);
     }
   }
   manage_features();
@@ -268,6 +268,7 @@ VIEKF::update_return_code_t VIEKF::iterated_feature_update(const int id, const M
         x_ = xs_[i];
         P_ = (I_big_ - K_.leftCols(2) * H_.topRows(2))*P_;
       }
+      features_[id].pix = pix_[i];
       NAN_CHECK;
       return FEATURE_TRACKED;
     }
@@ -341,9 +342,47 @@ void VIEKF::sample_pixels(const Quat& qz, const Matrix2f& cov, std::vector<Vecto
  */
 void VIEKF::manage_features()
 {
-  // check for features getting too close together (camera moving
-  // away from scene), if so keep those with better quality
+  // Check for features getting too close together (camera moving
+  // away from scene), if so keep the one with better quality
+  auto it1 = features_.begin();
+  while (it1 != features_.end())
+  {
+    bool hold_it1 = false;
+    auto it2 = features_.begin();
+    while (it2 != features_.end())
+    {
+      if (it1 == it2) // Don't compare feature with itself
+      {
+        ++it2;
+      }
+      else
+      {
+        if (((*it1).pix - (*it2).pix).norm() < feature_nearby_radius_)
+        {
+          if ((*it1).quality < (*it2).quality)
+          {
+            clear_feature_state((*it1).global_id);
+            hold_it1 = true;
+            break;
+          }
+          else
+          {
+            clear_feature_state((*it2).global_id);
+          }
+        }
+        else
+        {
+          ++it2;
+        }
+      }
+    }
+    if (!hold_it1)
+      ++it1;
+  }
+
+  // Update properties of current features
   
+  // Extract new features if needed
 }
 
 /**

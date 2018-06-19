@@ -8,7 +8,7 @@ namespace vi_ekf
  * Initializes a new feature in the state.  qzeta is set using the inverse projection
  * from the pixel location.  Optionally supplied depth will initialize the depth, otherwise
  * depth will be initialized to the default (2*min_depth)
- * @param l - pixel location
+ * @param z - pixel location
  * @param depth - optional (default = NAN)
  * @return false if unable to add feature, true if successfully added
  */
@@ -37,7 +37,7 @@ bool VIEKF::init_feature(const Vector2d& z, const double depth=NAN)
   // Create a new feature object and add it to the features list
   feature_t new_feature;
   multiLvlPatch(z.cast<float>(), new_feature.PatchIntensity);
-  new_feature.quality = calculate_quality(new_feature.PatchIntensity);
+  new_feature.quality = calculate_quality(z.cast<float>());
   features_.push_back(new_feature);
   new_feature.frames = 0u;
   new_feature.global_id = next_feature_id_;
@@ -96,13 +96,29 @@ void VIEKF::clear_feature_state(const int id)
 /**
  * @brief VIEKF::calculate_quality
  * calculates the quality of the given patch
- * @param I - multilevel patch vector
+ * @param eta - subpixel center of multilevel patch
  * @return quality level
  */
-double VIEKF::calculate_quality(const multiPatchVectorf &I)
+double VIEKF::calculate_quality(const pixVector &eta)
 {
-  (void)I;
-  return 0.0;
+  // Quality is based on the Hessian's eigenvalues. Good points have
+  // two large eigenvalues while edges have one large eigenvalue.
+  // Since points provide more information, they are preferred. The 
+  // 2-norm forces edges to be really good to be picked over good points.
+
+  // Compute multi-level patch gradient by central differencing
+  multiPatchJacMatrix J;
+  for (int i = 0; i < 2; i++)
+  {
+    multiLvlPatch(eta + I_2x2f.col(i), Ip_);
+    multiLvlPatch(eta - I_2x2f.col(i), Im_);
+    J.col(i) = (Ip_ - Im_)/2.0;
+  }
+
+  // Hessian of multi-level patch
+  Matrix2f H = J.transpose()*J;
+
+  return H.norm();
 }
 
 /**
@@ -171,8 +187,8 @@ VIEKF::update_return_code_t VIEKF::iterated_feature_update(const int id, const M
     xs_.push_back(x_);
     int iter = 0;
     bool done = false;
-    double prev_err = INFINITY;
     double current_err = INFINITY;
+    double prev_err;
     double min_error = INFINITY;
     int min_idx = -1;
     double eps = INFINITY;
@@ -181,9 +197,12 @@ VIEKF::update_return_code_t VIEKF::iterated_feature_update(const int id, const M
     // perform an iterated update
     do
     {
+      // store error from previous iteration
+      prev_err = current_err;
+
       // refresh the pixel location and associated jacobian
       Quat qzhati(xs_[i].block<4,1>(x_id, 0));
-      proj(qzhati, pix_[i], dpidqz, false);
+      proj(qzhati, pix_[i], dpidqz, true);
       
       // make sure we haven't made a huge jump
       if ((pix_[i] - pix_copy_[i]).norm() > PATCH_SIZE)
@@ -218,8 +237,8 @@ VIEKF::update_return_code_t VIEKF::iterated_feature_update(const int id, const M
       boxplus(xs_[i], K_.leftCols(2) * r.cast<double>(), xp_);  
       
       // convergence calculation
-      eps = (xp_ - xs_[i]).norm();
-      if (eps < 1e-2)
+      current_err = (xp_ - xs_[i]).norm();
+      if (current_err < 1e-2)
       {
         done = true;
         break;
@@ -322,6 +341,8 @@ void VIEKF::sample_pixels(const Quat& qz, const Matrix2f& cov, std::vector<Vecto
  */
 void VIEKF::manage_features()
 {
+  // check for features getting too close together (camera moving
+  // away from scene), if so keep those with better quality
   
 }
 

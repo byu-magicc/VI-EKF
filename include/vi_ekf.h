@@ -321,7 +321,7 @@ public:
   void patch_error(const pixVector &etahat, const multiPatchVectorf &I0, multiPatchVectorf &e, multiPatchJacMatrix &J);
   void clear_feature_state(const int id);
   void manage_features();
-  double calculate_quality(const multiPatchVectorf& I);
+  double calculate_quality(const pixVector &eta);
 //  void keep_only_features(const std::vector<int> features);
 
   // State Propagation

@@ -115,10 +115,10 @@ double VIEKF::calculate_quality(const pixVector &eta)
     J.col(i) = (Ip_ - Im_)/2.0;
   }
 
-  // Hessian of multi-level patch
-  Matrix2f H = J.transpose()*J;
-
-  return H.norm();
+  // Output 2-norm of the Hessian
+  // Eigen's norm computes the square root of the sum of absolute values 
+  // of elements which is greater than or equal to the maximum singular value
+  return (J.transpose()*J).norm();
 }
 
 /**

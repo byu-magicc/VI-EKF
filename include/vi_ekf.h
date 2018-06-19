@@ -202,7 +202,8 @@ private:
   uint32_t len_features_; // How many features are in the filter
   uint32_t next_feature_id_; // What the next global id is to assign to a feature
 //  std::vector<int> current_feature_ids_; // 
-  uint32_t feature_nearby_radius_; // the distance between features
+  uint32_t feature_min_radius_; // the minimum distance between features before consolidating them
+  uint32_t feature_detect_radius_; // the minimum distance between features at detection
   
   // Image Processing Variables
   Mat img_[PYRAMID_LEVELS]; // the pyramid of greyscale, undistorted images
@@ -271,7 +272,7 @@ public:
             Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,
             Vector3d& lambda_feat, Vector2d& cam_center, Vector2d& focal_len,
             Vector4d& q_b_c, Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, 
-            bool partial_update, bool use_keyframe_reset, double keyframe_overlap);
+            bool partial_update, bool use_keyframe_reset, double keyframe_overlap, int feature_min_radius, int feature_detect_radius);
   void init_logger(std::string root_filename);
 
   inline double now() const

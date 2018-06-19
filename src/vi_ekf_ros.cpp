@@ -58,7 +58,7 @@ VIEKF_ROS::VIEKF_ROS() :
   q_I_truth_.arr_ = q_I_truth;
   double depth_r, alt_r, keyframe_overlap;
   bool partial_update, keyframe_reset;
-  int feature_radius;
+  int feature_min_radius, feature_detect_radius;
   ROS_FATAL_COND(!nh_private_.getParam("depth_R", depth_r), "you need to specify the 'depth_R' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("alt_R", alt_r), "you need to specify the 'alt_R' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("min_depth", min_depth_), "you need to specify the 'min_depth' parameter");
@@ -70,7 +70,8 @@ VIEKF_ROS::VIEKF_ROS() :
   ROS_FATAL_COND(!nh_private_.getParam("drag_term", use_drag_term_), "you need to specify the 'drag_term' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("keyframe_reset", keyframe_reset), "you need to specify the 'keyframe_reset' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("keyframe_overlap", keyframe_overlap), "you need to specify the 'keyframe_overlap' parameter");
-  ROS_FATAL_COND(!nh_private_.getParam("feature_radius", feature_radius), "you need to specify the 'feature_radius' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("feature_radius", feature_min_radius), "you need to specify the 'feature_min_radius' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("feature_radius", feature_detect_radius), "you need to specify the 'feature_detect_radius' parameter");
   
   num_features_ = (num_features_ > NUM_FEATURES) ? NUM_FEATURES : num_features_;
   
@@ -78,7 +79,8 @@ VIEKF_ROS::VIEKF_ROS() :
   
   ekf_.init(x0, P0diag, Qxdiag, lambda, Qudiag, P0feat, Qxfeat, lambdafeat,
             cam_center, focal_len, q_b_c, p_b_c, min_depth_, log_directory, 
-            use_drag_term_, partial_update, keyframe_reset, keyframe_overlap);
+            use_drag_term_, partial_update, keyframe_reset, keyframe_overlap, 
+            feature_min_radius, feature_detect_radius);
   ekf_.register_keyframe_reset_callback(std::bind(&VIEKF_ROS::keyframe_reset_callback, this));
   
   is_flying_ = false; // Start out not flying

@@ -10,7 +10,7 @@ void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<doub
                  Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,
                  Vector3d& lambda_feat, Vector2d &cam_center, Vector2d &focal_len, Vector4d &q_b_c,
                  Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, bool partial_update,
-                 bool use_keyframe_reset, double keyframe_overlap)
+                 bool use_keyframe_reset, double keyframe_overlap, int feature_min_radius, int feature_detect_radius)
 {
   x_.block<(int)xZ, 1>(0,0) = x0;
   P_.block<(int)dxZ, (int)dxZ>(0,0) = P0.asDiagonal();
@@ -39,6 +39,8 @@ void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<doub
   
   len_features_ = 0;
   next_feature_id_ = 0;
+  feature_min_radius_ = feature_min_radius;
+  feature_detect_radius_ = feature_detect_radius;
   
   // set cam-to-body
   p_b_c_ = p_b_c;

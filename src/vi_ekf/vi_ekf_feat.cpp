@@ -357,7 +357,7 @@ void VIEKF::manage_features()
       }
       else
       {
-        if (((*it1).pix - (*it2).pix).norm() < feature_nearby_radius_)
+        if (((*it1).pix - (*it2).pix).norm() < feature_min_radius_)
         {
           if ((*it1).quality < (*it2).quality)
           {

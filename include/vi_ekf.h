@@ -191,10 +191,10 @@ private:
   // Feature Tracker Parameters
   typedef struct
   {
-    multiPatchVectorf PatchIntensity;
-    double quality;
-    uint32_t frames;
-    uint32_t global_id;
+    multiPatchVectorf PatchIntensity; // Stacked vector of intensities for all pyramid levels
+    double quality; // Measure of combined quality for all pyramid level patches
+    uint32_t frames; // Number of frames the feature has existed
+    uint32_t global_id; // Feature id relative to beginning of time
   } feature_t;   // This defines a feature object - and all the associated information for a feature
   std::vector<feature_t> features_; // The current features in the filter
   

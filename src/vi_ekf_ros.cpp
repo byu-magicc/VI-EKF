@@ -84,12 +84,6 @@ VIEKF_ROS::VIEKF_ROS() :
   is_flying_ = false; // Start out not flying
   ekf_.set_drag_term(false); // Start out not using the drag term
   
-  klt_tracker_.init(num_features_, false, feature_radius, cv::Size(image_size(0,0), image_size(1,0)));
-  if (!feature_mask.empty())
-  {
-    klt_tracker_.set_feature_mask(feature_mask);
-  }
-  
   // Initialize keyframe variables
   kf_att_ = Quat::Identity();
   kf_pos_.setZero();
@@ -244,24 +238,30 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
   if (!imu_init_)
     return;
   
+  // collect OpenCV image pointer from message
+  cv_bridge::CvImagePtr cv_ptr;
   try
   {
-    cv_ptr_ = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+    cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
   }
   catch (cv_bridge::Exception& e)
   {
     ROS_FATAL("cv_bridge exception: %s", e.what());
     return;
   }
-  
-  if (invert_image_)
-    cv::flip(cv_ptr_->image, img_, ROTATE_180);
+
+  // make image gray-scale so that following operations occur on single channel
+  if (cv_ptr->image.channels() > 1)
+    cv::cvtColor(cv_ptr->image, img_, cv::COLOR_BGR2GRAY);
   else
-    cv_ptr_->image.copyTo(img_);
+    cv_ptr->image.copyTo(img_);
   
-  
-  // Track Features in Image
-  klt_tracker_.load_image(img_, msg->header.stamp.toSec(), features_, ids_);
+  // if camera is upside down, invert for convenience
+  if (invert_image_)
+    cv::flip(img_, img_, cv::ROTATE_180);
+
+  // pass image to VIEKF class and manage the features
+  ekf_.image_update(img_, msg->header.stamp.toSec());
   
   ekf_mtx_.lock();
   // Propagate the covariance
@@ -270,10 +270,14 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
 //  ekf_.keep_only_features(ids_);
   ekf_mtx_.unlock();
   
-  for (int i = 0; i < features_.size(); i++)
+  for (int i = 0; i < ekf_.get_len_features(); i++)
   {
-    int x = round(features_[i].x);
-    int y = round(features_[i].y);
+    // get pixel location
+    Vector2d feature = ekf_.get_feat(i);
+    int x = round(feature(0));
+    int y = round(feature(1));
+    cv::Point2f cv_feat(x,y);
+
     // The depth image encodes depth in mm
     float depth = depth_image_.at<float>(y, x) * 1e-3;
     if (depth > 1e3)
@@ -281,7 +285,7 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
     else if (depth < min_depth_)
       depth = NAN;
     
-    z_feat_ << features_[i].x, features_[i].y;
+    z_feat_ << cv_feat.x, cv_feat.y;
     z_depth_ << depth;
     ekf_mtx_.lock();
     vi_ekf::VIEKF::update_return_code_t code;
@@ -293,24 +297,21 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
       if (depth != depth)
         ekf_.log_depth(ids_[i], depth, false);
     }
-//    else if (code == vi_ekf::VIEKF::MEASUREMENT_GATED)
-//    {
-//      klt_tracker_.drop_feature(ids_[i]);
-//    }   
     ekf_mtx_.unlock();   
     
     // Draw depth and position of tracked features
+    cv::cvtColor(img_, img_draw_, cv::COLOR_GRAY2BGR);
     z_feat_ = ekf_.get_feat(ids_[i]);
-    circle(img_, features_[i], 5, Scalar(0,255,0));
-    circle(img_, Point(z_feat_.x(), z_feat_.y()), 5, Scalar(255, 0, 255));
+    circle(img_draw_, cv_feat, 5, Scalar(0,255,0));
+    circle(img_draw_, Point(z_feat_.x(), z_feat_.y()), 5, Scalar(255, 0, 255));
     double h_true = 50.0 /depth;
     double h_est = 50.0 /ekf_.get_depth(ids_[i]);
-    rectangle(img_, Point(x-h_true, y-h_true), Point(x+h_true, y+h_true), Scalar(0, 255, 0));
-    rectangle(img_, Point(z_feat_.x()-h_est, z_feat_.y()-h_est), Point(z_feat_.x()+h_est, z_feat_.y()+h_est), Scalar(255, 0, 255));
+    rectangle(img_draw_, Point(x-h_true, y-h_true), Point(x+h_true, y+h_true), Scalar(0, 255, 0));
+    rectangle(img_draw_, Point(z_feat_.x()-h_est, z_feat_.y()-h_est), Point(z_feat_.x()+h_est, z_feat_.y()+h_est), Scalar(255, 0, 255));
   }
   if (record_video_)
-    video_ << img_;
-  sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img_).toImageMsg();
+    video_ << img_draw_;
+  sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img_draw_).toImageMsg();
   output_pub_.publish(img_msg);
 }
 

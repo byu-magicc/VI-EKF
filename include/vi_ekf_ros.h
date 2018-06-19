@@ -1,5 +1,4 @@
 #include "vi_ekf.h"
-#include "klt_tracker.h"
 
 #include <mutex>
 #include <deque>
@@ -63,7 +62,6 @@ private:
 
   std::mutex ekf_mtx_;
   vi_ekf::VIEKF ekf_;
-  KLT_Tracker klt_tracker_;
 
   cv::Mat depth_image_;
   bool got_depth_;
@@ -102,8 +100,8 @@ private:
   eVector global_transform_;
   sensor_msgs::Imu bias_msg_;
   
-  cv_bridge::CvImagePtr cv_ptr_;
-  Mat img_;
+  cv::Mat img_; // latest grayscale image
+  cv::Mat img_draw_; // color image with feature info. drawn on it
   std::vector<Point2f> features_;
   std::vector<int> ids_;
   

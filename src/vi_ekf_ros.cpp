@@ -25,6 +25,7 @@ VIEKF_ROS::VIEKF_ROS() :
   
   Eigen::Matrix<double, vi_ekf::VIEKF::xZ, 1> x0;
   Eigen::Matrix<double, vi_ekf::VIEKF::dxZ, 1> P0diag, Qxdiag, lambda;
+  Eigen::Matrix<double, 5, 1> dist_coeff;
   uVector Qudiag;
   Vector3d P0feat, Qxfeat, lambdafeat;
   Vector2d cam_center, focal_len;
@@ -43,6 +44,7 @@ VIEKF_ROS::VIEKF_ROS() :
   importMatrixFromParamServer(nh_private_, Qxfeat, "Qx_feat");
   importMatrixFromParamServer(nh_private_, cam_center, "cam_center");
   importMatrixFromParamServer(nh_private_, focal_len, "focal_len");
+  importMatrixFromParamServer(nh_private_, image_size, "image_size");
   importMatrixFromParamServer(nh_private_, q_b_c, "q_b_c");
   importMatrixFromParamServer(nh_private_, p_b_c, "p_b_c");
   importMatrixFromParamServer(nh_private_, feat_r_diag, "feat_R");
@@ -53,12 +55,12 @@ VIEKF_ROS::VIEKF_ROS() :
   importMatrixFromParamServer(nh_private_, vel_r_diag, "vel_R");
   importMatrixFromParamServer(nh_private_, q_b_IMU, "q_b_IMU");
   importMatrixFromParamServer(nh_private_, q_I_truth, "q_I_truth");
-  importMatrixFromParamServer(nh_private_, image_size, "image_size");
+  importMatrixFromParamServer(nh_private_, dist_coeff, "dist_coeff");
   q_b_IMU_.arr_ = q_b_IMU;
   q_I_truth_.arr_ = q_I_truth;
   double depth_r, alt_r, keyframe_overlap;
   bool partial_update, keyframe_reset;
-  int feature_min_radius, feature_detect_radius;
+  int feature_min_radius, feature_detect_radius, patch_refresh;
   ROS_FATAL_COND(!nh_private_.getParam("depth_R", depth_r), "you need to specify the 'depth_R' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("alt_R", alt_r), "you need to specify the 'alt_R' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("min_depth", min_depth_), "you need to specify the 'min_depth' parameter");
@@ -72,6 +74,7 @@ VIEKF_ROS::VIEKF_ROS() :
   ROS_FATAL_COND(!nh_private_.getParam("keyframe_overlap", keyframe_overlap), "you need to specify the 'keyframe_overlap' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("feature_radius", feature_min_radius), "you need to specify the 'feature_min_radius' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("feature_radius", feature_detect_radius), "you need to specify the 'feature_detect_radius' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("feature_radius", patch_refresh), "you need to specify the 'patch_refresh' parameter");
   
   num_features_ = (num_features_ > NUM_FEATURES) ? NUM_FEATURES : num_features_;
   
@@ -80,7 +83,7 @@ VIEKF_ROS::VIEKF_ROS() :
   ekf_.init(x0, P0diag, Qxdiag, lambda, Qudiag, P0feat, Qxfeat, lambdafeat,
             cam_center, focal_len, q_b_c, p_b_c, min_depth_, log_directory, 
             use_drag_term_, partial_update, keyframe_reset, keyframe_overlap, 
-            feature_min_radius, feature_detect_radius);
+            feature_min_radius, feature_detect_radius, patch_refresh, dist_coeff);
   ekf_.register_keyframe_reset_callback(std::bind(&VIEKF_ROS::keyframe_reset_callback, this));
   
   is_flying_ = false; // Start out not flying
@@ -266,50 +269,13 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
   Matrix2d R_feat_;
   ekf_.image_update(img_, R_feat_, msg->header.stamp.toSec());
   
-  ekf_mtx_.lock();
-  // Propagate the covariance
-  ekf_.propagate_cov();
-  // Set which features we are keeping
-//  ekf_.keep_only_features(ids_);
-  ekf_mtx_.unlock();
-  
   for (int i = 0; i < ekf_.get_len_features(); i++)
   {
-    // get pixel location
-    Vector2d feature = ekf_.get_feat(i);
-    int x = round(feature(0));
-    int y = round(feature(1));
-    cv::Point2f cv_feat(x,y);
-
-    // The depth image encodes depth in mm
-    float depth = depth_image_.at<float>(y, x) * 1e-3;
-    if (depth > 1e3)
-      depth = NAN;
-    else if (depth < min_depth_)
-      depth = NAN;
-    
-    z_feat_ << cv_feat.x, cv_feat.y;
-    z_depth_ << depth;
-    ekf_mtx_.lock();
-    vi_ekf::VIEKF::update_return_code_t code;
-    code = ekf_.update(z_feat_, vi_ekf::VIEKF::FEAT, feat_R_, use_features_, ids_[i], (use_depth_) ? depth : NAN);
-    if (code == vi_ekf::VIEKF::OKAY)
-    {
-      if (got_depth_ && (depth == depth))
-          ekf_.update(z_depth_, vi_ekf::VIEKF::DEPTH, depth_R_, use_depth_, ids_[i]);
-      if (depth != depth)
-        ekf_.log_depth(ids_[i], depth, false);
-    }
-    ekf_mtx_.unlock();   
-    
     // Draw depth and position of tracked features
     cv::cvtColor(img_, img_draw_, cv::COLOR_GRAY2BGR);
-    z_feat_ = ekf_.get_feat(ids_[i]);
-    circle(img_draw_, cv_feat, 5, Scalar(0,255,0));
+    z_feat_ = ekf_.get_feat(ekf_.get_global_id(i));
     circle(img_draw_, Point(z_feat_.x(), z_feat_.y()), 5, Scalar(255, 0, 255));
-    double h_true = 50.0 /depth;
-    double h_est = 50.0 /ekf_.get_depth(ids_[i]);
-    rectangle(img_draw_, Point(x-h_true, y-h_true), Point(x+h_true, y+h_true), Scalar(0, 255, 0));
+    double h_est = 50.0/ekf_.get_depth(ekf_.get_global_id(i));
     rectangle(img_draw_, Point(z_feat_.x()-h_est, z_feat_.y()-h_est), Point(z_feat_.x()+h_est, z_feat_.y()+h_est), Scalar(255, 0, 255));
   }
   if (record_video_)

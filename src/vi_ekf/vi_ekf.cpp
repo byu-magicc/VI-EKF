@@ -10,7 +10,8 @@ void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<doub
                  Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,
                  Vector3d& lambda_feat, Vector2d &cam_center, Vector2d &focal_len, Vector4d &q_b_c,
                  Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, bool partial_update,
-                 bool use_keyframe_reset, double keyframe_overlap, int feature_min_radius, int feature_detect_radius)
+                 bool use_keyframe_reset, double keyframe_overlap, int feature_min_radius, int feature_detect_radius,
+                 int patch_refresh, Matrix<double, 5, 1> dist_coeff)
 {
   x_.block<(int)xZ, 1>(0,0) = x0;
   P_.block<(int)dxZ, (int)dxZ>(0,0) = P0.asDiagonal();
@@ -22,6 +23,11 @@ void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<doub
   pix_.reserve(100);
   pix_copy_.reserve(100);
   xs_.reserve(100);
+  keypoints_.reserve(1000);
+  good_keypoints_.reserve(1000);
+  good_features_.reserve(NUM_FEATURES);
+  contours_.reserve(50);
+  hierarchy_.reserve(50);
   
   
   
@@ -41,7 +47,7 @@ void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<doub
   next_feature_id_ = 0;
   feature_min_radius_ = feature_min_radius;
   feature_detect_radius_ = feature_detect_radius;
-  patch_refresh_ = 5; // !TODO: add to ROS params
+  patch_refresh_ = patch_refresh;
 
   // instantiate feature detector
   detector_ = cv::FastFeatureDetector::create();
@@ -53,7 +59,11 @@ void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<doub
   // set camera intrinsics
   cam_center_ = cam_center;
   cam_F_ << focal_len(0), 0, 0,
-      0, focal_len(1), 0;
+            0, focal_len(1), 0;
+  camera_matrix_ = (Mat_<double>(3,3) << focal_len(0),            0, cam_center(0),
+                                                    0, focal_len(1), cam_center(1),
+                                                    0,            0,             1);
+  dist_coeff_ = (Mat_<double>(3,3) << dist_coeff(0), dist_coeff(1), dist_coeff(2), dist_coeff(3), dist_coeff(4));
   
   use_drag_term_ = use_drag_term;
   partial_update_ = partial_update;
@@ -176,6 +186,11 @@ Vector2d VIEKF::get_feat(const int id) const
   Vector3d zeta = q_zeta.rota(e_z);
   double ezT_zeta = e_z.transpose() * zeta;
   return cam_F_ * zeta / ezT_zeta + cam_center_;
+}
+
+int VIEKF::get_global_id(const int local_id) const
+{
+  return features_[local_id].global_id;
 }
 
 void VIEKF::propagate_cov()

@@ -102,8 +102,6 @@ private:
   
   cv::Mat img_; // latest grayscale image
   cv::Mat img_draw_; // color image with feature info. drawn on it
-  std::vector<Point2f> features_;
-  std::vector<int> ids_;
   
   Quat q_b_IMU_;
   Quat q_I_truth_;

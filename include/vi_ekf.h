@@ -214,6 +214,10 @@ private:
   std::vector<cv::KeyPoint> good_keypoints_; // Container for sorted keypoints
   std::vector<cv::Point2f> good_features_; // Container for good features converted from keypoints
   cv::Ptr<cv::Feature2D> detector_; // OpenCV feature detector object
+  std::vector<std::vector<cv::Point> > contours_; // For drawing undistortable boundary
+  std::vector<cv::Vec4i> hierarchy_; // For drawing undistortable boundary
+  Mat camera_matrix_; // Camera intrinsic matrix - (K) is 3x3
+  Mat dist_coeff_; // Camera distortion parameters - (D) is a column vector of 4, 5, or 8 elements
 
   // Custom key to sort keypoints by response in descending order
   struct keypoint_sort_key
@@ -287,7 +291,8 @@ public:
             Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,
             Vector3d& lambda_feat, Vector2d& cam_center, Vector2d& focal_len,
             Vector4d& q_b_c, Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, 
-            bool partial_update, bool use_keyframe_reset, double keyframe_overlap, int feature_min_radius, int feature_detect_radius);
+            bool partial_update, bool use_keyframe_reset, double keyframe_overlap, int feature_min_radius, int feature_detect_radius,
+            int patch_refresh, Matrix<double, 5, 1> dist_coeff);
   void init_logger(std::string root_filename);
 
   inline double now() const
@@ -317,6 +322,7 @@ public:
   MatrixXd get_qzetas() const;
   VectorXd get_zeta(const int i) const;
   Vector2d get_feat(const int id) const;
+  int get_global_id(const int local_id) const;
   const eVector &get_current_node_global_pose() const;
   const xVector& get_state() const;
   const MatrixXd get_covariance() const;
@@ -340,6 +346,7 @@ public:
   void manage_features();
   double calculate_quality(const pixVector &eta);
   void choose_keypoints(std::vector<cv::KeyPoint> &keypoints, std::vector<cv::KeyPoint> &good_keypoints, const int &image_width, const int &image_height, const int &num_new_points);
+  void create_distortion_mask(const cv::Size &res);
 //  void keep_only_features(const std::vector<int> features);
 
   // State Propagation

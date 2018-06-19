@@ -396,9 +396,16 @@ void VIEKF::manage_features()
   int num_new_features = NUM_FEATURES - len_features_;
   if (num_new_features > 0)
   {
+    // Create mask around currently tracked features
+    mask_.copyTo(point_mask_);
+    static cv::Scalar color = 0;
+    static int thickness = -1; // negative means filled circle
+    for (auto& f : features_)
+      cv::circle(point_mask_, cv::Point2f(f.pix(0),f.pix(1)), feature_detect_radius_, color, thickness);
+
     // Collect a set of keypoints
     keypoints_.clear();
-    detector_->detect(img_[0], keypoints_, mask_);
+    detector_->detect(img_[0], keypoints_, point_mask_);
     if (keypoints_.empty())
     {
       std::cout << "*** Feature detector was unable to find any features. ***\n";
@@ -550,6 +557,56 @@ void VIEKF::choose_keypoints(std::vector<cv::KeyPoint> &keypoints, std::vector<c
   // keep desired number of good keypoints
   while (good_keypoints.size() > num_new_points)
     good_keypoints.pop_back();
+}
+
+/**
+ * @brief VIEKF::create_distortion_mask
+ * Creates the distortion mask for a given camera matrix, distortion parameters, and number of pyramid levels.
+ * @param res - size of the image
+ */
+void VIEKF::create_distortion_mask(const cv::Size &res)
+{
+  // define undistorted image boundary
+  int num_ppe = 10; // number of points per edge
+  std::vector<cv::Point2f> boundary;
+  for (uint32_t i = 0; i < num_ppe; i++)
+    boundary.emplace_back(cv::Point2f(i*(res.width/num_ppe), 0)); // bottom
+  for (uint32_t i = 0; i < num_ppe; i++)
+    boundary.emplace_back(cv::Point2f(res.width, i*(res.height/num_ppe))); // right
+  for (uint32_t i = 0; i < num_ppe; i++)
+    boundary.emplace_back(cv::Point2f(res.width - i*(res.width/num_ppe), res.height)); // top
+  for (uint32_t i = 0; i < num_ppe; i++)
+    boundary.emplace_back(cv::Point2f(0, res.height - i*(res.height/num_ppe))); // left
+
+  // project points onto the normalized image plane
+  cv::Mat dist_coeff; // we started with the theoretical undistorted image
+  cv::undistortPoints(boundary, boundary, camera_matrix_, dist_coeff);
+
+  // put points into homogeneous coordinates and project onto the image frame
+  std::vector<cv::Point3f> boundary_h; // homogeneous
+  std::vector<cv::Point2f> boundary_d; // distorted
+  cv::convertPointsToHomogeneous(boundary, boundary_h);
+  cv::projectPoints(boundary_h, cv::Vec3f(0,0,0), cv::Vec3f(0,0,0), camera_matrix_, dist_coeff_, boundary_d);
+
+  // convert boundary to mat and create the mask by filling in a polygon defined by the boundary
+  cv::Mat boundary_mat(boundary_d);
+  boundary_mat.convertTo(boundary_mat, CV_32SC1);
+  mask_ = cv::Mat(res, CV_8UC1, cv::Scalar(0));
+  cv::fillConvexPoly(mask_, boundary_mat, cv::Scalar(1));
+
+  // save boundary points for drawing boundary line
+  cv::Mat canny_output;
+  cv::Canny(mask_, canny_output, 0, 2, 3);
+  cv::findContours(canny_output, contours_, hierarchy_, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
+
+  // add cushion to the border for the given patch size and pyramid levels by
+  // creating an image of ones, zeroing out the middle, and combining it with mask_
+  int cushion = int(0.5*(PATCH_SIZE*PYRAMID_LEVELS)) + 1;
+  cv::Point2f pt1 = cv::Point2f(cushion,cushion);
+  cv::Point2f pt2 = cv::Point2f(res.width-cushion,res.height-cushion);
+  cv::Mat border_mask = cv::Mat(res, CV_8UC1, cv::Scalar(0));
+  cv::rectangle(border_mask, pt1, pt2, cv::Scalar(1), -1);
+  mask_ = mask_.mul(border_mask);
 }
 
 

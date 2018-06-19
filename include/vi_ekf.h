@@ -204,11 +204,25 @@ private:
 //  std::vector<int> current_feature_ids_; // 
   uint32_t feature_min_radius_; // the minimum distance between features before consolidating them
   uint32_t feature_detect_radius_; // the minimum distance between features at detection
+  uint32_t patch_refresh_; // number of frames to refresh feature patch
   
   // Image Processing Variables
-  Mat img_[PYRAMID_LEVELS]; // the pyramid of greyscale, undistorted images
+  Mat img_[PYRAMID_LEVELS]; // the pyramid of greyscale, distorted images
   Mat mask_; // The distortion mask
   Mat point_mask_; // Space to hold the point mask when looking for new features
+  std::vector<cv::KeyPoint> keypoints_; // Container for newly detected keypoints
+  std::vector<cv::KeyPoint> good_keypoints_; // Container for sorted keypoints
+  std::vector<cv::Point2f> good_features_; // Container for good features converted from keypoints
+  cv::Ptr<cv::Feature2D> detector_; // OpenCV feature detector object
+
+  // Custom key to sort keypoints by response in descending order
+  struct keypoint_sort_key
+  {
+    inline bool operator() (const cv::KeyPoint &s1, const cv::KeyPoint &s2)
+    {
+      return (s1.response > s2.response);
+    }
+  };
   
   // Camera Intrinsics and Extrinsics
   Vector2d cam_center_;
@@ -238,6 +252,7 @@ private:
   hMatrix H_;
   std::vector<Vector2f> pix_, pix_copy_;
   std::vector<xVector> xs_;
+  Vector2d vec2d_;
 
   // EKF Configuration Parameters
   bool use_drag_term_;
@@ -324,6 +339,7 @@ public:
   void clear_feature_state(const int id);
   void manage_features();
   double calculate_quality(const pixVector &eta);
+  void choose_keypoints(std::vector<cv::KeyPoint> &keypoints, std::vector<cv::KeyPoint> &good_keypoints, const int &image_width, const int &image_height, const int &num_new_points);
 //  void keep_only_features(const std::vector<int> features);
 
   // State Propagation

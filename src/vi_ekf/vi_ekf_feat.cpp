@@ -36,11 +36,12 @@ bool VIEKF::init_feature(const Vector2d& z, const double depth=NAN)
   
   // Create a new feature object and add it to the features list
   feature_t new_feature;
+  new_feature.pix = z.cast<float>();
   multiLvlPatch(z.cast<float>(), new_feature.PatchIntensity);
   new_feature.quality = calculate_quality(z.cast<float>());
-  features_.push_back(new_feature);
   new_feature.frames = 0u;
   new_feature.global_id = next_feature_id_;
+  features_.push_back(new_feature);
   next_feature_id_ += 1;
   len_features_ += 1;
   
@@ -381,8 +382,45 @@ void VIEKF::manage_features()
   }
 
   // Update properties of current features
+  for (auto& f : features_)
+  {
+    ++f.frames;
+    if (f.frames % patch_refresh_ == 0)
+    {
+      multiLvlPatch(f.pix, f.PatchIntensity);
+      f.quality = calculate_quality(f.pix);
+    }
+  }
   
   // Extract new features if needed
+  int num_new_features = NUM_FEATURES - len_features_;
+  if (num_new_features > 0)
+  {
+    // Collect a set of keypoints
+    keypoints_.clear();
+    detector_->detect(img_[0], keypoints_, mask_);
+    if (keypoints_.empty())
+    {
+      std::cout << "*** Feature detector was unable to find any features. ***\n";
+    }
+    else
+    {
+      // Keep best points with good separation from others
+      choose_keypoints(keypoints_, good_keypoints_, img_[0].cols, img_[0].rows, num_new_features);
+
+      // Convert keypoints to point2f
+      good_features_.clear();
+      cv::KeyPoint::convert(good_keypoints_, good_features_);
+
+      // Initialize new feature states
+      for (auto& gf : good_features_)
+      {
+        vec2d_(0) = gf.x;
+        vec2d_(1) = gf.y;
+        init_feature(vec2d_, NAN);
+      }
+    }
+  }
 }
 
 /**
@@ -407,6 +445,111 @@ void VIEKF::patch_error(const pixVector &etahat, const multiPatchVectorf &I0, mu
     multiLvlPatch(etahat - I_2x2f.col(i), Im_);
     J.col(i) = ((Ip_ - I0) - (Im_ - I0))/2.0;
   }
+}
+
+/**
+ * @brief VIEKF::choose_keypoints
+ * Chooses the best keypoints at desired separation.
+ * @param keypoints - current set of keypoints
+ * @param good_keypoints - output of best keypoints
+ * @param image_width - width of image keypoints detected from
+ * @param image_height - height of image keypoints detected from
+ * @param num_new_points - number of good keypoints to keep
+ */
+void VIEKF::choose_keypoints(std::vector<cv::KeyPoint> &keypoints, std::vector<cv::KeyPoint> &good_keypoints, const int &image_width, const int &image_height, const int &num_new_points)
+{
+  // declarations
+  good_keypoints.clear();
+  size_t i, j, num_keypoints = keypoints.size();
+
+  // sort keypoints in descending order of response
+  std::sort(keypoints.begin(), keypoints.end(), keypoint_sort_key());
+
+  // don't bother checking distance unless minimum distance is significant
+  if (feature_detect_radius_ >= 1)
+  {
+    // partition image into a grid
+    const int cell_size = (int)feature_detect_radius_;
+    const int grid_width = (image_width + cell_size - 1) / cell_size;
+    const int grid_height = (image_height + cell_size - 1) / cell_size;
+    std::vector<std::vector<cv::Point2f> > grid(grid_width*grid_height);
+
+    // compute squared minimum distance for comparison later
+    static double md2 = feature_detect_radius_ * feature_detect_radius_;
+
+    // loop through keypoints, keeping better ones first
+    for(i = 0; i < num_keypoints; i++)
+    {
+      // get feature point components
+      float x = keypoints[i].pt.x;
+      float y = keypoints[i].pt.y;
+
+      // assume good point unless proven otherwise
+      bool good = true;
+
+      // determine points position in the grid
+      int x_cell = (int)x / cell_size;
+      int y_cell = (int)y / cell_size;
+
+      // define boundary cells
+      int x1 = x_cell - 1;
+      int y1 = y_cell - 1;
+      int x2 = x_cell + 1;
+      int y2 = y_cell + 1;
+
+      // prevent overstepping at boundaries
+      x1 = std::max(0, x1);
+      y1 = std::max(0, y1);
+      x2 = std::min(grid_width-1, x2);
+      y2 = std::min(grid_height-1, y2);
+
+      // check distance from points in own and surrounding grid cells
+      for(int yy = y1; yy <= y2; yy++)
+      {
+        for(int xx = x1; xx <= x2; xx++)
+        {
+          // pull out points from current grid cell
+          std::vector<cv::Point2f> m = grid[yy*grid_width + xx];
+
+          // check distance from points in current cell
+          if(!m.empty())
+          {
+            for(j = 0; j < m.size(); j++)
+            {
+              float dx = x - m[j].x;
+              float dy = y - m[j].y;
+
+              // drop keypoint if it's too close to another one
+              if(dx*dx + dy*dy < md2)
+              {
+                good = false;
+                goto break_out;
+              }
+            }
+          }
+        }
+      }
+
+      break_out:
+
+      // if keypoint is not too close to another one, add it to the grid and save it
+      if (good)
+      {
+        grid[y_cell*grid_width + x_cell].emplace_back(cv::Point2f(x, y));
+        good_keypoints.push_back(keypoints[i]);
+      }
+    }
+  }
+  else
+  {
+    // since minimum distance wasn't significant, keep all keypoints
+    for(i = 0; i < num_keypoints; i++)
+      good_keypoints.push_back(keypoints[i]);
+  }
+
+  // keep desired number of good keypoints
+  while (good_keypoints.size() > num_new_points)
+    good_keypoints.pop_back();
 }
 
 

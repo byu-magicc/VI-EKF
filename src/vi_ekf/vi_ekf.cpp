@@ -41,6 +41,10 @@ void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<doub
   next_feature_id_ = 0;
   feature_min_radius_ = feature_min_radius;
   feature_detect_radius_ = feature_detect_radius;
+  patch_refresh_ = 5; // !TODO: add to ROS params
+
+  // instantiate feature detector
+  detector_ = cv::FastFeatureDetector::create();
   
   // set cam-to-body
   p_b_c_ = p_b_c;

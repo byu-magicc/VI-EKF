@@ -22,6 +22,11 @@ static const Eigen::Matrix2d I_2x2 = [] {
   return tmp;
 }();
 
+static const Eigen::Matrix2f I_2x2f = [] {
+  Eigen::Matrix2f tmp = Eigen::Matrix2f::Identity();
+  return tmp;
+}();
+
 
 static const Eigen::Vector3d e_x = [] {
   Eigen::Vector3d tmp;

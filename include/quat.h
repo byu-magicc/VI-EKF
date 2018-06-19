@@ -199,7 +199,7 @@ public:
     return Quat(q_arr);
   }
 
-  Vector3d euler()
+  Vector3d euler() const
   {
     Vector3d out;
     out << std::atan2(2.0*(w()*x()+y()*z()), 1.0-2.0*(x()*x() + y()*y())),
@@ -208,22 +208,22 @@ public:
     return out;
   }
   
-  double roll()
+  double roll() const
   {
     return std::atan2(2.0*(w()*x()+y()*z()), 1.0-2.0*(x()*x() + y()*y()));
   }
   
-  double pitch()
+  double pitch() const
   {
     return std::asin(2.0*(w()*y() - z()*x()));
   }
   
-  double yaw()
+  double yaw() const
   {
     return std::atan2(2.0*(w()*z()+x()*y()), 1.0-2.0*(y()*y() + z()*z()));
   }
 
-  Matrix3d R()
+  Matrix3d R() const
   {
     double wx = w()*x();
     double wy = w()*y();
@@ -241,7 +241,7 @@ public:
     return out;
   }
 
-  Quat copy()
+  Quat copy() const
   {
     Vector4d tmp = arr_;
     return Quat(tmp);
@@ -252,7 +252,7 @@ public:
     arr_ /= arr_.norm();
   }
 
-  Matrix<double, 3, 2> doublerot(Matrix<double, 3, 2> v)
+  Matrix<double, 3, 2> doublerot(Matrix<double, 3, 2> v) const
   {
     Matrix<double, 3, 2> out(3, v.cols());
     for (int i = 0; i < v.cols(); i++)
@@ -262,7 +262,7 @@ public:
     return out;
   }
 
-  Matrix<double, 3, 2> doubleinvrot(Matrix<double, 3, 2> v)
+  Matrix<double, 3, 2> doubleinvrot(Matrix<double, 3, 2> v) const
   {
     Matrix<double, 3, 2> out(3, v.cols());
     Vector3d t;
@@ -276,14 +276,14 @@ public:
 
 
   // The same as R.T * v but faster
-  Vector3d rota(Vector3d v)
+  Vector3d rota(Vector3d v) const
   {
     Vector3d t = 2.0 * arr_.block<3,1>(1,0).cross(v);
     return v + w() * t + arr_.block<3,1>(1,0).cross(t);
   }
 
   // The same as R * v but faster
-  Vector3d rotp(Vector3d v)
+  Vector3d rotp(Vector3d v) const
   {
     Vector3d t = -2.0 * arr_.block<3,1>(1,0).cross(v);
     return v + w() * t - arr_.block<3,1>(1,0).cross(t);

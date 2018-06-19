@@ -112,10 +112,17 @@ double VIEKF::calculate_quality(const multiPatchVectorf &I)
  * @param img - new image
  * @param t - current time in seconds
  */
-void VIEKF::image_update(const Mat& img, const double t)
+void VIEKF::image_update(const Mat& img, const Matrix2f& R, const double t)
 {
-  (void)img;
-  (void)t;
+  set_image(img);
+  for (int i = 0; i < len_features_; i++)
+  {
+    if (iterated_feature_update(i, R) != FEATURE_TRACKED)
+    {
+      clear_feature_state(i);
+    }
+  }
+  manage_features();
 }
 
 /**
@@ -125,9 +132,134 @@ void VIEKF::image_update(const Mat& img, const double t)
  * @return FEATURE_TRACKED - if the feature was tracked
  *         FEATURE_LOST - if the feature was lost
  */
-VIEKF::update_return_code_t VIEKF::iterated_feature_update(const int id)
+VIEKF::update_return_code_t VIEKF::iterated_feature_update(const int id, const Matrix2d& R)
 {
-  (void)id;
+  // if id not in current_ids
+  if (id > len_features_)
+    return FEATURE_LOST;
+  
+  // sample pixels
+  pix_.clear();
+  pix_copy_.clear();
+  int x_id = xZ + 5*id;
+  int dx_id = dxZ + 3*id;
+  
+  Vector2f eta0;
+  Matrix2f cov, dpidqz;
+  Quat qzhat(x_.block<4,1>(x_id, 0));  // Bearing Quaternion
+  proj(qzhat, eta0, dpidqz, false); // Extract the feature location (don't calculate jacobian on this one)
+  cov = P_.block<2,2>(dx_id, dx_id).cast<float>(); // Covariance
+  sample_pixels(qzhat, cov, pix_);
+  
+  // if pixel not in mask
+  if (mask_.at<uint8_t>(eta0(0,0), eta0(1,0)) == 0)
+    return FEATURE_LOST;
+  
+  int min_patch_idx = 0;
+  double tol = 1e-2;
+  multiPatchJacMatrix J;
+  multiPatchVectorf e;
+  
+  // reset the relevant parts of the workspace
+  H_.setZero();
+  K_.setZero();  
+  
+  // For each patch we grabbed
+  for (int i = 0; i < pix_.size(); i++)
+  { 
+    pix_copy_.push_back(pix_[i]);
+    xs_.push_back(x_);
+    int iter = 0;
+    bool done = false;
+    double prev_err = INFINITY;
+    double current_err = INFINITY;
+    double min_error = INFINITY;
+    int min_idx = -1;
+    double eps = INFINITY;
+    
+    
+    // perform an iterated update
+    do
+    {
+      // refresh the pixel location and associated jacobian
+      Quat qzhati(xs_[i].block<4,1>(x_id, 0));
+      proj(qzhati, pix_[i], dpidqz, false);
+      
+      // make sure we haven't made a huge jump
+      if ((pix_[i] - pix_copy_[i]).norm() > PATCH_SIZE)
+        break;
+      
+      // make sure we haven't gone off the screen
+      if ((!inImage(pix_[i])))
+        break;
+      
+      // Calculate the intensity error and its jacobian
+      patch_error(pix_[i], features_[id].PatchIntensity, e, J);
+      
+      // Do a QR decomposition of the error jacobian
+      qrsolver_.compute(J);
+      multiPatchJacMatrix Q1 = qrsolver_.householderQ() * multiPatchJacMatrix::Identity();
+      Matrix2f R1 = qrsolver_.matrixQR().topRows(2);
+      Vector2f r = Q1.transpose() * e;
+      H_.block<2,2>(dx_id, 0) = (R1 * dpidqz).cast<double>();
+      
+      double mahal = r.transpose() * R.inverse().cast<float>() * r;
+      
+      // Perform an update step
+      if (mahal <= 9.0)
+      {
+        K_.leftCols(2) = P_ * H_.topRows(2).transpose() * (R + H_.topRows(2)*P_ * H_.topRows(2).transpose()).inverse();
+        
+        if (NO_NANS(K_) && NO_NANS(H_))
+        {
+          boxplus(xs_[i], K_.leftCols(2) * r.cast<double>(), xp_);  
+          // convergence calculation
+          eps = (xp_ - xs_[i]).norm();
+          if (eps < 1e-2)
+          {
+            done = true;
+            break;
+          }
+        }
+        else
+        {
+          // stop using this patch - it did bad things
+          break;
+        }
+      }
+      else
+      {
+        // Not a good measurement
+        break;
+      }
+      iter++;
+    } while (!done && iter < 25 && std::abs(1.0 - current_err/prev_err) > 0.05);
+    
+    // If we converged, save the index
+    if (done)
+    {
+      // Save off the best match (in terms of intensity)
+      min_error = current_err;
+      min_idx = i;      
+      
+      // We tracked the feature, officially update the state and covariance    
+      if (partial_update_)
+      {
+        boxminus(xs_[i], x_, dx_);
+        boxplus(x_, lambda_.asDiagonal() * dx_, xp_);
+        x_ = xp_; 
+        P_ -= (Lambda_).cwiseProduct(K_.leftCols(2) * H_.topRows(2)*P_);
+      }
+      else
+      {
+        x_ = xs_[i];
+        P_ = (I_big_ - K_.leftCols(2) * H_.topRows(2))*P_;
+      }
+      NAN_CHECK;
+      return FEATURE_TRACKED;
+    }
+  }    
+  return FEATURE_LOST;
 }
 
 /**
@@ -138,17 +270,53 @@ VIEKF::update_return_code_t VIEKF::iterated_feature_update(const int id)
  * @param cov 2D covariance block of qz
  * @param eta vector of pixel locations (length dependent on size of cov)
  */
-void VIEKF::sample_pixels(const Quat& qz, const Matrix2d& cov, std::vector<pixVector>& eta) const
-{
-  (void)qz;
-  (void)cov;
-  (void)eta;
+void VIEKF::sample_pixels(const Quat& qz, const Matrix2f& cov, std::vector<Vector2f>& eta)
+{  
+  Vector2f eta0;
+  Matrix2f eta_jac;
+  proj(qz, eta0, eta_jac, true);
   
-  Eigen::SelfAdjointEigenSolver<Matrix2d> eigensolver(cov);
-  eigensolver.eigenvalues();
-  eigensolver.eigenvectors();
+  eigensolver_.computeDirect(eta_jac * cov * eta_jac.transpose());
+  Vector2f e = eigensolver_.eigenvalues();
+  Matrix2f v = eigensolver_.eigenvectors();
+  double a = 3.0*std::sqrt(std::abs(e(0,0)));
+  double b = 3.0*std::sqrt(std::abs(e(1,0)));
   
-  
+  /// TODO: Spiral out from center, instead of along axis to increase search efficiency later
+  Vector2f p, pt;
+  for (float y = 0; y < b; y += PATCH_SIZE * 1.0)
+  {
+    p(1,0) = y;
+    float xmax = (a/b) * std::sqrt(b*b - y*y);
+    for (float x = 0; x < xmax; x += PATCH_SIZE * 1.0)
+    {
+      p(0,0) = x;
+      pt = (v * p + eta0);
+      if (inImage(pt))
+        eta.push_back(pt);
+      if (x != 0)
+      {
+        p(0, 0) *= -1;
+        pt = (v * p + eta0);
+        if (inImage(pt))
+          eta.push_back(pt);
+      }
+      if (y != 0)
+      {
+        p(1, 0) *= -1;
+        pt = (v * p + eta0);
+        if (inImage(pt))
+          eta.push_back(pt);
+        if (x != 0)
+        {
+          p(0, 0) *= -1;
+          pt = (v * p + eta0);
+          if (inImage(pt))
+            eta.push_back(pt);
+        }
+      }
+    }
+  }
   
 }
 
@@ -172,19 +340,18 @@ void VIEKF::manage_features()
  * @param e - intensity error
  * @param J - de/detahat
  */
-void VIEKF::patch_error(const pixVector &etahat, const multiPatchVectorf &I0, multiPatchVectorf &e, multiPatchJacMatrix &J) const
+void VIEKF::patch_error(const pixVector &etahat, const multiPatchVectorf &I0, multiPatchVectorf &e, multiPatchJacMatrix &J)
 {
-  multiPatchVectorf Ip, Im;
-  multiLvlPatch(etahat, Ip);
+  multiLvlPatch(etahat, Ip_);
   
-  e = Ip - I0;
-  Matrix2f eye2 = Matrix2f::Identity();
+  e = Ip_ - I0;  
+  
   // Perform central differencing
   for (int i = 0; i < 2; i++)
   {
-    multiLvlPatch(etahat + eye2.col(i), Ip);
-    multiLvlPatch(etahat - eye2.col(i), Im);
-    J.col(i) = ((Ip - I0) - (Im - I0))/2.0;
+    multiLvlPatch(etahat + I_2x2f.col(i), Ip_);
+    multiLvlPatch(etahat - I_2x2f.col(i), Im_);
+    J.col(i) = ((Ip_ - I0) - (Im_ - I0))/2.0;
   }
 }
 

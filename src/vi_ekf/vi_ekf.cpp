@@ -3,7 +3,8 @@
 namespace vi_ekf
 {
 
-VIEKF::VIEKF(){}
+VIEKF::VIEKF()
+{}
 
 void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<double, dxZ,1> &Qx,
                  Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,
@@ -18,6 +19,11 @@ void VIEKF::init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<doub
   
   features_.clear();
   features_.reserve(NUM_FEATURES);
+  pix_.reserve(100);
+  pix_copy_.reserve(100);
+  xs_.reserve(100);
+  
+  
   
   for (int i = 0; i < NUM_FEATURES; i++)
   {

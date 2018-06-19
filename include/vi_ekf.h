@@ -11,6 +11,8 @@
 #include <fstream>
 #include <chrono>
 #include <iostream>
+#include <math.h>
+#include <stdlib.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/core/eigen.hpp>
@@ -65,12 +67,14 @@ typedef Matrix<double, MAX_DX, 6> dxuMatrix;
 typedef Matrix<double, 6, 1> uVector;
 typedef Matrix<double, 7, 1> eVector;
 typedef Matrix<double, 4, 1> zVector;
-typedef Matrix<float, 2, 1> pixVector;
-typedef Matrix<uint8_t, PATCH_SIZE, PATCH_SIZE> patchMat;
-typedef Matrix<double, PATCH_SIZE*PATCH_SIZE*PYRAMID_LEVELS, 1> multiPatchVectorf;
-typedef Matrix<double, PATCH_SIZE, PATCH_SIZE*PYRAMID_LEVELS> multiPatchMatrixf;
-typedef Matrix<double, PATCH_SIZE*PATCH_SIZE*PYRAMID_LEVELS, 2> multiPatchJacMatrix;
 typedef Matrix<double, 3, MAX_DX> hMatrix;
+
+// Use floats for stuff that touches OpenCV
+typedef Matrix<float, 2, 1> pixVector;
+typedef Matrix<float, PATCH_SIZE, PATCH_SIZE> patchMat;
+typedef Matrix<float, PATCH_SIZE*PATCH_SIZE*PYRAMID_LEVELS, 1> multiPatchVectorf;
+typedef Matrix<float, PATCH_SIZE, PATCH_SIZE*PYRAMID_LEVELS> multiPatchMatrixf;
+typedef Matrix<float, PATCH_SIZE*PATCH_SIZE*PYRAMID_LEVELS, 2> multiPatchJacMatrix;
 
 namespace vi_ekf
 {
@@ -223,10 +227,15 @@ private:
   const dxMatrix I_big_ = dxMatrix::Identity();
   const dxMatrix Ones_big_ = dxMatrix::Constant(1.0);
   const dxVector dx_ones_ = dxVector::Constant(1.0);
+  multiPatchVectorf Ip_, Im_;
+  ColPivHouseholderQR<multiPatchJacMatrix> qrsolver_;
+  SelfAdjointEigenSolver<Matrix2f> eigensolver_;
   xVector xp_;
   Matrix<double, MAX_DX, 3>  K_;
   zVector zhat_;
   hMatrix H_;
+  std::vector<Vector2f> pix_, pix_copy_;
+  std::vector<xVector> xs_;
 
   // EKF Configuration Parameters
   bool use_drag_term_;
@@ -277,7 +286,9 @@ public:
   
   // Helpers
   int global_to_local_feature_id(const int global_id) const;
+  bool inImage(const Vector2f& pt) const;
   void cv2Patch(const Mat& img, const pixVector& eta, patchMat& patch) const;
+  void proj(const Quat &qz, Vector2f& eta, Matrix2f& jac, bool calc_jac) const;
   void multiLvlPatch(const pixVector& eta, multiPatchVectorf& patch) const;
   void multiLvlPatchSideBySide(multiPatchVectorf &src, multiPatchMatrixf& dst) const;
   void extractLvlfromPatch(multiPatchVectorf & src, const uint32_t level, patchMat& dst) const;
@@ -304,10 +315,10 @@ public:
   void set_image(const Mat& mat);
   bool init_feature(const Vector2d &z, const double depth);
   void set_image_mask(const Mat& img) { img.copyTo(mask_); }
-  void image_update(const Mat& img, const double t);
-  update_return_code_t iterated_feature_update(const int id);
-  void sample_pixels(const Quat& qz, const Matrix2d &cov, std::vector<pixVector>& eta) const;
-  void patch_error(const pixVector& etahat, const multiPatchVectorf& I0, multiPatchVectorf& e, multiPatchJacMatrix& J) const;
+  void image_update(const Mat& img, const Matrix2f &R, const double t);
+  update_return_code_t iterated_feature_update(const int id, const Matrix2d &R);
+  void sample_pixels(const Quat& qz, const Matrix2f &cov, std::vector<pixVector>& eta);
+  void patch_error(const pixVector &etahat, const multiPatchVectorf &I0, multiPatchVectorf &e, multiPatchJacMatrix &J);
   void clear_feature_state(const int id);
   void manage_features();
   double calculate_quality(const multiPatchVectorf& I);

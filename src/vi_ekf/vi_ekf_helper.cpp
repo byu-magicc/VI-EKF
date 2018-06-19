@@ -115,6 +115,40 @@ void VIEKF::set_image(const Mat &grey)
   }
 }
 
+/**
+ * @brief VIEKF::inImage
+ * Returns true if supplied pixel location is in image
+ * @param pix
+ * @return true if in image, false otherwise
+ */
+bool VIEKF::inImage(const Vector2f &pt) const
+{
+  return pt(0,0) > PATCH_SIZE && pt(0,0) + PATCH_SIZE < img_[0].cols && pt(1,0) > PATCH_SIZE && pt(1,0) + PATCH_SIZE < img_[0].rows;
+}
+
+/**
+ * @brief VIEKF::proj
+ * Caculates the pixel corresponding to the bearing vector quaternion qz - requires that camera intrinsics have been set
+ * @param qz Bearing Quaternion
+ * @param eta (return value) pixel location
+ * @param jac (return matrix) deta/dqz
+ * @param calc_jac (default = true) calculate jacobian
+ */
+void VIEKF::proj(const Quat& qz, Vector2f& eta, Matrix2f& jac, bool calc_jac = true) const
+{
+  Vector3d zeta = qz.rota(e_z);
+  double ezT_zeta = e_z.transpose() * zeta;
+  
+  eta = (cam_F_ * zeta / ezT_zeta + cam_center_).cast<float>();
+  
+  if (calc_jac)
+  {
+    Matrix3d sk_zeta = skew(zeta);
+    MatrixXd T_z = T_zeta(qz);
+    jac = (-cam_F_ * ((sk_zeta * T_z)/ezT_zeta - (zeta * e_z.transpose() * sk_zeta * T_z)/(ezT_zeta*ezT_zeta))).cast<float>();
+  }
+}
+
 
 /**
  * @brief VIEKF::multiLvlPatch
@@ -125,28 +159,15 @@ void VIEKF::set_image(const Mat &grey)
  */
 void VIEKF::multiLvlPatch(const pixVector &eta, multiPatchVectorf& dst) const
 {
+  Size sz(PATCH_SIZE, PATCH_SIZE);
   float x = eta(0,0);
   float y = eta(1,0);
-  ASSERT(x > PATCH_SIZE/2 && x < img_[0].cols - PATCH_SIZE/2, "requested patch outside of image");
-  ASSERT(y > PATCH_SIZE/2 && y < img_[0].rows - PATCH_SIZE/2, "requested patch outside of image");
-  
-  Size sz(PATCH_SIZE, PATCH_SIZE);
   for (int i = 0; i < PYRAMID_LEVELS; i++)
   {
-    Mat ROI;
-    getRectSubPix(img_[i], sz, Point2f(x,y), ROI, CV_32FC1);
+    const Mat _dst(PATCH_SIZE, PATCH_SIZE, CV_32FC1, dst.data() + i * PATCH_SIZE*PATCH_SIZE, PATCH_SIZE * sizeof(float));
+    getRectSubPix(img_[i], sz, Point2f(x,y), _dst);
     x /= 2.0;
     y /= 2.0;
-    
-    // Convert to Eigen, but just the part that we want to update
-    const Mat _dst(PATCH_SIZE, PATCH_SIZE, CV_32FC1, dst.data() + i * PATCH_SIZE*PATCH_SIZE, PATCH_SIZE * sizeof(float));
-    if( ROI.type() == _dst.type() )
-      transpose(ROI, _dst);
-    else
-    {
-      ROI.convertTo(_dst, _dst.type());
-      transpose(_dst, _dst);
-    }
   }
 }
 
@@ -159,8 +180,8 @@ void VIEKF::multiLvlPatch(const pixVector &eta, multiPatchVectorf& dst) const
  */
 void VIEKF::extractLvlfromPatch(multiPatchVectorf &src, const uint32_t level, patchMat &dst) const
 {
-//  ASSERT(level < PYRAMID_LEVELS, "requested too large pyramid level");    
-//  dst = Eigen::Map<patchMat>(src.data() + PATCH_SIZE*PATCH_SIZE*level)  ;
+  ASSERT(level < PYRAMID_LEVELS, "requested too large pyramid level");    
+  dst = Eigen::Map<patchMat>((float*)src.data() + PATCH_SIZE*PATCH_SIZE*level);
 }
 
 /**
@@ -169,22 +190,41 @@ void VIEKF::extractLvlfromPatch(multiPatchVectorf &src, const uint32_t level, pa
  * @param src
  * @param dst
  */
-void VIEKF::multiLvlPatchSideBySide(multiPatchVectorf& src, multiPatchMatrixf& dst) const
+void multiLvlPatchSideBySide(multiPatchVectorf& src, multiPatchMatrixf& dst)
 {
-//   dst = Eigen::Map<multiPatchMatrixI>(src.data());
+  dst = Map<multiPatchMatrixf>(src.data());
+}
+
+/**
+ * @brief drawPatch
+ * Draws a transparent patch on an image (Requires a CV_8UC3 type image)
+ * @param img - Image to draw on (CV_8UC3)
+ * @param pt - Pixel location of center of patch
+ * @param col - color
+ * @param alpha - transparency (default = 0.3)
+ */
+void drawPatch(Mat& img, const Vector2f& pt, const Scalar& col, double alpha=0.3)
+{
+  ASSERT(img.type() == CV_8UC3, "Invalid image type supplied to drawPatch")
+  if (pt(0,0) > PATCH_SIZE && pt(0,0) + PATCH_SIZE < img.cols && pt(1,0) > PATCH_SIZE && pt(1,0) + PATCH_SIZE < img.rows)
+  {
+    cv::Mat roi = img(Rect(Point(pt(0,0), pt(1,0)), Size(PATCH_SIZE, PATCH_SIZE)));
+    cv::Mat color(roi.size(), CV_8UC3, col); 
+    cv::addWeighted(color, alpha, roi, 1.0 - alpha , 0.0, roi); 
+  }
 }
 
 /**
  * @brief VIEKF::multiLvlPatchToCv
- * Creates an opencv array of the patch levels so you can view it
+ * Creates an opencv array of the patch levels so you can view it side-by-side
  * @param src
  * @param dst
  */
-void VIEKF::multiLvlPatchToCv(multiPatchVectorf& src, Mat& dst) const
+void multiLvlPatchToCv(multiPatchVectorf& src, Mat& dst)
 {
-//  multiPatchMatrixI side_by_side;
-//  multiLvlPatchSideBySide(src, side_by_side);
-//  eigen2cv(side_by_side, dst);
+  multiPatchMatrixf side_by_side;
+  multiLvlPatchSideBySide(src, side_by_side);
+  eigen2cv(side_by_side, dst);
 }
 
 }

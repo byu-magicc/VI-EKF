@@ -39,8 +39,6 @@ def quat_arr_to_euler(array):
                      np.arcsin(2.0 * (w * y - z * x)),
                      np.arctan2(2.0 * (w * z + x * y), 1. - 2. * (y * y + z * z))])
 
-
-
 def skew(v):
     # assert v.shape == (3, 1)
     return cross_matrix.dot(v).squeeze()
@@ -48,7 +46,16 @@ def skew(v):
 def norm(v, axis=None):
     return np.sqrt(np.sum(v*v, axis=axis))
 
-class Quaternion():
+# function for analytical derivative of exponential map assuming active rotation
+def Gamma(v):
+    mag = norm(v)
+    skew_v = skew(v)
+    if mag > 1e-4:
+        return np.eye(3) - (1-np.cos(mag))/mag**2.*skew_v + (mag-np.sin(mag))/mag**3.*skew_v.dot(skew_v)
+    else:
+        return np.eye(3) - 0.5*skew_v
+
+class Quaternion:
     def __init__(self, v):
         # assert isinstance(v, np.ndarray)
         # assert v.shape == (4,1)
@@ -450,6 +457,36 @@ def run_tests():
                 d[:,k,None] = ((q + I_3x3[:,k,None]).rot(v) - q.rot(v)) / epsilon
             a = -q.R.T.dot(skew(v))
             assert (np.abs(a - d) < 1e-3).all(), "error in d(R.T.v)/dq"
+
+        # Check derivative of exponential map ( d_exp(delta)/d_delta )
+        eps = 1e-5
+        evs = np.array([[eps, 0, 0], [0, eps, 0], [0, 0, eps]])
+        for j in range(100):
+            delta = np.random.randn(3,1)
+            d = np.zeros([3,3])
+            for k in range(3):
+                d[:,k,None] = (Quaternion.exp(delta+evs[:,k,None])-Quaternion.exp(delta-evs[:,k,None]))/(2*eps)
+            a = Gamma(delta)
+            assert (np.abs(a - d) < 1e-3).all(), "error in d_exp(delta)/d_delta"
+
+        # Check derivative of logarithmic map ( d_log(q)/d_q )
+        for j in range(100):
+            q = Quaternion.random()
+            d = np.zeros([3, 3])
+            for k in range(3):
+                d[:, k, None] = (Quaternion.log(q+evs[:,k,None])-Quaternion.log(q+(-evs[:,k,None])))/(2*eps)
+            a = np.linalg.inv(Gamma(Quaternion.log(q)))
+            assert (np.abs(a - d) < 1e-3).all(), "error in d_log(q)/d_q"
+
+        # Check derivative of attitude with rotation about z-axis removed ( d_q+/d_q- )
+        Ixy = np.array([[1,0,0],[0,1,0],[0,0,0]])
+        for j in range(100):
+            q = Quaternion.random()
+            d = np.zeros([3, 3])
+            for k in range(3):
+                d[:,k,None] = (Quaternion.exp(Ixy.dot(Quaternion.log(q+evs[:,k,None])))-Quaternion.exp(Ixy.dot(Quaternion.log(q+(-evs[:,k,None])))))/(2*eps)
+            a = Gamma(Ixy.dot(Quaternion.log(q))).dot(Ixy).dot(np.linalg.inv(Gamma(Quaternion.log(q))))
+            assert (np.abs(a - d) < 1e-3).all(), "error in d_q+/d_q-"
 
     print "pyquat test [PASSED]"
 

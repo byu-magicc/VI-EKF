@@ -35,11 +35,12 @@ void VIEKF::keyframe_reset()
   //  // precalculate some things
   //  Vector3d v = qm.rota(khat);
   //  Vector3d s = khat.cross(v); // Axis of rotation (without rotation about khat)
+  //  s /= s.norm();
   //  double theta = khat.transpose() * v; // Angle of rotation
   //  Matrix3d sk_tv = skew(theta*s);
   //  Matrix3d sk_u = skew(khat);
   //  Matrix3d qmR = qm.R();
-  //  Quat qp = Quat::exp(theta * s); // q+
+  //  Quat qp = Quat::exp(std::acos(theta) * s); // q+
   
   //  // reset rotation about z
   //  x_.block<4,1>((int)(xATT), 0) = qp.elements();

@@ -169,13 +169,17 @@ public:
     Vector4d q_arr;
 
     double d = u.dot(v);
-    if (d < 1.0)
+    if (d < 0.99999999 && d > -0.99999999)
     {
       double invs = 1.0/std::sqrt((2.0*(1.0+d)));
-      Vector3d xyz = skew(u)*v*invs;
+      Vector3d xyz = u.cross(v*invs);
       q_arr(0) = 0.5/invs;
       q_arr.block<3,1>(1,0)=xyz;
       q_arr /= q_arr.norm();
+    }
+    else if (d < -0.99999999)
+    {
+      q_arr << 0, 1, 0, 0; // There are an infinite number of solutions here, choose one
     }
     else
     {

@@ -15,8 +15,8 @@ void VIEKF::load(std::string filename)
   get_yaml_eigen("x0", filename, x);
   get_yaml_node("mu0", filename, mu0);
   Matrix<double, xZ,1> x0;
-  x0.segment<xMU>(0,0) = x;
-  x0(xMU, 1) = mu0;
+  x0.block<xMU,1>(0,0) = x;
+  x0(xMU, 0) = mu0;
   
   Matrix<double, dxZ,1> P0, Qx, lambda;
   get_yaml_eigen("P0", filename, P0);

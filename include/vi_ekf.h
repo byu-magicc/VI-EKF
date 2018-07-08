@@ -209,7 +209,10 @@ public:
 
   VIEKF();
   ~VIEKF();
-  void init(Matrix<double, xZ,1> x0, Matrix<double, dxZ,1> &P0, Matrix<double, dxZ,1> &Qx,
+#ifdef MC_SIM
+  void load(string filename);
+#endif
+  void init(Matrix<double, xZ,1> &x0, Matrix<double, dxZ,1> &P0, Matrix<double, dxZ,1> &Qx,
             Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,
             Vector3d& lambda_feat, Vector2d& cam_center, Vector2d& focal_len,
             Vector4d& q_b_c, Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, 

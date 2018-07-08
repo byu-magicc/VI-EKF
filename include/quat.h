@@ -18,7 +18,7 @@ private:
 
 public:
   Quat() {}
-  Quat(Vector4d arr) : arr_(arr) {}
+  Quat(const Vector4d& arr) : arr_(arr) {}
 
   Vector4d arr_;
   
@@ -32,8 +32,8 @@ public:
   inline void setZ(double z) { arr_(3) = z; }
   inline const Vector4d& elements() const { return arr_;}
 
-  Quat operator* (const Quat q) { return otimes(q); }
-  Quat& operator *= (const Quat q)
+  Quat operator* (const Quat& q) { return otimes(q); }
+  Quat& operator *= (const Quat& q)
   {
     arr_ <<  w() * q.w() - x() *q.x() - y() * q.y() - z() * q.z(),
              w() * q.x() + x() *q.w() + y() * q.z() - z() * q.y(),
@@ -41,18 +41,18 @@ public:
              w() * q.z() + x() *q.y() - y() * q.x() + z() * q.w();
   }
 
-  Quat& operator= (const Quat q) { arr_ = q.elements(); }
-  Quat& operator= (const Vector4d in) {arr_ = in; }
+  Quat& operator= (const Quat& q) { arr_ = q.elements(); }
+  Quat& operator= (const Vector4d& in) {arr_ = in; }
 
-  Quat operator+ (const Vector3d v) { return boxplus(v); }
-  Quat& operator+= (const Vector3d v)
+  Quat operator+ (const Vector3d& v) { return boxplus(v); }
+  Quat& operator+= (const Vector3d& v)
   {
     arr_ = boxplus(v).elements();
   }
 
-  Vector3d operator- (const Quat q) {return boxminus(q);}
+  Vector3d operator- (const Quat& q) {return boxminus(q);}
 
-  static Matrix3d skew(const Vector3d v)
+  static Matrix3d skew(const Vector3d& v)
   {
     static Matrix3d skew_mat;
     skew_mat << 0.0, -v(2), v(1),
@@ -61,7 +61,7 @@ public:
     return skew_mat;
   }
 
-  static Quat exp(const Vector3d v)
+  static Quat exp(const Vector3d& v)
   {
     double norm_v = v.norm();
 
@@ -79,7 +79,7 @@ public:
     return Quat(q_arr);
   }
 
-  static Vector3d log(const Quat q)
+  static Vector3d log(const Quat& q)
   {
     Vector3d v = q.elements().block<3,1>(1, 0);
     double w = q.elements()(0,0);
@@ -97,7 +97,7 @@ public:
     return out;
   }
 
-  static Quat from_R(const Matrix3d m)
+  static Quat from_R(const Matrix3d& m)
   {
     Vector4d q;
     double tr = m.trace();
@@ -137,7 +137,7 @@ public:
     return Quat(q);
   }
 
-  static Quat from_axis_angle(const Vector3d axis, const double angle)
+  static Quat from_axis_angle(const Vector3d& axis, const double angle)
   {
     double alpha_2 = angle/2.0;
     double sin_a2 = std::sin(alpha_2);
@@ -164,7 +164,7 @@ public:
     return Quat(arr);
   }
 
-  static Quat from_two_unit_vectors(const Vector3d u, const Vector3d v)
+  static Quat from_two_unit_vectors(const Vector3d& u, const Vector3d& v)
   {
     Vector4d q_arr;
 
@@ -203,7 +203,7 @@ public:
     return Quat(q_arr);
   }
 
-  Vector3d euler()
+  Vector3d euler() const
   {
     Vector3d out;
     out << std::atan2(2.0*(w()*x()+y()*z()), 1.0-2.0*(x()*x() + y()*y())),
@@ -212,22 +212,22 @@ public:
     return out;
   }
   
-  double roll()
+  double roll() const
   {
     return std::atan2(2.0*(w()*x()+y()*z()), 1.0-2.0*(x()*x() + y()*y()));
   }
   
-  double pitch()
+  double pitch() const
   {
     return std::asin(2.0*(w()*y() - z()*x()));
   }
   
-  double yaw()
+  double yaw() const
   {
     return std::atan2(2.0*(w()*z()+x()*y()), 1.0-2.0*(y()*y() + z()*z()));
   }
 
-  Matrix3d R()
+  Matrix3d R() const
   {
     double wx = w()*x();
     double wy = w()*y();
@@ -245,7 +245,7 @@ public:
     return out;
   }
 
-  Quat copy()
+  Quat copy() const
   {
     Vector4d tmp = arr_;
     return Quat(tmp);
@@ -256,7 +256,7 @@ public:
     arr_ /= arr_.norm();
   }
 
-  Matrix<double, 3, 2> doublerot(Matrix<double, 3, 2> v)
+  Matrix<double, 3, 2> doublerot(const Matrix<double, 3, 2>& v) const
   {
     Matrix<double, 3, 2> out(3, v.cols());
     for (int i = 0; i < v.cols(); i++)
@@ -266,7 +266,7 @@ public:
     return out;
   }
 
-  Matrix<double, 3, 2> doubleinvrot(Matrix<double, 3, 2> v)
+  Matrix<double, 3, 2> doubleinvrot(const Matrix<double, 3, 2>& v) const
   {
     Matrix<double, 3, 2> out(3, v.cols());
     Vector3d t;
@@ -280,14 +280,14 @@ public:
 
 
   // The same as R.T * v but faster
-  Vector3d rota(Vector3d v)
+  Vector3d rota(const Vector3d& v) const
   {
     Vector3d t = 2.0 * arr_.block<3,1>(1,0).cross(v);
     return v + w() * t + arr_.block<3,1>(1,0).cross(t);
   }
 
   // The same as R * v but faster
-  Vector3d rotp(Vector3d v)
+  Vector3d rotp(const Vector3d& v) const
   {
     Vector3d t = -2.0 * arr_.block<3,1>(1,0).cross(v);
     return v + w() * t - arr_.block<3,1>(1,0).cross(t);
@@ -305,7 +305,7 @@ public:
     return Quat(tmp);
   }
 
-  Quat otimes(const Quat q)
+  Quat otimes(const Quat& q) const
   {
     Vector4d new_arr;
     new_arr <<  w() * q.w() - x() *q.x() - y() * q.y() - z() * q.z(),
@@ -315,12 +315,12 @@ public:
     return Quat(new_arr);
   }
 
-  Quat boxplus(Vector3d delta)
+  Quat boxplus(const Vector3d& delta) const
   {
     return otimes(exp(delta));
   }
   
-  Vector3d boxminus(Quat q)
+  Vector3d boxminus(const Quat& q) const
   {
     Quat dq = q.inverse().otimes(*this);
     if (dq.w() < 0.0)
@@ -328,6 +328,12 @@ public:
       dq.arr_ *= -1.0;
     }
     return log(dq);
+  }
+  
+  Eigen::Vector4d& operator= (Eigen::Vector4d& arr)
+  {
+    arr = arr_;
+    return arr;
   }
 };
 

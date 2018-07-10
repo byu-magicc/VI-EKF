@@ -17,7 +17,7 @@ VIEKF_ROS::VIEKF_ROS() :
 //  cov_img_pub_ = it_.advertise("covariance", 1);
   
   std::string log_directory, feature_mask;
-  std::string default_log_folder = ros::package::getPath("vi_ekf") + "/logs/" + to_string(ros::Time::now().sec) + "/";
+  std::string default_log_folder = ros::package::getPath("vi_ekf") + "/logs/" + to_string(ros::Time::now().sec);
   nh_private_.param<std::string>("log_directory", log_directory, default_log_folder );
   nh_private_.param<std::string>("feature_mask", feature_mask, "");
   nh_private_.param<bool>("record_video", record_video_, true);

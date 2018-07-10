@@ -163,7 +163,7 @@ Vector2d VIEKF::get_feat(const int id) const
   return cam_F_ * zeta / ezT_zeta + cam_center_;
 }
 
-void VIEKF::propagate_Image()
+void VIEKF::propagate_covariance()
 {
   double dt = prev_t_ - prev_image_t_;
   prev_image_t_ = prev_t_;
@@ -172,15 +172,17 @@ void VIEKF::propagate_Image()
   imu_sum_ /= (double)imu_count_;
   
   // Update covariance over the interval
-//  dynamics(x_, imu_sum_, false, true);   
-
+  dynamics(x_, imu_sum_, false, true);   
+  
+  int dx = dxZ+3*len_features_;
+  P_ += (A_ * P_ + P_ * A_.transpose() + G_ * Qu_ * G_.transpose()+ Qx_ ) * dt;
   
   // zero out imu counters
   imu_sum_.setZero();
   imu_count_ = 0;
 }
 
-void VIEKF::propagate(const uVector &u, const double t)
+void VIEKF::propagate_state(const uVector &u, const double t)
 {
   double start = now();
   
@@ -204,11 +206,6 @@ void VIEKF::propagate(const uVector &u, const double t)
   NAN_CHECK;
   boxplus(x_, dx_*dt, xp_);
   x_ = xp_;
-  int dx = dxZ+3*len_features_;
-  P_.topLeftCorner(dx, dx) += (A_.topLeftCorner(dx, dx) * P_.topLeftCorner(dx, dx) 
-                               + P_.topLeftCorner(dx, dx) * A_.topLeftCorner(dx, dx).transpose() 
-                               + G_.topRows(dx) * Qu_ * G_.topRows(dx).transpose()
-                               + Qx_.topLeftCorner(dx, dx) ) * dt;
   
   NAN_CHECK;
   

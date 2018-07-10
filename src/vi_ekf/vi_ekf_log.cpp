@@ -37,6 +37,16 @@ void VIEKF::log_depth(const int id, double zhat, bool active)
   (*log_.stream)[LOG_MEAS] << P_(dxZ + 3*i + 2, dxZ + 3*i + 2) << "\t" << id << "\t" << active << "\n";
 }
 
+void VIEKF::disable_logger()
+{
+  for (auto i = log_.stream->begin(); i != log_.stream->end(); i++)
+  {
+    i->close();
+  }
+  delete log_.stream;
+  log_.stream = NULL;
+}
+
 void VIEKF::init_logger(string root_filename)
 {
   log_.stream = new std::vector<std::ofstream>;
@@ -47,14 +57,14 @@ void VIEKF::init_logger(string root_filename)
   (void)result;
   
   // A logger for the results of propagation
-  (*log_.stream)[LOG_PROP].open(root_filename + "prop.txt", std::ofstream::out | std::ofstream::trunc);
-  (*log_.stream)[LOG_MEAS].open(root_filename + "meas.txt", std::ofstream::out | std::ofstream::trunc);
-  (*log_.stream)[LOG_PERF].open(root_filename + "perf.txt", std::ofstream::out | std::ofstream::trunc);
-  (*log_.stream)[LOG_CONF].open(root_filename + "conf.txt", std::ofstream::out | std::ofstream::trunc);
-  (*log_.stream)[LOG_INPUT].open(root_filename + "input.txt", std::ofstream::out | std::ofstream::trunc);
-  (*log_.stream)[LOG_XDOT].open(root_filename + "xdot.txt", std::ofstream::out | std::ofstream::trunc);
-  (*log_.stream)[LOG_KF].open(root_filename + "kf.txt", std::ofstream::out | std::ofstream::trunc);
-  (*log_.stream)[LOG_DEBUG].open(root_filename + "debug.txt", std::ofstream::out | std::ofstream::trunc);
+  (*log_.stream)[LOG_PROP].open(root_filename + "/prop.txt", std::ofstream::out | std::ofstream::trunc);
+  (*log_.stream)[LOG_MEAS].open(root_filename + "/meas.txt", std::ofstream::out | std::ofstream::trunc);
+  (*log_.stream)[LOG_PERF].open(root_filename + "/perf.txt", std::ofstream::out | std::ofstream::trunc);
+  (*log_.stream)[LOG_CONF].open(root_filename + "/conf.txt", std::ofstream::out | std::ofstream::trunc);
+  (*log_.stream)[LOG_INPUT].open(root_filename + "/input.txt", std::ofstream::out | std::ofstream::trunc);
+  (*log_.stream)[LOG_XDOT].open(root_filename + "/xdot.txt", std::ofstream::out | std::ofstream::trunc);
+  (*log_.stream)[LOG_KF].open(root_filename + "/kf.txt", std::ofstream::out | std::ofstream::trunc);
+  (*log_.stream)[LOG_DEBUG].open(root_filename + "/debug.txt", std::ofstream::out | std::ofstream::trunc);
   
   // Save configuration
   (*log_.stream)[LOG_CONF] << "Test Num: " << root_filename << "\n";

@@ -20,21 +20,21 @@ using namespace Eigen;
 
 #define NO_NANS(mat) (mat.array() == mat.array()).all()
 
-//#ifndef NDEBUG
+#ifndef NDEBUG
 #define NAN_CHECK if (NaNsInTheHouse()) { std::cout << "NaNs In The House at line " << __LINE__ << "!!!\n"; exit(0); }
 #define NEGATIVE_DEPTH if (NegativeDepth()) std::cout << "Negative Depth " << __LINE__ << "!!!\n"
 #define CHECK_MAT_FOR_NANS(mat) if ((K_.array() != K_.array()).any()) { std::cout << "NaN detected in " << #mat << " at line " << __LINE__ << "!!!\n" << mat << "\n"; exit(0); }
-//#else
-//#define NAN_CHECK {}
-//#define NEGATIVE_DEPTH {}
-//#define CHECK_MAT_FOR_NANS(mat) {}
-//#endif
+#else
+#define NAN_CHECK {}
+#define NEGATIVE_DEPTH {}
+#define CHECK_MAT_FOR_NANS(mat) {}
+#endif
 
 #ifndef NUM_FEATURES
 #ifndef NDEBUG
 #define NUM_FEATURES 3
 #else
-#define NUM_FEATURES 35 
+#define NUM_FEATURES 12
 #endif
 #endif
 
@@ -217,7 +217,6 @@ public:
             Vector3d& lambda_feat, Vector2d& cam_center, Vector2d& focal_len,
             Vector4d& q_b_c, Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, 
             bool partial_update, bool use_keyframe_reset, double keyframe_overlap);
-  void init_logger(std::string root_filename);
 
   inline double now() const
   {
@@ -259,8 +258,8 @@ public:
   void boxplus(const xVector &x, const dxVector &dx, xVector &out) const;
   void boxminus(const xVector& x1, const xVector &x2, dxVector& out) const;
   void step(const uVector& u, const double t);
-  void propagate(const uVector& u, const double t);
-  void propagate_Image();
+  void propagate_state(const uVector& u, const double t);
+  void propagate_covariance();
   void dynamics(const xVector &x, const uVector& u, dxVector& xdot, dxMatrix& dfdx, dxuMatrix& dfdu);
   void dynamics(const xVector &x, const uVector& u, bool state = true, bool jac = true);
 
@@ -283,6 +282,8 @@ public:
   void register_keyframe_reset_callback(std::function<void(void)> cb);
   
   // Logger
+  void init_logger(std::string root_filename);
+  void disable_logger();
   void log_global_position(const eVector truth_global_transform);
   void log_depth(const int id, double zhat, bool active);
 

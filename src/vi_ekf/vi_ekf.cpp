@@ -104,11 +104,17 @@ const eVector& VIEKF::get_current_node_global_pose() const
   return current_node_global_pose_;
 }
 
-const MatrixXd VIEKF::get_covariance() const
+const dxMatrix& VIEKF::get_covariance() const
 {
-  MatrixXd ret = P_.topLeftCorner(dxZ+3*len_features_, dxZ+3*len_features_);
+  return P_;
+}
+
+const dxVector VIEKF::get_covariance_diagonal() const
+{
+  dxVector ret = P_.diagonal();
   return ret;
 }
+
 
 
 VectorXd VIEKF::get_depths() const

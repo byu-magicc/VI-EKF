@@ -241,7 +241,8 @@ public:
   Vector2d get_feat(const int id) const;
   const eVector &get_current_node_global_pose() const;
   const xVector& get_state() const;
-  const MatrixXd get_covariance() const;
+  const dxMatrix &get_covariance() const;
+  const dxVector get_covariance_diagonal() const;
   double get_depth(const int id) const;
   inline int get_len_features() const { return len_features_; }
 

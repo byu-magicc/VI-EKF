@@ -45,7 +45,7 @@ void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<dou
   use_drag_term_ = use_drag_term;
   partial_update_ = partial_update;
   keyframe_reset_ = use_keyframe_reset;
-  prev_t_ = 0.0;
+  prev_t_ = -0.001;
   
   min_depth_ = min_depth;
   
@@ -192,7 +192,7 @@ void VIEKF::propagate_state(const uVector &u, const double t)
 {
   double start = now();
   
-  if (prev_t_ < 0.0001)
+  if (prev_t_ < 0)
   {
     start_t_ = t;
     prev_t_ = t;

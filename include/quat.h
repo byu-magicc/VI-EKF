@@ -329,12 +329,6 @@ public:
     }
     return log(dq);
   }
-  
-  Eigen::Vector4d& operator= (Eigen::Vector4d& arr)
-  {
-    arr = arr_;
-    return arr;
-  }
 };
 
 inline std::ostream& operator<< (std::ostream& os, const Quat& q)

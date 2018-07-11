@@ -43,9 +43,9 @@ void VIEKF::dynamics(const xVector& x, const uVector &u, bool state, bool jac)
   {
     dx_.block<3,1>((int)dxPOS,0) = q_I_b.rota(vel); // R_I^b.T * vel
     if (use_drag_term_)
-      dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc_z + gravity_B - mu*vel_xy;
+      dx_.block<3,1>((int)dxVEL,0) = acc_z + gravity_B - mu*vel_xy;
     else
-      dx_.block<3,1>((int)dxVEL,0) = vel.cross(omega) + acc + gravity_B;  
+      dx_.block<3,1>((int)dxVEL,0) = acc + gravity_B;  
     dx_.block<3,1>((int)dxATT, 0) = omega;
   }
   

@@ -11,6 +11,10 @@ void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<dou
                  Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, bool partial_update,
                  bool use_keyframe_reset, double keyframe_overlap)
 {
+  x_.setZero();
+  xp_.setZero();
+  P_.setZero();
+  Qx_.setZero();
   x_.block<(int)xZ, 1>(0,0) = x0;
   P_.block<(int)dxZ, (int)dxZ>(0,0) = P0.asDiagonal();
   Qx_.block<(int)dxZ, (int)dxZ>(0,0) = Qx.asDiagonal();

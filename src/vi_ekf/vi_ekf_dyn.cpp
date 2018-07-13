@@ -56,7 +56,7 @@ void VIEKF::dynamics(const xVector& x, const uVector &u, bool state, bool jac)
     A_.block<3,3>((int)dxPOS, (int)dxATT) = -R_I_b.transpose()*skew(vel);
     if (use_drag_term_)
     {
-      A_.block<3,3>((int)dxVEL, (int)dxVEL) = -skew(omega) -mu * I_2x3.transpose() * I_2x3;
+      A_.block<3,3>((int)dxVEL, (int)dxVEL) = -mu * I_2x3.transpose() * I_2x3;
       A_.block<3,3>((int)dxVEL, (int)dxB_A) << 0, 0, 0, 0, 0, 0, 0, 0, -1;
       A_.block<3,1>((int)dxVEL, (int)dxMU) = -vel_xy;
     }
@@ -66,7 +66,7 @@ void VIEKF::dynamics(const xVector& x, const uVector &u, bool state, bool jac)
       A_.block<3,3>((int)dxVEL, (int)dxVEL) = -skew(omega);
     }
     A_.block<3,3>((int)dxVEL, (int)dxATT) = skew(gravity_B);
-    A_.block<3,3>((int)dxVEL, (int)dxB_G) = -skew(vel);
+//    A_.block<3,3>((int)dxVEL, (int)dxB_G) = -skew(vel);
     A_.block<3,3>((int)dxATT, (int)dxB_G) = -I_3x3;
     
     // Input Jacobian
@@ -74,7 +74,7 @@ void VIEKF::dynamics(const xVector& x, const uVector &u, bool state, bool jac)
       G_.block<3,3>((int)dxVEL, (int)uA) << 0, 0, 0, 0, 0, 0, 0, 0, 1;
     else
       G_.block<3,3>((int)dxVEL, (int)uA) = I_3x3;
-    G_.block<3,3>((int)dxVEL, (int)uG) = skew(vel);
+//    G_.block<3,3>((int)dxVEL, (int)uG) = skew(vel);
     G_.block<3,3>((int)dxATT, (int)uG) = I_3x3;
   }
   

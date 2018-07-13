@@ -145,7 +145,9 @@ VIEKF init_jacobians_test(xVector& x0, uVector& u0)
       static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/100.0));
   Vector4d q_b_c = Quat::Random().elements();
   Vector3d p_b_c = Vector3d::Random() * 0.5;
-  ekf.init(x0.block<17, 1>(0,0), P0, Qx, gamma, Qu, P0feat, Qxfeat, gammafeat, cam_center, focal_len, q_b_c, p_b_c, 2.0, "~", true, true, true, 0.0);
+  Matrix<double, 17, 1> state_0;
+  state_0 =x0.block<17, 1>(0,0); 
+  ekf.init(state_0, P0, Qx, gamma, Qu, P0feat, Qxfeat, gammafeat, cam_center, focal_len, q_b_c, p_b_c, 2.0, "~", true, true, true, 0.0);
   
   // Initialize Random Features
   for (int i = 0; i < NUM_FEATURES; i++)
@@ -404,7 +406,7 @@ void quat_passive_derivative()
   Matrix3d I = Matrix3d::Identity();
   double epsilon = 1e-8;
   
-  a = -skew(q0.rotp(v));  // -[R(q)v]
+  a = skew(q0.rotp(v));  // -[R(q)v]
   
   for (int i = 0; i < 3; i++)
   {
@@ -430,7 +432,7 @@ void quat_active_derivative()
   Matrix3d I = Matrix3d::Identity();
   double epsilon = 1e-8;
   
-  a = q0.R().transpose() * skew(v);  // R(q).T * [v]
+  a = -q0.R().transpose() * skew(v);  // R(q).T * [v]
   
   for (int i = 0; i < 3; i++)
   {
@@ -461,13 +463,8 @@ void exp_approx()
     Quat qp = q + delta;
     
     Matrix3d actual = qp.R();
-    Matrix3d approx = (I + skew(delta))*q.R();
-    
-    if ((actual - approx).array().abs().sum() > 1e-2)
-    {
-      std::cout << "ERROR IN LINE " << __LINE__ << "\nactual:\n" << actual << "\napprox:\nfd" << approx << std::endl;
-    } 
-    ASSERT_LE((actual - approx).array().abs().sum(), 1e-2);
+    Matrix3d approx = (I - skew(delta))*q.R();
+    ASSERT_LE((actual - approx).array().abs().sum(), 0.1);
   }
 }
 TEST(Quat, exp_approx){exp_approx();}

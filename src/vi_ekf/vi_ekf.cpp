@@ -81,9 +81,9 @@ void VIEKF::register_keyframe_reset_callback(std::function<void(void)> cb)
 
 VIEKF::~VIEKF()
 {
-  if (log_.stream)
+  if (log_)
   {
-    for (std::vector<std::ofstream>::iterator it=log_.stream->begin(); it!=log_.stream->end(); ++it)
+    for (std::vector<std::ofstream>::iterator it=log_->begin(); it!=log_->end(); ++it)
     {
       (*it) << endl;
       (*it).close();
@@ -224,28 +224,7 @@ void VIEKF::propagate_state(const uVector &u, const double t)
   NAN_CHECK;
   NEGATIVE_DEPTH;
   
-  log_.prop_time = (0.1 * (now() - start)) + 0.9 * log_.prop_time;
-  log_.count++;
-  
-  if (log_.count > 10 && log_.stream)
-  {
-    (*log_.stream)[LOG_PERF] << t-start_t_ << "\t" << log_.prop_time;
-    for (int i = 0; i < 10; i++)
-    {
-      (*log_.stream)[LOG_PERF] << "\t" << log_.update_times[i];
-    }
-    (*log_.stream)[LOG_PERF] << "\n";
-    log_.count = 0;
-  }
-  
-  log_.prop_log_count++;
-  if (log_.stream && log_.prop_log_count > 1)
-  {
-    log_.prop_log_count = 0;
-    (*log_.stream)[LOG_PROP] << t-start_t_ << " " << x_.transpose() << " " <<  P_.diagonal().transpose() << " \n";
-    (*log_.stream)[LOG_INPUT] << t-start_t_ << " " << (u - x_.block<6,1>((int)xB_A, 0)).transpose() << "\n";
-    (*log_.stream)[LOG_XDOT] << t-start_t_ << " " << dt << " " <<  dx_.transpose() << "\n";
-  }
+  log_state(t, x_, P_.diagonal(), u, dx_);
 }
 
 }

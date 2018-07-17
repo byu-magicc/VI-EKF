@@ -83,7 +83,7 @@ public:
     xMU = 16,
     xZ = 17
   };
-  
+
   enum : int{
     ePOS = 0,
     eATT = 3
@@ -118,19 +118,18 @@ public:
     INV_DEPTH,
     TOTAL_MEAS
   } measurement_type_t;
-  
+
   typedef struct{
     eVector transform;
-    Matrix3d cov;    
+    Matrix3d cov;
   } edge_SE2_t;
 
 private:
   typedef enum {
-    LOG_PROP,
-    LOG_MEAS,
-    LOG_PERF,
+    LOG_PROP = TOTAL_MEAS,
     LOG_INPUT,
     LOG_XDOT,
+    LOG_GLOBAL,
     LOG_CONF,
     LOG_KF,
     LOG_DEBUG,
@@ -146,7 +145,7 @@ private:
   // Partial Update Gains
   dxVector lambda_;
   dxMatrix Lambda_;
-  
+
   // Initial uncertainty on features
   Matrix3d P0_feat_;
 
@@ -158,11 +157,11 @@ private:
   std::vector<int> current_feature_ids_;
   std::vector<int> keyframe_features_;
   double keyframe_overlap_threshold_;
-  
+
   double prev_image_t_;
   uVector imu_sum_;
   int imu_count_;
-  
+
   std::deque<edge_SE2_t> edges_;
 
   // Matrix Workspace
@@ -188,22 +187,13 @@ private:
   Matrix<double, 2, 3> cam_F_;
   Quat q_b_c_;
   Vector3d p_b_c_;
-  
+
   eVector current_node_global_pose_;
-  
+
   std::function<void(void)> keyframe_reset_callback_;
 
   // Log Stuff
-  typedef struct
-  {
-    std::vector<std::ofstream>* stream = nullptr;
-    double update_times[TOTAL_MEAS];
-    int update_count[TOTAL_MEAS];
-    double prop_time;
-    int prop_log_count;
-    int count;
-  } log_t;
-  log_t log_ = {};
+  std::vector<std::ofstream>* log_ = nullptr;
 
 public:
 
@@ -215,7 +205,7 @@ public:
   void init(Matrix<double, xZ,1> &x0, Matrix<double, dxZ,1> &P0, Matrix<double, dxZ,1> &Qx,
             Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,
             Vector3d& lambda_feat, Vector2d& cam_center, Vector2d& focal_len,
-            Vector4d& q_b_c, Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, 
+            Vector4d& q_b_c, Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term,
             bool partial_update, bool use_keyframe_reset, double keyframe_overlap);
 
   inline double now() const
@@ -224,15 +214,15 @@ public:
     return (double)now.count()*1e-6;
   }
 
-  // Errors  
+  // Errors
   bool NaNsInTheHouse() const;
   bool BlowingUp() const;
   bool NegativeDepth() const;
-  
+
   // Helpers
   int global_to_local_feature_id(const int global_id) const;
 
-  
+
   // Getters and Setters
   VectorXd get_depths() const;
   MatrixXd get_zetas() const;
@@ -276,17 +266,18 @@ public:
   void h_depth(const xVector& x, zVector& h, hMatrix& H, const int id) const;
   void h_inv_depth(const xVector& x, zVector& h, hMatrix& H, const int id) const;
   void h_pixel_vel(const xVector& x, zVector& h, hMatrix& H, const int id) const;
-  
+
   // Keyframe Reset
   void keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N);
   void keyframe_reset();
   void register_keyframe_reset_callback(std::function<void(void)> cb);
-  
+
   // Logger
+  void log_state(const double t, const xVector& x, const dxVector& P, const uVector& u, const dxVector& dx);
+  void log_measurement(const measurement_type_t type, const double t, const int dim, const MatrixXd& z, const MatrixXd& zhat, const bool active, const int id);
   void init_logger(std::string root_filename);
   void disable_logger();
   void log_global_position(const eVector truth_global_transform);
-  void log_depth(const int id, double zhat, bool active);
 
   // Inequality Constraint on Depth
   void fix_depth();

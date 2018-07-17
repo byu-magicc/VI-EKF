@@ -5,9 +5,7 @@ namespace vi_ekf
 
 bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
                    const MatrixXd& R, bool active, const int id, const double depth)
-{
-  double start = now();
-  
+{  
   if ((z.array() != z.array()).any())
     return true;
   
@@ -85,23 +83,7 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
   NAN_CHECK;
   NEGATIVE_DEPTH;
   
-  log_.update_count[meas_type]++;
-  if (log_.stream && log_.update_count[meas_type] > 1)
-  {
-    log_.update_count[meas_type] = 0;
-    if (meas_type == DEPTH || meas_type == INV_DEPTH)
-    {
-      log_depth(id, zhat_(0,0), active);
-    }
-    else
-    {
-      
-      (*log_.stream)[LOG_MEAS] << measurement_names[meas_type] << "\t" << prev_t_-start_t_ << "\t"
-                               << z.transpose() << "\t" << zhat_.topRows(z.rows()).transpose() << "\t" << id << "\t" << active << "\n";
-      
-    }
-  }
-  log_.update_times[meas_type] = now() - start;
+  log_measurement(meas_type, prev_t_ - start_t_, z.rows(), z, zhat_, active, id);
   return false;
 }
 

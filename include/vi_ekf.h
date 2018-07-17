@@ -126,7 +126,8 @@ public:
 
 private:
   typedef enum {
-    LOG_PROP = TOTAL_MEAS,
+    LOG_STATE = TOTAL_MEAS,
+    LOG_FEATURE_IDS,
     LOG_INPUT,
     LOG_XDOT,
     LOG_GLOBAL,

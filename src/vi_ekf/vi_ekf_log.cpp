@@ -7,15 +7,24 @@ void VIEKF::log_state(const double t, const xVector& x, const dxVector& P, const
 {
   if (log_)
   {
-    (*log_)[LOG_PROP].write((char*)&t, sizeof(double));
-    (*log_)[LOG_PROP].write((char*)x.data(), sizeof(double) * x.rows());
-    (*log_)[LOG_PROP].write((char*)P.data(), sizeof(double) * P.rows());
+    (*log_)[LOG_STATE].write((char*)&t, sizeof(double));
+    (*log_)[LOG_STATE].write((char*)x.data(), sizeof(double) * x.rows());
+    (*log_)[LOG_STATE].write((char*)P.data(), sizeof(double) * P.rows());
 
     (*log_)[LOG_INPUT].write((char*)&t, sizeof(double));
     (*log_)[LOG_INPUT].write((char*)u.data(), sizeof(double) * u.rows());
 
     (*log_)[LOG_XDOT].write((char*)&t, sizeof(double));
     (*log_)[LOG_XDOT].write((char*)dx.data(), sizeof(double) * dx.rows());
+
+    (*log_)[LOG_FEATURE_IDS].write((char*)&t, sizeof(double));
+    for (int i = 0; i < NUM_FEATURES; i++)
+    {
+      double idd = -1.0;
+      if (i < len_features_)
+        idd = (double)current_feature_ids_[i];
+      (*log_)[LOG_FEATURE_IDS].write((char*)&idd, sizeof(double));
+    }
   }
 }
 
@@ -78,7 +87,8 @@ void VIEKF::init_logger(string root_filename)
   {
     (*log_)[i].open(root_filename + "/" + measurement_names[i] + ".bin",  std::ofstream::out | std::ofstream::trunc);
   }
-  (*log_)[LOG_PROP].open(root_filename + "/prop.bin", std::ofstream::out | std::ofstream::trunc);
+  (*log_)[LOG_STATE].open(root_filename + "/prop.bin", std::ofstream::out | std::ofstream::trunc);
+  (*log_)[LOG_FEATURE_IDS].open(root_filename + "/feat_id.bin", std::ofstream::out | std::ofstream::trunc);
   (*log_)[LOG_CONF].open(root_filename + "/conf.txt", std::ofstream::out | std::ofstream::trunc);
   (*log_)[LOG_INPUT].open(root_filename + "/input.bin", std::ofstream::out | std::ofstream::trunc);
   (*log_)[LOG_XDOT].open(root_filename + "/xdot.bin", std::ofstream::out | std::ofstream::trunc);

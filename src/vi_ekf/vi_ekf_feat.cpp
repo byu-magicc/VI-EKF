@@ -65,7 +65,7 @@ void VIEKF::clear_feature(const int id)
   }
   
   // Clean up the rest of the matrix
-  x_.bottomRows(x_.cols() - dx_max).setZero();
+  x_.bottomRows(x_.rows() - dx_max).setZero();
   P_.rightCols(P_.cols() - dx_max).setZero();
   P_.bottomRows(P_.rows() - dx_max).setZero();
   

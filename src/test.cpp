@@ -179,14 +179,17 @@ int htest(measurement_function_ptr fn, VIEKF& ekf, const VIEKF::measurement_type
   int num_errors = 0;
   xVector x0 = ekf.get_state();
   zVector z0;
-  hMatrix a_dhdx;
-  a_dhdx.setZero();
+  MatrixXd a_dhdx;
+  a_dhdx.setZero(dim, MAX_DX);
   
   // Call the Measurement function
-  CALL_MEMBER_FN(ekf, fn)(x0, z0, a_dhdx, id);
+  hMatrix H;
+  CALL_MEMBER_FN(ekf, fn)(x0, z0, H, id);
+  a_dhdx = H.topRows(dim);
+
   
-  hMatrix d_dhdx;
-  d_dhdx.setZero(); 
+  MatrixXd d_dhdx;
+  d_dhdx.setZero(dim, MAX_DX);
   
   Matrix<double, MAX_DX, MAX_DX> I = Matrix<double, MAX_DX, MAX_DX>::Identity();
   double epsilon = 1e-6;
@@ -201,14 +204,14 @@ int htest(measurement_function_ptr fn, VIEKF& ekf, const VIEKF::measurement_type
     CALL_MEMBER_FN(ekf, fn)(x_prime, z_prime, dummy_H, id);
     
     if (type == VIEKF::QZETA)
-      d_dhdx.block(0, i, dim, 1) = q_feat_boxminus(Quat(z_prime), Quat(z0))/epsilon;
+      d_dhdx.col(i) = q_feat_boxminus(Quat(z_prime), Quat(z0))/epsilon;
     else if (type == VIEKF::ATT)
       d_dhdx.col(i) = (Quat(z_prime) - Quat(z0))/epsilon;
     else
-      d_dhdx.block(0, i, dim, 1) = (z_prime.topRows(dim) - z0.topRows(dim))/epsilon;
+      d_dhdx.col(i) = (z_prime.topRows(dim) - z0.topRows(dim))/epsilon;
   }
   
-  MatrixXd error = (a_dhdx - d_dhdx).topRows(dim);
+  MatrixXd error = a_dhdx - d_dhdx;
   double err_threshold = std::max(tol * a_dhdx.norm(), tol);
   
   for (std::map<std::string, std::vector<int>>::iterator it=indexes.begin(); it!=indexes.end(); ++it)
@@ -734,7 +737,7 @@ void VI_EKF_h_test()
     ASSERT_FALSE(htest(&VIEKF::h_att, ekf, VIEKF::ATT, 0, 3));
     for (int i = 0; i < ekf.get_len_features(); i++)
     {
-      ASSERT_FALSE(htest(&VIEKF::h_feat, ekf, VIEKF::FEAT, i, 2, 5e-1));
+      ASSERT_FALSE(htest(&VIEKF::h_feat, ekf, VIEKF::FEAT, i, 2));
       ASSERT_FALSE(htest(&VIEKF::h_qzeta, ekf, VIEKF::QZETA, i, 2));
       ASSERT_FALSE(htest(&VIEKF::h_depth, ekf, VIEKF::DEPTH, i, 1));
       ASSERT_FALSE(htest(&VIEKF::h_inv_depth, ekf, VIEKF::INV_DEPTH, i, 1));

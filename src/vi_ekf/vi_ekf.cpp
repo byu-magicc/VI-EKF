@@ -175,8 +175,8 @@ Vector2d VIEKF::get_feat(const int id) const
 
 void VIEKF::propagate_covariance()
 {
-  double dt = prev_t_ - prev_image_t_;
-  prev_image_t_ = prev_t_;
+  double dt = prev_t_ - prev_cov_prop_t_;
+  prev_cov_prop_t_ = prev_t_;
   
   // Average IMU over the interval
   imu_sum_ /= (double)imu_count_;
@@ -203,7 +203,7 @@ void VIEKF::propagate_state(const uVector &u, const double t)
   {
     start_t_ = t;
     prev_t_ = t;
-    prev_image_t_ = t;
+    prev_cov_prop_t_ = t;
     return;
   }
   
@@ -214,14 +214,27 @@ void VIEKF::propagate_state(const uVector &u, const double t)
   imu_sum_ += u;
   imu_count_++;
   
-  // update the state, but not the covariance
-  dynamics(x_, u, true, false);
+  if (imu_count_ > 10)
+  {
+    // If it's been too long without a covariance update, do it now
+    dynamics(x_, u, true, true);
+    propagate_covariance();
+  }
+  else
+  {
+    // Don't calculate state jacobians (expensive)
+    dynamics(x_, u, true, false);
+  }
+
   NAN_CHECK;
+
+  // Propagate State
   boxplus(x_, dx_*dt, xp_);
   x_ = xp_;
-  
+
   NAN_CHECK;
   
+  // Correct any impossible depth states
   fix_depth();
   
   NAN_CHECK;

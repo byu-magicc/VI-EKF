@@ -160,7 +160,7 @@ private:
   std::vector<int> keyframe_features_;
   double keyframe_overlap_threshold_;
 
-  double prev_image_t_;
+  double prev_cov_prop_t_;
   uVector imu_sum_;
   int imu_count_;
 

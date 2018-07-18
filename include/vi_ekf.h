@@ -2,6 +2,7 @@
 
 #include "Eigen/Core"
 #include "Eigen/Geometry"
+#include "unsupported/Eigen/MatrixFunctions"
 
 #include <deque>
 #include <set>

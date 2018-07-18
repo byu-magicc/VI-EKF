@@ -185,7 +185,9 @@ void VIEKF::propagate_covariance()
   dynamics(x_, imu_sum_, false, true);   
   
   int dx = dxZ+3*len_features_;
-  P_ += (A_ * P_ + P_ * A_.transpose() + G_ * Qu_ * G_.transpose()+ Qx_ ) * dt;
+//  A_ = I_big_ + A_ *dt + A_*A_*dt*dt/2.0;
+  A_ = (A_*dt).exp();
+  P_ = A_ * P_ * A_.transpose() + (G_ * Qu_ * G_.transpose()+ Qx_) * dt;
   
   // zero out imu counters
   imu_sum_.setZero();

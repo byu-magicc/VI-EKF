@@ -76,7 +76,7 @@ static std::map<std::string, std::vector<int>> indexes = [] {
 }();
 
 
-bool check_block(std::string row_id, std::string col_id, MatrixXd analytical, MatrixXd fd, double tolerance=1e-3)
+bool check_block(std::string row_id, std::string col_id, const MatrixXd& analytical, const MatrixXd& fd, double tolerance=1e-3)
 {
   MatrixXd error_mat = analytical - fd;
   std::vector<int> row = indexes[row_id];
@@ -640,7 +640,7 @@ void VIEKF_dfdx_test()
     ekf.dynamics(x0, u0, dx0, a_dfdx, a_dfdu);
     d_dfdx.setZero();
     
-    // numeri
+    // numerical differentiation
     for (int i = 0; i < d_dfdx.cols(); i++)
     {
       ekf.boxplus(x0, (Idx.col(i) * epsilon), xprime);
@@ -664,14 +664,17 @@ void VIEKF_dfdx_test()
       
       ASSERT_FALSE(check_block(zeta_key, "dxVEL", a_dfdx, d_dfdx));
       ASSERT_FALSE(check_block(zeta_key, "dxB_G", a_dfdx, d_dfdx));
-      ASSERT_FALSE(check_block(zeta_key, zeta_key, a_dfdx, d_dfdx, 2e-2));
+      ASSERT_FALSE(check_block(zeta_key, zeta_key, a_dfdx, d_dfdx));
       ASSERT_FALSE(check_block(zeta_key, rho_key, a_dfdx, d_dfdx));
-      ASSERT_FALSE(check_block(rho_key, "dxVEL", a_dfdx, d_dfdx, 2e-2));
-      ASSERT_FALSE(check_block(rho_key, "dxB_G", a_dfdx, d_dfdx, 1e-2));
-      ASSERT_FALSE(check_block(rho_key, zeta_key, a_dfdx, d_dfdx, 20.0));
-      ASSERT_FALSE(check_block(rho_key, rho_key, a_dfdx, d_dfdx, 1e-2));
+      ASSERT_FALSE(check_block(rho_key, "dxVEL", a_dfdx, d_dfdx));
+      ASSERT_FALSE(check_block(rho_key, "dxB_G", a_dfdx, d_dfdx));
+      ASSERT_FALSE(check_block(rho_key, zeta_key, a_dfdx, d_dfdx));
+      ASSERT_FALSE(check_block(rho_key, rho_key, a_dfdx, d_dfdx));
     }
   }
+
+  // Check the full matrix, just to be sure
+  ASSERT_LE((a_dfdx - d_dfdx).array().sum(), 1e-2);
 }
 TEST(VI_EKF, dfdx_test){VIEKF_dfdx_test();}
 
@@ -713,9 +716,11 @@ void VIEKF_dfdu_test()
       std::string zeta_key = "dxZETA_" + std::to_string(i);
       std::string rho_key = "dxRHO_" + std::to_string(i);
       ASSERT_FALSE(check_block(zeta_key, "uG", a_dfdu, d_dfdu));
-      ASSERT_FALSE(check_block(rho_key, "uG", a_dfdu, d_dfdu, 1e-1));
+      ASSERT_FALSE(check_block(rho_key, "uG", a_dfdu, d_dfdu));
     }
   }
+  // Check the full matrix, just to be sure
+  ASSERT_LE((a_dfdu.array() - d_dfdu.array()).sum(), 1e-2);
 }
 TEST(VI_EKF, dfdu_test){VIEKF_dfdu_test();}
 

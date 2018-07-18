@@ -56,6 +56,9 @@ void VIEKF::clear_feature(const int id)
   len_features_ -= 1;
   int dx_max = dxZ+3*len_features_;
 
+//  std::cout << "clearing feature local:" << local_feature_id << " global: " << id <<  std::endl << " Before\n" << P_ << std::endl;
+
+
   // Remove the right portions of state and covariance and shift everything to the upper-left corner of the matrix
   if (local_feature_id < len_features_)
   {
@@ -66,8 +69,20 @@ void VIEKF::clear_feature(const int id)
 
   // Clean up the rest of the matrix
   x_.bottomRows(x_.rows() - (xZ+5*len_features_)).setZero();
-  P_.rightCols(P_.cols() - dx_max).setZero();
-  P_.bottomRows(P_.rows() - dx_max).setZero();
+  P_.bottomLeftCorner(P_.cols() - dx_max, dx_max).setZero();
+  P_.topRightCorner(dx_max, P_.rows() - dx_max).setZero();
+  P_.bottomRightCorner(P_.rows() - dx_max,P_.rows() - dx_max).setIdentity();
+
+//  std::cout << "After\n" << P_ << std::endl;
+
+  LLT<dxMatrix> chol(P_);
+  if (chol.info() == NumericalIssue)
+  {
+    std::cout << "negative covariance matrix after removing feature" << std::endl;
+    int debug = 1;
+    exit(0);
+  }
+
 
   NAN_CHECK;
 }

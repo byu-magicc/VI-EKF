@@ -182,10 +182,10 @@ void VIEKF::propagate_covariance()
   imu_sum_ /= (double)imu_count_;
   
   // Update covariance over the interval
-  dynamics(x_, imu_sum_, false, true);   
+//  dynamics(x_, imu_sum_, false, true);
   
-  int dx = dxZ+3*len_features_;
-  P_ += (A_ * P_ + P_ * A_.transpose() + G_ * Qu_ * G_.transpose()+ Qx_ ) * dt;
+//  int dx = dxZ+3*len_features_;
+//  P_ += (A_ * P_ + P_ * A_.transpose() + G_ * Qu_ * G_.transpose()+ Qx_ ) * dt;
   
   // zero out imu counters
   imu_sum_.setZero();
@@ -211,12 +211,33 @@ void VIEKF::propagate_state(const uVector &u, const double t)
   imu_sum_ += u;
   imu_count_++;
   
-  // update the state, but not the covariance
-  dynamics(x_, u, true, false);
+  dynamics(x_, u, true, true);
   NAN_CHECK;
   boxplus(x_, dx_*dt, xp_);
   x_ = xp_;
-  
+  // Check to make sure that covariance is positive definite
+  LLT<dxMatrix> chol(P_);
+  if (chol.info() == NumericalIssue)
+  {
+    std::cout << "negative covariance matrix before propagation" << std::endl;
+    int debug = 1;
+    exit(0);
+  }
+
+  /// TODO: SOMETHING IS WRONG HERE.  THE CORRECT EQUATION IS Pdot = AP + PA.T  + Q, however,
+  /// that causes the matrix to go negative.  I believe I am creating the transpose of A somehow
+  P_ += (A_.transpose() * P_ + P_ * A_ + Qx_) * dt; //  + G_ * Qu_ * G_.transpose()+ Qx_ ) * dt;
+
+  // Check to make sure that covariance is positive definite
+  LLT<dxMatrix> chol2(P_);
+  if (chol2.info() == NumericalIssue)
+  {
+    std::cout << "negative covariance matrix after propagation, dt = " << dt << std::endl;
+    std::cout << P_;
+    int debug = 1;
+    exit(0);
+  }
+
   NAN_CHECK;
   
   fix_depth();

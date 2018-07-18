@@ -226,7 +226,8 @@ void VIEKF::propagate_state(const uVector &u, const double t)
 
   /// TODO: SOMETHING IS WRONG HERE.  THE CORRECT EQUATION IS Pdot = AP + PA.T  + Q, however,
   /// that causes the matrix to go negative.  I believe I am creating the transpose of A somehow
-  P_ += (A_.transpose() * P_ + P_ * A_ + Qx_) * dt; //  + G_ * Qu_ * G_.transpose()+ Qx_ ) * dt;
+  A_ = (I_big_ + A_*dt); //  Approximation to the matrix exponential
+  P_ = (A_ * P_ * A_.transpose()) + Qx_;
 
   // Check to make sure that covariance is positive definite
   LLT<dxMatrix> chol2(P_);

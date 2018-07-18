@@ -55,7 +55,7 @@ void VIEKF::clear_feature(const int id)
   current_feature_ids_.erase(current_feature_ids_.begin() + local_feature_id);
   len_features_ -= 1;
   int dx_max = dxZ+3*len_features_;
-  
+
   // Remove the right portions of state and covariance and shift everything to the upper-left corner of the matrix
   if (local_feature_id < len_features_)
   {
@@ -63,12 +63,12 @@ void VIEKF::clear_feature(const int id)
     P_.block(dxZETA_i, 0, (P_.rows() - (dxZETA_i+3)), P_.cols()) = P_.bottomRows(P_.rows() - (dxZETA_i+3));
     P_.block(0, dxZETA_i, P_.rows(), (P_.cols() - (dxZETA_i+3))) = P_.rightCols(P_.cols() - (dxZETA_i+3));
   }
-  
+
   // Clean up the rest of the matrix
-  x_.bottomRows(x_.rows() - dx_max).setZero();
+  x_.bottomRows(x_.rows() - (xZ+5*len_features_)).setZero();
   P_.rightCols(P_.cols() - dx_max).setZero();
   P_.bottomRows(P_.rows() - dx_max).setZero();
-  
+
   NAN_CHECK;
 }
 

@@ -8,43 +8,49 @@ namespace vi_ekf
 {
 
 #ifdef MC_SIM
-void VIEKF::load(std::string filename)
+void VIEKF::load(std::string ekf_file, std::string common_file)
 {
   Matrix<double, xMU, 1> x;
   double mu0;
-  get_yaml_eigen("x0", filename, x);
-  get_yaml_node("mu0", filename, mu0);
+  get_yaml_eigen("x0", common_file, x);
+  get_yaml_node("mu0", ekf_file, mu0);
   Matrix<double, xZ,1> x0;
   x0.block<xMU,1>(0,0) = x;
   x0(xMU, 0) = mu0;
   
   Matrix<double, dxZ,1> P0, Qx, lambda;
-  get_yaml_eigen("P0", filename, P0);
-  get_yaml_eigen("Qx", filename, Qx);
-  get_yaml_eigen("lambda", filename, lambda);
+  get_yaml_eigen("P0", ekf_file, P0);
+  get_yaml_eigen("Qx", ekf_file, Qx);
+  get_yaml_eigen("lambda", ekf_file, lambda);
   
-  uVector Qu;
   Vector3d P0_feat, Qx_feat, lambda_feat, p_b_c;
   Vector2d cam_center, focal_len;
   Vector4d q_b_c;
-  get_yaml_eigen("Qu", filename, Qu);
-  get_yaml_eigen("P0_feat", filename, P0_feat);
-  get_yaml_eigen("Qx_feat", filename, Qx_feat);
-  get_yaml_eigen("lambda_feat", filename, lambda_feat);
-  get_yaml_eigen("p_b_c", filename, p_b_c);
-  get_yaml_eigen("cam_center", filename, cam_center);
-  get_yaml_eigen("focal_len", filename, focal_len);
-  get_yaml_eigen("q_b_c", filename, q_b_c);
+  get_yaml_eigen("P0_feat", ekf_file, P0_feat);
+  get_yaml_eigen("Qx_feat", ekf_file, Qx_feat);
+  get_yaml_eigen("lambda_feat", ekf_file, lambda_feat);
+  get_yaml_eigen("p_b_c", common_file, p_b_c);
+  get_yaml_eigen("cam_center", common_file, cam_center);
+  get_yaml_eigen("focal_len", common_file, focal_len);
+  get_yaml_eigen("q_b_c", common_file, q_b_c);
+
+  uVector Qu;
+  double acc_stdev, gyro_stdev;
+  get_yaml_node("accel_noise_stdev", common_file, acc_stdev);
+  get_yaml_node("gyro_noise_stdev", common_file, gyro_stdev);
+  double acc_var = acc_stdev * acc_stdev;
+  double gyro_var = gyro_stdev * gyro_stdev;
+  Qu << acc_var, acc_var, acc_var, gyro_var, gyro_var, gyro_var;
   
   std::string log_directory;
   double min_depth, keyframe_overlap;
   bool use_drag_term, partial_update, keyframe_reset;
-  get_yaml_node("min_depth", filename, min_depth);
-  get_yaml_node("log_directory", filename, log_directory);
-  get_yaml_node("use_drag_term", filename, use_drag_term);
-  get_yaml_node("partial_update", filename, partial_update);
-  get_yaml_node("keyframe_reset", filename, keyframe_reset);
-  get_yaml_node("keyframe_overlap", filename, keyframe_overlap);
+  get_yaml_node("min_depth", ekf_file, min_depth);
+  get_yaml_node("log_directory", common_file, log_directory);
+  get_yaml_node("use_drag_term", ekf_file, use_drag_term);
+  get_yaml_node("partial_update", ekf_file, partial_update);
+  get_yaml_node("keyframe_reset", ekf_file, keyframe_reset);
+  get_yaml_node("keyframe_overlap", ekf_file, keyframe_overlap);
   
   init(x0, P0, Qx, lambda, Qu, P0_feat, Qx_feat, lambda_feat, cam_center,
        focal_len, q_b_c, p_b_c, min_depth, log_directory, use_drag_term, 

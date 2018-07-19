@@ -202,7 +202,7 @@ public:
   VIEKF();
   ~VIEKF();
 #ifdef MC_SIM
-  void load(string filename);
+  void load(string ekf_file, string common_file);
 #endif
   void init(Matrix<double, xZ,1> &x0, Matrix<double, dxZ,1> &P0, Matrix<double, dxZ,1> &Qx,
             Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,

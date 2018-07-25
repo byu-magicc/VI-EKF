@@ -22,6 +22,22 @@ void VIEKF::load(std::string ekf_file, std::string common_file)
   get_yaml_eigen("P0", ekf_file, P0);
   get_yaml_eigen("Qx", ekf_file, Qx);
   get_yaml_eigen("lambda", ekf_file, lambda);
+
+  double accel_init_stdev, gyro_init_stdev;
+  get_yaml_node("accel_init_stdev", common_file, accel_init_stdev);
+  get_yaml_node("gyro_init_stdev", common_file, gyro_init_stdev);
+  double acc_init_var = accel_init_stdev*accel_init_stdev;
+  double gyro_init_var = gyro_init_stdev*gyro_init_stdev;
+  P0.block<3,1>(dxB_A,0).array() = acc_init_var;
+  P0.block<3,1>(dxB_G,0).array() = gyro_init_var;
+
+  double accel_bias_walk_stdev, gyro_bias_walk_stdev;
+  get_yaml_node("accel_bias_walk", common_file, accel_bias_walk_stdev);
+  get_yaml_node("gyro_bias_walk", common_file, gyro_bias_walk_stdev);
+  double acc_walk_var = accel_bias_walk_stdev * accel_bias_walk_stdev;
+  double gyro_walk_var = gyro_bias_walk_stdev * gyro_bias_walk_stdev;
+  Qx.block<3,1>(dxB_A,0).array() = acc_walk_var;
+  Qx.block<3,1>(dxB_G,0).array() = gyro_walk_var;
   
   Vector3d P0_feat, Qx_feat, lambda_feat, p_b_c;
   Vector2d cam_center, focal_len;

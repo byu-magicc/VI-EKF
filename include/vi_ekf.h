@@ -21,15 +21,15 @@ using namespace Eigen;
 
 #define NO_NANS(mat) (mat.array() == mat.array()).all()
 
-#ifndef NDEBUG
+//#ifndef NDEBUG
 #define NAN_CHECK if (NaNsInTheHouse()) { std::cout << "NaNs In The House at line " << __LINE__ << "!!!\n"; exit(0); }
 #define NEGATIVE_DEPTH if (NegativeDepth()) std::cout << "Negative Depth " << __LINE__ << "!!!\n"
 #define CHECK_MAT_FOR_NANS(mat) if ((K_.array() != K_.array()).any()) { std::cout << "NaN detected in " << #mat << " at line " << __LINE__ << "!!!\n" << mat << "\n"; exit(0); }
-#else
-#define NAN_CHECK {}
-#define NEGATIVE_DEPTH {}
-#define CHECK_MAT_FOR_NANS(mat) {}
-#endif
+//#else
+//#define NAN_CHECK {}
+//#define NEGATIVE_DEPTH {}
+//#define CHECK_MAT_FOR_NANS(mat) {}
+//#endif
 
 #ifndef NUM_FEATURES
 #ifndef NDEBUG
@@ -202,7 +202,7 @@ public:
   VIEKF();
   ~VIEKF();
 #ifdef MC_SIM
-  void load(string ekf_file, string common_file);
+  void load(string ekf_file, string common_file, bool use_logger=true);
 #endif
   void init(Matrix<double, xZ,1> &x0, Matrix<double, dxZ,1> &P0, Matrix<double, dxZ,1> &Qx,
             Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,
@@ -223,6 +223,7 @@ public:
 
   // Helpers
   int global_to_local_feature_id(const int global_id) const;
+  const std::vector<int>& tracked_features() const;
 
 
   // Getters and Setters

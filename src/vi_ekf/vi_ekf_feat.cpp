@@ -72,6 +72,11 @@ void VIEKF::clear_feature(const int id)
   NAN_CHECK;
 }
 
+const std::vector<int> &VIEKF::tracked_features() const
+{
+  return current_feature_ids_;
+}
+
 
 void VIEKF::keep_only_features(const vector<int> features)
 {

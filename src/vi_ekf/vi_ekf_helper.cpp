@@ -8,7 +8,7 @@ namespace vi_ekf
 {
 
 #ifdef MC_SIM
-void VIEKF::load(std::string ekf_file, std::string common_file)
+void VIEKF::load(std::string ekf_file, std::string common_file, bool use_logger)
 {
   Matrix<double, xMU, 1> x;
   double mu0;
@@ -67,6 +67,10 @@ void VIEKF::load(std::string ekf_file, std::string common_file)
   get_yaml_node("partial_update", ekf_file, partial_update);
   get_yaml_node("keyframe_reset", ekf_file, keyframe_reset);
   get_yaml_node("keyframe_overlap", ekf_file, keyframe_overlap);
+  if (!use_logger)
+  {
+    log_directory = "~"; // special character to disable the logger
+  }
   
   init(x0, P0, Qx, lambda, Qu, P0_feat, Qx_feat, lambda_feat, cam_center,
        focal_len, q_b_c, p_b_c, min_depth, log_directory, use_drag_term, 

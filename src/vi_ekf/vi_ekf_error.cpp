@@ -10,8 +10,8 @@ bool VIEKF::NaNsInTheHouse() const
   if( ( (x_.topRows(x_max)).array() != (x_.topRows(x_max)).array()).any() 
       || ((P_.topLeftCorner(dx_max,dx_max)).array() != (P_.topLeftCorner(dx_max,dx_max)).array()).any() )
   {
-    std::cout << "x:\n" << x_.block(0,0, xZ + len_features_, 1) << "\n";
-    std::cout << "P:\n" << P_.block(0, 0,xZ + len_features_, xZ + len_features_) << "\n";
+    std::cout << "x:\n" << x_ << "\n";
+    std::cout << "P:\n" << P_ << "\n";
     return true;
   }
   else

@@ -55,11 +55,11 @@ void VIEKF::log_measurement(const measurement_type_t type, const double t, const
     (*log_)[type].write((char*)zhat.data(), sizeof(double) * dim);
     double ac = 1.0 * active;
     (*log_)[type].write((char*)&ac, sizeof(double));
-  }
-  if (type == FEAT || type == QZETA || type == DEPTH || type == INV_DEPTH || type == PIXEL_VEL)
-  {
-    double idd = 1.0 * id;
-    (*log_)[type].write((char*)&idd, sizeof(double));
+    if (type == FEAT || type == QZETA || type == DEPTH || type == INV_DEPTH || type == PIXEL_VEL)
+    {
+      double idd = 1.0 * id;
+      (*log_)[type].write((char*)&idd, sizeof(double));
+    }
   }
 }
 

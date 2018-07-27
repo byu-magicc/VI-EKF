@@ -73,7 +73,7 @@ void VIEKF::disable_logger()
   log_ = NULL;
 }
 
-void VIEKF::init_logger(string root_filename)
+void VIEKF::init_logger(string root_filename, string prefix)
 {
   log_ = new std::vector<std::ofstream>;
   (*log_).resize(TOTAL_LOGS);
@@ -87,13 +87,13 @@ void VIEKF::init_logger(string root_filename)
   {
     (*log_)[i].open(root_filename + "/" + measurement_names[i] + ".bin",  std::ofstream::out | std::ofstream::trunc);
   }
-  (*log_)[LOG_STATE].open(root_filename + "/prop.bin", std::ofstream::out | std::ofstream::trunc);
-  (*log_)[LOG_FEATURE_IDS].open(root_filename + "/feat_id.bin", std::ofstream::out | std::ofstream::trunc);
-  (*log_)[LOG_CONF].open(root_filename + "/conf.txt", std::ofstream::out | std::ofstream::trunc);
-  (*log_)[LOG_INPUT].open(root_filename + "/input.bin", std::ofstream::out | std::ofstream::trunc);
-  (*log_)[LOG_XDOT].open(root_filename + "/xdot.bin", std::ofstream::out | std::ofstream::trunc);
-  (*log_)[LOG_KF].open(root_filename + "/kf.bin", std::ofstream::out | std::ofstream::trunc);
-  (*log_)[LOG_DEBUG].open(root_filename + "/debug.txt", std::ofstream::out | std::ofstream::trunc);
+  (*log_)[LOG_STATE].open(root_filename + "/" + prefix +"prop.bin", std::ofstream::out | std::ofstream::trunc);
+  (*log_)[LOG_FEATURE_IDS].open(root_filename + "/" + prefix +"feat_id.bin", std::ofstream::out | std::ofstream::trunc);
+  (*log_)[LOG_CONF].open(root_filename + "/" + prefix +"conf.txt", std::ofstream::out | std::ofstream::trunc);
+  (*log_)[LOG_INPUT].open(root_filename + "/" + prefix +"input.bin", std::ofstream::out | std::ofstream::trunc);
+  (*log_)[LOG_XDOT].open(root_filename + "/" + prefix +"xdot.bin", std::ofstream::out | std::ofstream::trunc);
+  (*log_)[LOG_KF].open(root_filename + "/" + prefix +"kf.bin", std::ofstream::out | std::ofstream::trunc);
+  (*log_)[LOG_DEBUG].open(root_filename + "/" + prefix +"debug.txt", std::ofstream::out | std::ofstream::trunc);
 
   // Save configuration
   (*log_)[LOG_CONF] << "Test Num: " << root_filename << "\n";

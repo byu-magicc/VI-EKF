@@ -202,13 +202,13 @@ public:
   VIEKF();
   ~VIEKF();
 #ifdef MC_SIM
-  void load(string ekf_file, string common_file, bool use_logger=true);
+  void load(string ekf_file, string common_file, bool use_logger=true, string prefix="");
 #endif
   void init(Matrix<double, xZ,1> &x0, Matrix<double, dxZ,1> &P0, Matrix<double, dxZ,1> &Qx,
             Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,
             Vector3d& lambda_feat, Vector2d& cam_center, Vector2d& focal_len,
             Vector4d& q_b_c, Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term,
-            bool partial_update, bool use_keyframe_reset, double keyframe_overlap);
+            bool partial_update, bool use_keyframe_reset, double keyframe_overlap, string prefix="");
 
   inline double now() const
   {
@@ -278,7 +278,7 @@ public:
   // Logger
   void log_state(const double t, const xVector& x, const dxVector& P, const uVector& u, const dxVector& dx);
   void log_measurement(const measurement_type_t type, const double t, const int dim, const MatrixXd& z, const MatrixXd& zhat, const bool active, const int id);
-  void init_logger(std::string root_filename);
+  void init_logger(std::string root_filename, string prefix="");
   void disable_logger();
   void log_global_position(const eVector truth_global_transform);
 

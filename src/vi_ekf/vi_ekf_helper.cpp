@@ -8,7 +8,7 @@ namespace vi_ekf
 {
 
 #ifdef MC_SIM
-void VIEKF::load(std::string ekf_file, std::string common_file, bool use_logger)
+void VIEKF::load(std::string ekf_file, std::string common_file, bool use_logger, string prefix)
 {
   Matrix<double, xMU, 1> x;
   double mu0;
@@ -74,7 +74,7 @@ void VIEKF::load(std::string ekf_file, std::string common_file, bool use_logger)
   
   init(x0, P0, Qx, lambda, Qu, P0_feat, Qx_feat, lambda_feat, cam_center,
        focal_len, q_b_c, p_b_c, min_depth, log_directory, use_drag_term, 
-       partial_update, keyframe_reset, keyframe_overlap);
+       partial_update, keyframe_reset, keyframe_overlap, prefix);
 }
 #endif
 

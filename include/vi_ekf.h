@@ -74,6 +74,7 @@ static const Vector3d khat = [] {
 class VIEKF
 {
 public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW // http://eigen.tuxfamily.org/dox-devel/group__TopicStructHavingEigenMembers.html
 
   enum : int{
     xPOS = 0,

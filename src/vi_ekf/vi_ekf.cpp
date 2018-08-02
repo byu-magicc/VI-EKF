@@ -204,6 +204,8 @@ void VIEKF::propagate_state(const uVector &u, const double t)
     start_t_ = t;
     prev_t_ = t;
     prev_cov_prop_t_ = t;
+    imu_count_ = 0;
+    imu_sum_.setZero();
     return;
   }
   

@@ -64,7 +64,7 @@ inline Eigen::Vector2d q_feat_boxminus(quat::Quat q0, quat::Quat q1)
   Eigen::Vector3d zeta1 = q1.rota(e_z);
 
   Eigen::Vector2d dq;
-  if ((zeta0 - zeta1).norm() > 1e-16)
+  if ((zeta0 - zeta1).norm() > 1e-8)
   {
     Eigen::Vector3d v = zeta1.cross(zeta0);
     v /= v.norm();

@@ -21,15 +21,15 @@ using namespace Eigen;
 
 #define NO_NANS(mat) (mat.array() == mat.array()).all()
 
-//#ifndef NDEBUG
+#ifndef NDEBUG
 #define NAN_CHECK if (NaNsInTheHouse()) { std::cout << "NaNs In The House at line " << __LINE__ << "!!!\n"; exit(0); }
 #define NEGATIVE_DEPTH if (NegativeDepth()) std::cout << "Negative Depth " << __LINE__ << "!!!\n"
 #define CHECK_MAT_FOR_NANS(mat) if ((K_.array() != K_.array()).any()) { std::cout << "NaN detected in " << #mat << " at line " << __LINE__ << "!!!\n" << mat << "\n"; exit(0); }
-//#else
-//#define NAN_CHECK {}
-//#define NEGATIVE_DEPTH {}
-//#define CHECK_MAT_FOR_NANS(mat) {}
-//#endif
+#else
+#define NAN_CHECK {}
+#define NEGATIVE_DEPTH {}
+#define CHECK_MAT_FOR_NANS(mat) {}
+#endif
 
 #ifndef NUM_FEATURES
 #ifndef NDEBUG

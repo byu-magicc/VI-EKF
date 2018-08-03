@@ -32,12 +32,7 @@ void VIEKF::log_global_position(const eVector truth_global_transform) //Vector3d
 { 
   if (log_)
   {
-    // Log Global Position Estimate
-    eVector global_pose;
-    eVector rel_pose;
-    rel_pose.block<3,1>((int)ePOS, 0) = x_.block<3,1>((int)xPOS, 0);
-    rel_pose.block<4,1>((int)eATT, 0) = x_.block<4,1>((int)xATT, 0);
-    concatenate_edges(current_node_global_pose_, rel_pose, global_pose);
+    eVector global_pose = get_global_pose();
 
     double t = prev_t_ - start_t_;
     (*log_)[LOG_GLOBAL].write((char*)&t, sizeof(double));

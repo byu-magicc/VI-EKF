@@ -225,6 +225,7 @@ public:
   // Helpers
   int global_to_local_feature_id(const int global_id) const;
   const std::vector<int>& tracked_features() const;
+  eVector get_global_pose() const;
 
 
   // Getters and Setters
@@ -243,7 +244,8 @@ public:
   void set_x0(const Matrix<double, xZ, 1>& _x0);
   void set_imu_bias(const Vector3d& b_g, const Vector3d& b_a);
   void set_drag_term(const bool use_drag_term) {use_drag_term_ = use_drag_term;}
-  bool get_drag_term() {return use_drag_term_;}
+  bool get_drag_term() const {return use_drag_term_;}
+  bool get_keyframe_reset() const {return keyframe_reset_;}
 
   bool init_feature(const Vector2d &l, const int id, const double depth=-1.0);
   void clear_feature(const int id);

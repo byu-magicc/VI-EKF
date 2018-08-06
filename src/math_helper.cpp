@@ -42,7 +42,7 @@ void concatenate_edges(const Eigen::Matrix<double,7,1>& T1, const Eigen::Matrix<
   quat::Quat q1(T1.block<4,1>(3,0));
   quat::Quat q2(T2.block<4,1>(3,0));
 
-  Tout.block<3,1>(0,0) = T1.block<3,1>(0,0) + q1.R()*T2.block<3,1>(0,0);
+  Tout.block<3,1>(0,0) = T1.block<3,1>(0,0) + q1.rota(T2.block<3,1>(0,0));
   Tout.block<4,1>(3,0) = (q1 * q2).elements();
 }
 

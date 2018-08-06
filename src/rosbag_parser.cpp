@@ -41,9 +41,9 @@ int main(int argc, char * argv[])
     string arg = argv[i];
     if (arg == "-h" || argc == 1 || arg == "--help")
     {
-      cout << "USAGE: vi_ekf_rosbag [op tions]" << "\n\n";
+      cout << "USAGE: vi_ekf_rosbag [options]" << "\n\n";
       cout << "Options:\n";
-      cout << "\t -h, --help\t\tShow this help message and exit\n";
+      cout << "\t -h, --help\tShow this help message and exit\n";
       cout << "\t -f FILENAME\tBagfile to parse\n";
       cout << "\t -s START_TIME\tstart time of bag (seconds)\n";
       cout << "\t -r \t\tRun bag in real time\n";

@@ -167,7 +167,7 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
   
   // Propagate filter
   ekf_mtx_.lock();
-  ekf_.propagate(imu_, msg->header.stamp.toSec());
+  ekf_.propagate_state(imu_, msg->header.stamp.toSec());
   ekf_mtx_.unlock();
   
   // update accelerometer measurement
@@ -287,8 +287,6 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
     bool new_feature = ekf_.update(z_feat_, vi_ekf::VIEKF::FEAT, feat_R_, use_features_, ids_[i], (use_depth_) ? depth : NAN);
     if (!new_feature && got_depth_ && !(depth != depth))
         ekf_.update(z_depth_, vi_ekf::VIEKF::DEPTH, depth_R_, use_depth_, ids_[i]);
-    if (depth != depth)
-      ekf_.log_depth(ids_[i], depth, false);
     
     ekf_mtx_.unlock();   
   }

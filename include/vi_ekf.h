@@ -49,6 +49,7 @@ typedef Matrix<double, MAX_DX, MAX_DX> dxMatrix;
 typedef Matrix<double, MAX_DX, 6> dxuMatrix;
 typedef Matrix<double, 6, 1> uVector;
 typedef Matrix<double, 7, 1> eVector;
+typedef Matrix<double, 6, 6> deMatrix;
 typedef Matrix<double, 4, 1> zVector;
 typedef Matrix<double, 3, MAX_DX> hMatrix;
 
@@ -191,6 +192,7 @@ private:
   Quat q_b_c_;
   Vector3d p_b_c_;
 
+  deMatrix global_pose_uncertainty_;
   eVector current_node_global_pose_;
 
   std::function<void(void)> keyframe_reset_callback_;

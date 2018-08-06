@@ -17,6 +17,7 @@ find_package(Boost REQUIRED COMPONENTS system thread)
 find_package(Eigen3 REQUIRED)
 find_package(GTest REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 catkin_package(
     INCLUDE_DIRS include
@@ -33,6 +34,13 @@ include_directories(
   ${EIGEN3_INCLUDE_DIRS}
   ${GTEST_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
+  ${YAML_CPP_INCLUDE_DIR}
+)
+
+add_library(math_helper
+        src/math_helper.cpp
+        include/math_helper.h
+        include/quat.h
 )
 
 add_library(vi_ekf
@@ -45,10 +53,8 @@ add_library(vi_ekf
   src/vi_ekf/vi_ekf_kfr.cpp
   src/vi_ekf/vi_ekf_dyn.cpp
   include/vi_ekf.h
-  src/math_helper.cpp
-  include/math_helper.h
-  include/quat.h
 )
+target_link_libraries(vi_ekf math_helper ${YAML_CPP_LIBRARIES})
 
 add_library(klt_tracker
   src/klt_tracker.cpp

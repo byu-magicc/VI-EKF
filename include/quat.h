@@ -32,7 +32,7 @@ public:
   inline void setZ(double z) { arr_(3) = z; }
   inline const Vector4d& elements() const { return arr_;}
 
-  Quat operator* (const Quat& q) { return otimes(q); }
+  Quat operator* (const Quat& q) const { return otimes(q); }
   Quat& operator *= (const Quat& q)
   {
     arr_ <<  w() * q.w() - x() *q.x() - y() * q.y() - z() * q.z(),

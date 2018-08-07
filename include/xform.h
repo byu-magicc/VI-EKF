@@ -51,8 +51,8 @@ public:
     t_ = T.block<3,1>(0, 3);
   }
 
-  inline Vector3d t() const { return t_;}
-  inline Quat q() const { return q_;}
+  inline Vector3d& t() { return t_;}
+  inline Quat& q() { return q_;}
   inline void setq(const Quat& q) {q_ = q;}
   inline void sett(const Vector3d&t) {t_ = t;}
 
@@ -164,7 +164,7 @@ public:
 
   Xform otimes(const Xform& T2) const
   {
-    return Xform(t_ + q_.rotp(T2.t_), q_.otimes(T2.q_));
+    return Xform(t_ + q_.rota(T2.t_), q_ * T2.q_);
   }
 
   Vector3d transforma(const Vector3d& v) const

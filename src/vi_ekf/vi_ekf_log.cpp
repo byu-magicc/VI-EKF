@@ -36,10 +36,10 @@ void VIEKF::log_global_position(const Xform &truth_global_transform) //Vector3d 
 
     double t = prev_t_ - start_t_;
     (*log_)[LOG_GLOBAL].write((char*)&t, sizeof(double));
-    (*log_)[LOG_GLOBAL].write((char*)truth_global_transform.q().arr_.data(), sizeof(double) * 4);
-    (*log_)[LOG_GLOBAL].write((char*)truth_global_transform.t().data(), sizeof(double) * 3);
-    (*log_)[LOG_GLOBAL].write((char*)global_pose.q().arr_.data(), sizeof(double) * 4);
-    (*log_)[LOG_GLOBAL].write((char*)global_pose.t().data(), sizeof(double) * 3);
+    (*log_)[LOG_GLOBAL].write((char*)truth_global_transform.q_.arr_.data(), sizeof(double) * 4);
+    (*log_)[LOG_GLOBAL].write((char*)truth_global_transform.t_.data(), sizeof(double) * 3);
+    (*log_)[LOG_GLOBAL].write((char*)global_pose.q_.arr_.data(), sizeof(double) * 4);
+    (*log_)[LOG_GLOBAL].write((char*)global_pose.t_.data(), sizeof(double) * 3);
   }
 }
 

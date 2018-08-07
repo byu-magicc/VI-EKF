@@ -94,6 +94,21 @@ void VIEKF::keyframe_reset()
 
   /// Jerel's way to reset z-axis rotation
 
+//  // Pre-calculations
+//  Eigen::Matrix3d M = I_2x3.transpose() * I_2x3;
+//  Quat q_i2b(x_.segment<4>(xATT));
+//  Eigen::Vector3d logq = Quat::log(q_i2b);
+//  Eigen::Vector3d Mlogq = M * logq;
+
+//  // Save off quaternion and covariance
+//  x_.segment<4>(xATT) << Quat::exp(Mlogq).elements();
+//  edge.transform.q_ = Quat::exp((I_3x3 - M) * logq); // Quaternion associated with z-axis rotation
+//  edge.cov(2,2) = P_(xATT+2, xATT+2); /// TODO - do this right
+
+//  // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
+//  A_ = I_big_;
+//  A_.block<3,3>(dxPOS,dxPOS).setZero(); // No altimeter for now, so z also gets reset
+//  A_.block<3,3>(dxATT,dxATT) = Gamma(Mlogq) * M * Gamma(logq).inverse();
   
   
   /// Dan's way to reset z-axis rotation
@@ -114,8 +129,9 @@ void VIEKF::keyframe_reset()
   double sp = std::sin(roll);
   double tt = std::tan(pitch);
   A_ = I_big_;
-  A_((int)xPOS, (int)xPOS) = 0;
-  A_((int)xPOS+1, (int)xPOS+1) = 0;
+//  A_((int)xPOS, (int)xPOS) = 0;
+//  A_((int)xPOS+1, (int)xPOS+1) = 0;
+  A_.block<3,3>(dxPOS,dxPOS).setZero(); // No altimeter for now, so z also gets reset
   A_.block<3,3>((int)dxATT, (int)dxATT) << 1, sp*tt, cp*tt,
       0, cp*cp, -cp*sp,
       0, -cp*sp, sp*sp;

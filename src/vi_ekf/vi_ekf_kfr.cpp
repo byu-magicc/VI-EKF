@@ -46,8 +46,8 @@ Matrix3d brackets(const Matrix3d& A, const Matrix3d& B)
 
 void VIEKF::propagate_global_covariance(const Matrix6d &P_prev, const edge_t &edge, Matrix6d &P_new) const
 {
-  Matrix6d Adj = edge.transform.Adj();
-  P_new = P_prev + Adj * edge.cov * Adj.transpose();
+  Matrix6d Adj = current_node_global_pose_.Adj();
+  P_new = P_prev + Adj.transpose() * edge.cov * Adj;
 
   /// TODO - look at Barfoot's way of propagating uncertainty
 }
@@ -57,10 +57,10 @@ void VIEKF::keyframe_reset()
 {
   // Save off current position into the new edge
   edge_t edge;
-  edge.cov = 1e-8 * Matrix6d::Identity();
+  edge.cov.setZero();
   edge.transform.t().segment<2>(0) = x_.segment<2>(xPOS);
   edge.transform.t()(2,0) = 0.0; // no altitude information in the edge
-  edge.cov.block<2,2>((int)xPOS, (int)xPOS) = P_.block<2,2>((int)xPOS, (int)xPOS);
+  edge.cov.block<2,2>(0,0) = P_.block<2,2>((int)xPOS, (int)xPOS);
   
   // reset global xy position
   x_(xPOS, 0) = 0;
@@ -118,7 +118,7 @@ void VIEKF::keyframe_reset()
   
   // Save off quaternion and covariance
   edge.transform.q_ = Quat::from_euler(0, 0, yaw);
-  edge.cov(2,2) = P_(xATT+2, xATT+2); /// TODO - do this right
+  edge.cov(5,5) = P_(xATT+2, xATT+2); /// TODO - do this right
   
   x_.block<4,1>((int)(xATT), 0) << Quat::from_euler(roll, pitch, 0.0).elements();
   
@@ -131,7 +131,6 @@ void VIEKF::keyframe_reset()
   A_ = I_big_;
   A_((int)xPOS, (int)xPOS) = 0;
   A_((int)xPOS+1, (int)xPOS+1) = 0;
-  A_.block<3,3>(dxPOS,dxPOS).setZero(); // No altimeter for now, so z also gets reset
   A_.block<3,3>((int)dxATT, (int)dxATT) << 1, sp*tt, cp*tt,
       0, cp*cp, -cp*sp,
       0, -cp*sp, sp*sp;

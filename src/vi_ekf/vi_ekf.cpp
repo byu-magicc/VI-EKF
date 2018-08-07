@@ -188,7 +188,8 @@ void VIEKF::propagate_covariance()
 //  A_ = I_big_ + A_ *dt + A_*A_*dt*dt/2.0;
 //  A_ = I_big_ + A_ *dt + A_*A_*dt*dt/2.0 + A_*A_*A_*dt*dt*dt/6.0;
 //  A_ = (A_*dt).exp();
-  P_ = A_ * (P_ +G_ * Qu_ * G_.transpose()+ Qx_) * A_.transpose();
+  P_ = A_ * P_* A_.transpose() + (G_ * Qu_ * G_.transpose()+ Qx_) * dt;
+//  P_ = A_ * (P_ + G_ * Qu_ * G_.transpose()+ Qx_) * A_.transpose();  /// THIS CAUSES EXPLOSIONS - DON'T USE
   
   // zero out imu counters
   imu_sum_.setZero();

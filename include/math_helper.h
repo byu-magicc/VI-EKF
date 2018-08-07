@@ -3,6 +3,8 @@
 #include "math.h"
 #include "quat.h"
 
+#include <random>
+
 #include <Eigen/Core>
 
 static const Eigen::Matrix<double, 2, 3> I_2x3 = [] {
@@ -81,6 +83,18 @@ inline Eigen::Vector2d q_feat_boxminus(quat::Quat q0, quat::Quat q1)
 inline quat::Quat q_feat_boxplus(quat::Quat q, Eigen::Vector2d dq)
 {
   return quat::Quat::exp(T_zeta(q) * dq) * q;
+}
+
+template <typename Derived>
+void setNormalRandom(MatrixBase<Derived>& M, std::normal_distribution<double>& N, std::default_random_engine& g)
+{
+  for (int i = 0; i < M.rows(); i++)
+  {
+    for (int j = 0; j < M.cols(); j++)
+    {
+      M(i,j) = N(g);
+    }
+  }
 }
 
 

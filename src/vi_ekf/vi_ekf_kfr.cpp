@@ -11,9 +11,30 @@ void VIEKF::keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N)
   N = A_;    
 }
 
-void VIEKF::propagate_global_covariance(const Matrix6d &ecov, const Xform &edge, Xform &P_global)
+void VIEKF::propagate_global_covariance(Matrix6d &P_edge, const edge_t &edge)
 {
+  // Calculate Cholesky Decomposition for global covariance
+  LLT<Matrix6d> chol(P_edge);
+  Matrix6d L = chol.matrixL();
 
+  // Calculate Chol Decomp for edge covariance
+  LLT<Matrix6d> chol2(edge.cov);
+  Matrix6d L2 = chol2.matrixL();
+
+  // Sample from global covariance, propagate points while adding noise from edge and re-create the new covariance
+  // This is stupid slow, to improve this, we should implement Barfoot's "Associating Uncertainty" Paper
+  P_edge.setZero();
+  for (int i = 0; i < 1000; i++)
+  {
+    Vector6d z, z2;
+    setNormalRandom(z, normal_, generator_);
+    setNormalRandom(z2, normal_, generator_);
+
+    Xform x_i = (Xform::exp(L * z) * edge.transform) + (L2 * z2); // sample in current covariance banana
+    Vector6d dx = x_i - edge.transform; // Error of this sample, on manifold
+    P_edge += dx * dx.transpose(); // Build up the outer-product sum
+  }
+  P_edge /= 999.0; // Finally calculate the covariance matrix
 }
 
 
@@ -21,6 +42,7 @@ void VIEKF::keyframe_reset()
 {
   // Save off current position into the new edge
   edge_t edge;
+  edge.cov = 1e-8 * Matrix6d::Identity();
   edge.transform.t().segment<2>(0) = x_.segment<2>(xPOS,0);
   edge.transform.t()(2,0) = 0.0; // no altitude information in the edge
   edge.cov.block<2,2>((int)xPOS, (int)xPOS) = P_.block<2,2>((int)xPOS, (int)xPOS);
@@ -90,6 +112,9 @@ void VIEKF::keyframe_reset()
   
   // Build Global Node Frame Position
   current_node_global_pose_ = current_node_global_pose_ * edge.transform;
+
+  // Propagate Global Covariance
+  propagate_global_covariance(global_pose_cov_, edge);
   
   NAN_CHECK;
   

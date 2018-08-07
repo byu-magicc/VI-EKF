@@ -11,6 +11,7 @@
 #include <fstream>
 #include <chrono>
 #include <iostream>
+#include <random>
 
 #include "quat.h"
 #include "xform.h"
@@ -120,7 +121,7 @@ public:
 
   typedef struct{
     Xform transform;
-    Matrix3d cov;
+    Matrix6d cov;
   } edge_t;
 
 private:
@@ -188,8 +189,10 @@ private:
   Quat q_b_c_;
   Vector3d p_b_c_;
 
-  Matrix6d global_pose_uncertainty_;
+  Matrix6d global_pose_cov_;
   Xform current_node_global_pose_;
+  std::default_random_engine generator_;
+  std::normal_distribution<double> normal_;
 
   std::function<void(void)> keyframe_reset_callback_;
 
@@ -272,7 +275,7 @@ public:
   void h_pixel_vel(const xVector& x, zVector& h, hMatrix& H, const int id) const;
 
   // Keyframe Reset
-  void propagate_global_covariance(const Matrix6d& ecov, const Xform& edge, Xform& P_global);
+  void propagate_global_covariance(Matrix6d &P_edge, const edge_t& edge);
   void keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N);
   void keyframe_reset();
   void register_keyframe_reset_callback(std::function<void(void)> cb);

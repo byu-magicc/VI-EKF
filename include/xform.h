@@ -13,6 +13,7 @@ using namespace quat;
 
 typedef Matrix<double, 7, 1> Vector7d;
 typedef Matrix<double, 6, 1> Vector6d;
+typedef Matrix<double, 6, 6> Matrix6d;
 typedef Matrix<double, 4, 4> Matrix4d;
 
 namespace xform
@@ -154,6 +155,17 @@ public:
       u.segment<3>(0) = T.t_;
     }
     return u;
+  }
+
+  Matrix6d Adj() const
+  {
+    Matrix6d out;
+    Matrix3d R = q_.R();
+    out.block<3,3>(0,0) = R;
+    out.block<3,3>(0,3) = Quat::skew(t_)*R;
+    out.block<3,3>(3,3) = R;
+    out.block<3,3>(3,0).setZero();
+    return out;
   }
 
   Xform inverse() const{

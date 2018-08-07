@@ -226,7 +226,6 @@ public:
   // Helpers
   int global_to_local_feature_id(const int global_id) const;
   const std::vector<int>& tracked_features() const;
-  Xform get_global_pose() const;
 
 
   // Getters and Setters
@@ -275,10 +274,12 @@ public:
   void h_pixel_vel(const xVector& x, zVector& h, hMatrix& H, const int id) const;
 
   // Keyframe Reset
-  void propagate_global_covariance(Matrix6d &P_edge, const edge_t& edge);
+  void propagate_global_covariance(const Matrix6d &P_prev, const edge_t& edge, Matrix6d &P_new) const;
   void keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N);
   void keyframe_reset();
   void register_keyframe_reset_callback(std::function<void(void)> cb);
+  Xform get_global_pose() const;
+  Matrix6d get_global_cov() const;
 
   // Logger
   void log_state(const double t, const xVector& x, const dxVector& P, const uVector& u, const dxVector& dx);

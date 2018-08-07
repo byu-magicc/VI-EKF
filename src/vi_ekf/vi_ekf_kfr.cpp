@@ -11,30 +11,45 @@ void VIEKF::keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N)
   N = A_;    
 }
 
-void VIEKF::propagate_global_covariance(Matrix6d &P_edge, const edge_t &edge)
+Xform VIEKF::get_global_pose() const
 {
-  // Calculate Cholesky Decomposition for global covariance
-  LLT<Matrix6d> chol(P_edge);
-  Matrix6d L = chol.matrixL();
+  // Log Global Position Estimate
+  Xform global_pose;
+  Xform rel_pose(x_.block<3,1>((int)xPOS, 0), Quat(x_.block<4,1>((int)xATT, 0)));
+  global_pose = current_node_global_pose_ * rel_pose;
+  return global_pose;
+}
 
-  // Calculate Chol Decomp for edge covariance
-  LLT<Matrix6d> chol2(edge.cov);
-  Matrix6d L2 = chol2.matrixL();
+Matrix6d VIEKF::get_global_cov() const
+{
+  Matrix6d cov;
+  edge_t rel_pose;
+  rel_pose.transform.t() = x_.block<3,1>((int)xPOS, 0);
+  rel_pose.transform.q() = Quat(x_.block<4,1>((int)xATT, 0));
+  rel_pose.cov.block<3,3>(0, 0) = P_.block<3,3>(xPOS, xPOS);
+  rel_pose.cov.block<3,3>(3, 0) = P_.block<3,3>(xATT, xPOS);
+  rel_pose.cov.block<3,3>(0, 3) = P_.block<3,3>(xPOS, xATT);
+  rel_pose.cov.block<3,3>(3, 3) = P_.block<3,3>(xATT, xATT);
+  propagate_global_covariance(global_pose_cov_, rel_pose, cov);
+  return cov;
+}
 
-  // Sample from global covariance, propagate points while adding noise from edge and re-create the new covariance
-  // This is stupid slow, to improve this, we should implement Barfoot's "Associating Uncertainty" Paper
-  P_edge.setZero();
-  for (int i = 0; i < 1000; i++)
-  {
-    Vector6d z, z2;
-    setNormalRandom(z, normal_, generator_);
-    setNormalRandom(z2, normal_, generator_);
+Matrix3d brackets(const Matrix3d& A)
+{
+  return -A.trace()*I_3x3 + A;
+}
 
-    Xform x_i = (Xform::exp(L * z) * edge.transform) + (L2 * z2); // sample in current covariance banana
-    Vector6d dx = x_i - edge.transform; // Error of this sample, on manifold
-    P_edge += dx * dx.transpose(); // Build up the outer-product sum
-  }
-  P_edge /= 999.0; // Finally calculate the covariance matrix
+Matrix3d brackets(const Matrix3d& A, const Matrix3d& B)
+{
+  return brackets(A)*brackets(B) + brackets(A*B);
+}
+
+void VIEKF::propagate_global_covariance(const Matrix6d &P_prev, const edge_t &edge, Matrix6d &P_new) const
+{
+  Matrix6d Adj = edge.transform.Adj();
+  P_new = P_prev + Adj * edge.cov * Adj.transpose();
+
+  /// TODO - look at Barfoot's way of propagating uncertainty
 }
 
 
@@ -110,11 +125,12 @@ void VIEKF::keyframe_reset()
   
   P_ = A_ * P_ * A_.transpose();
   
-  // Calculate Global Node Frame Position
+  // Propagate Global Covariance
+  propagate_global_covariance(global_pose_cov_, edge, global_pose_cov_);
+
   current_node_global_pose_ = current_node_global_pose_ * edge.transform;
 
-  // Propagate Global Covariance
-  propagate_global_covariance(global_pose_cov_, edge);
+  // Calculate Global Node Frame Position
   
   NAN_CHECK;
   

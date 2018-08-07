@@ -118,16 +118,6 @@ int VIEKF::global_to_local_feature_id(const int global_id) const
   }
 }
 
-Xform VIEKF::get_global_pose() const
-{
-  // Log Global Position Estimate
-  Xform global_pose;
-  Xform rel_pose;
-  rel_pose.t() = x_.block<3,1>((int)xPOS, 0);
-  rel_pose.q() = Quat(x_.block<4,1>((int)xATT, 0));
-  global_pose = current_node_global_pose_ * rel_pose;
-  return global_pose;
-}
 
 void VIEKF::fix_depth()
 {

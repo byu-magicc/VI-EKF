@@ -97,7 +97,7 @@ private:
   Matrix1d z_depth_;
   Matrix1d z_alt_;
   Vector3d z_pos_;
-  eVector global_transform_;
+  xform::Xform global_transform_;
   sensor_msgs::Imu bias_msg_;
   
   cv_bridge::CvImagePtr cv_ptr_;

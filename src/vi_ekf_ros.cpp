@@ -403,8 +403,8 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att, ros::Time time)
   
   z_alt_ << -z_pos(2,0);
   
-  global_transform_.block<3,1>(0,0) = z_pos;
-  global_transform_.block<4,1>(3,0) = truth_att_.elements();
+  global_transform_.t() = z_pos;
+  global_transform_.q() = truth_att_;
   ekf_mtx_.lock();
   ekf_.log_global_position(global_transform_);
   ekf_mtx_.unlock();

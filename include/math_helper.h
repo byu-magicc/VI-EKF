@@ -94,3 +94,9 @@ int sign(T in)
 {
   return (in >= 0) - (in < 0);
 }
+
+inline double random(double max, double min)
+{
+  double f = (double)rand() / RAND_MAX;
+  return min + f * (max - min);
+}

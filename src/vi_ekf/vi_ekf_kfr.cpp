@@ -11,13 +11,18 @@ void VIEKF::keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N)
   N = A_;    
 }
 
+void VIEKF::propagate_global_covariance(const Matrix6d &ecov, const Xform &edge, Xform &P_global)
+{
+
+}
+
 
 void VIEKF::keyframe_reset()
 {
   // Save off current position into the new edge
-  edge_SE2_t edge;
-  edge.transform.block<2,1>(0,0) = x_.block<2,1>(xPOS,0);
-  edge.transform(2,0) = 0.0; // no altitude information in the edge
+  edge_t edge;
+  edge.transform.t().segment<2>(0) = x_.segment<2>(xPOS,0);
+  edge.transform.t()(2,0) = 0.0; // no altitude information in the edge
   edge.cov.block<2,2>((int)xPOS, (int)xPOS) = P_.block<2,2>((int)xPOS, (int)xPOS);
   
   // reset global xy position
@@ -35,7 +40,7 @@ void VIEKF::keyframe_reset()
   Matrix3d sk_u = skew(khat);
   Matrix3d qmR = qm.R();
   Quat qp = Quat::exp(theta * s); // q+
-  edge.transform.block<4,1>((int)eATT,0) = (qm * qp.inverse()).elements();
+  edge.transform.q() = (qm * qp.inverse()).elements();
 
   // Save off quaternion and covariance /// TODO - do this right
   edge.cov(2,2) = P_(xATT+2, xATT+2);
@@ -84,7 +89,7 @@ void VIEKF::keyframe_reset()
   P_ = A_ * P_ * A_.transpose();
   
   // Build Global Node Frame Position
-  concatenate_edges(current_node_global_pose_, edge.transform, current_node_global_pose_);
+  current_node_global_pose_ = current_node_global_pose_ * edge.transform;
   
   NAN_CHECK;
   

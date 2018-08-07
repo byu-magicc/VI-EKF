@@ -172,6 +172,8 @@ class Quaternion():
     def random():
         arr = np.random.uniform(-1, 1, (4,1))
         arr /= norm(arr)
+        if arr[0,0] < 0.0:
+            arr *= -1.0
         return Quaternion(arr)
 
     @staticmethod

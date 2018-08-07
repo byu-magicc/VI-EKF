@@ -13,9 +13,11 @@
 #include <iostream>
 
 #include "quat.h"
+#include "xform.h"
 #include "math_helper.h"
 
 using namespace quat;
+using namespace xform;
 using namespace std;
 using namespace Eigen;
 
@@ -48,8 +50,7 @@ typedef Matrix<double, MAX_X, MAX_X> xMatrix;
 typedef Matrix<double, MAX_DX, MAX_DX> dxMatrix;
 typedef Matrix<double, MAX_DX, 6> dxuMatrix;
 typedef Matrix<double, 6, 1> uVector;
-typedef Matrix<double, 7, 1> eVector;
-typedef Matrix<double, 6, 6> deMatrix;
+typedef Matrix<double, 6, 6> Matrix6d;
 typedef Matrix<double, 4, 1> zVector;
 typedef Matrix<double, 3, MAX_DX> hMatrix;
 
@@ -88,11 +89,6 @@ public:
   };
 
   enum : int{
-    ePOS = 0,
-    eATT = 3
-  };
-
-  enum : int{
     uA = 0,
     uG = 3,
     uTOTAL = 6
@@ -123,9 +119,9 @@ public:
   } measurement_type_t;
 
   typedef struct{
-    eVector transform;
+    Xform transform;
     Matrix3d cov;
-  } edge_SE2_t;
+  } edge_t;
 
 private:
   typedef enum {
@@ -166,7 +162,7 @@ private:
   uVector imu_sum_;
   int imu_count_;
 
-  std::deque<edge_SE2_t> edges_;
+  std::deque<edge_t> edges_;
 
   // Matrix Workspace
   dxMatrix A_;
@@ -192,8 +188,8 @@ private:
   Quat q_b_c_;
   Vector3d p_b_c_;
 
-  deMatrix global_pose_uncertainty_;
-  eVector current_node_global_pose_;
+  Matrix6d global_pose_uncertainty_;
+  Xform current_node_global_pose_;
 
   std::function<void(void)> keyframe_reset_callback_;
 
@@ -227,7 +223,7 @@ public:
   // Helpers
   int global_to_local_feature_id(const int global_id) const;
   const std::vector<int>& tracked_features() const;
-  eVector get_global_pose() const;
+  Xform get_global_pose() const;
 
 
   // Getters and Setters
@@ -236,7 +232,7 @@ public:
   MatrixXd get_qzetas() const;
   VectorXd get_zeta(const int i) const;
   Vector2d get_feat(const int id) const;
-  const eVector &get_current_node_global_pose() const;
+  const Xform &get_current_node_global_pose() const;
   const xVector& get_state() const;
   const dxMatrix &get_covariance() const;
   const dxVector get_covariance_diagonal() const;
@@ -276,6 +272,7 @@ public:
   void h_pixel_vel(const xVector& x, zVector& h, hMatrix& H, const int id) const;
 
   // Keyframe Reset
+  void propagate_global_covariance(const Matrix6d& ecov, const Xform& edge, Xform& P_global);
   void keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N);
   void keyframe_reset();
   void register_keyframe_reset_callback(std::function<void(void)> cb);
@@ -285,7 +282,7 @@ public:
   void log_measurement(const measurement_type_t type, const double t, const int dim, const MatrixXd& z, const MatrixXd& zhat, const bool active, const int id);
   void init_logger(std::string root_filename, string prefix="");
   void disable_logger();
-  void log_global_position(const eVector truth_global_transform);
+  void log_global_position(const Xform& truth_global_transform);
 
   // Inequality Constraint on Depth
   void fix_depth();

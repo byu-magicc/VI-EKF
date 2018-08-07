@@ -53,8 +53,7 @@ void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<dou
   
   min_depth_ = min_depth;
   
-  current_node_global_pose_.setZero();
-  current_node_global_pose_(eATT,0) = 1.0;
+  current_node_global_pose_ = Xform::Identity();
   
   keyframe_overlap_threshold_ = keyframe_overlap;
   keyframe_features_.clear();
@@ -103,7 +102,7 @@ const xVector& VIEKF::get_state() const
   return x_;
 }
 
-const eVector& VIEKF::get_current_node_global_pose() const
+const Xform &VIEKF::get_current_node_global_pose() const
 {
   return current_node_global_pose_;
 }

@@ -54,6 +54,7 @@ void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<dou
   min_depth_ = min_depth;
   
   current_node_global_pose_ = Xform::Identity();
+  global_pose_cov_ = 1e-8 * Matrix6d::Identity();
   
   keyframe_overlap_threshold_ = keyframe_overlap;
   keyframe_features_.clear();

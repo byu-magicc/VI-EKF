@@ -129,8 +129,8 @@ void VIEKF::keyframe_reset()
   double sp = std::sin(roll);
   double tt = std::tan(pitch);
   A_ = I_big_;
-//  A_((int)xPOS, (int)xPOS) = 0;
-//  A_((int)xPOS+1, (int)xPOS+1) = 0;
+  A_((int)xPOS, (int)xPOS) = 0;
+  A_((int)xPOS+1, (int)xPOS+1) = 0;
   A_.block<3,3>(dxPOS,dxPOS).setZero(); // No altimeter for now, so z also gets reset
   A_.block<3,3>((int)dxATT, (int)dxATT) << 1, sp*tt, cp*tt,
       0, cp*cp, -cp*sp,

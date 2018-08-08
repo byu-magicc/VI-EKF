@@ -38,8 +38,8 @@ void VIEKF::load(std::string ekf_file, std::string common_file, bool use_logger,
   double accel_bias_walk_stdev, gyro_bias_walk_stdev;
   get_yaml_node("accel_bias_walk", common_file, accel_bias_walk_stdev);
   get_yaml_node("gyro_bias_walk", common_file, gyro_bias_walk_stdev);
-  double acc_walk_var = accel_bias_walk_stdev * dt * accel_bias_walk_stdev * dt;
-  double gyro_walk_var = gyro_bias_walk_stdev * dt * gyro_bias_walk_stdev * dt;
+  double acc_walk_var = accel_bias_walk_stdev * accel_bias_walk_stdev * dt * dt; // dt^2 for discrete propagation
+  double gyro_walk_var = gyro_bias_walk_stdev * gyro_bias_walk_stdev * dt * dt; // dt^2 for discrete propagation
   Qx.block<3,1>(dxB_A,0).array() = acc_walk_var;
   Qx.block<3,1>(dxB_G,0).array() = gyro_walk_var;
   
@@ -58,8 +58,8 @@ void VIEKF::load(std::string ekf_file, std::string common_file, bool use_logger,
   double acc_stdev, gyro_stdev;
   get_yaml_node("accel_noise_stdev", common_file, acc_stdev);
   get_yaml_node("gyro_noise_stdev", common_file, gyro_stdev);
-  double acc_var = acc_stdev * dt * acc_stdev * dt;
-  double gyro_var = gyro_stdev * dt * gyro_stdev * dt;
+  double acc_var = acc_stdev * acc_stdev * dt * dt; // dt^2 for discrete propagation
+  double gyro_var = gyro_stdev * gyro_stdev * dt * dt; // dt^2 for discrete propagation
   Qu << acc_var, acc_var, acc_var, gyro_var, gyro_var, gyro_var;
   
   std::string log_directory;

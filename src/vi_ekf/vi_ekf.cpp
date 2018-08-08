@@ -184,12 +184,12 @@ void VIEKF::propagate_covariance()
   // Update covariance over the interval
   dynamics(x_, imu_sum_, false, true);   
 
+  // Discrete style covariance propagation ensures positive definite covariance
   A_ = I_big_ + A_*dt;
-//  A_ = I_big_ + A_ *dt + A_*A_*dt*dt/2.0;
-//  A_ = I_big_ + A_ *dt + A_*A_*dt*dt/2.0 + A_*A_*A_*dt*dt*dt/6.0;
-//  A_ = (A_*dt).exp();
-  P_ = A_ * P_* A_.transpose() + (G_ * Qu_ * G_.transpose()+ Qx_) * dt;
-//  P_ = A_ * (P_ + G_ * Qu_ * G_.transpose()+ Qx_) * A_.transpose();  /// THIS CAUSES EXPLOSIONS - DON'T USE
+  P_ = A_ * P_* A_.transpose() + G_ * Qu_ * G_.transpose() + Qx_;
+
+  // Continuous style covariance propagation keeps going negative
+//  P_ += (A_ * P_ + P_ * A_.transpose() + G_ * Qu_ * G_.transpose() + Qx_) * dt;
   
   // zero out imu counters
   imu_sum_.setZero();

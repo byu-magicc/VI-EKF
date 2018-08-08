@@ -1,9 +1,12 @@
+#include <iostream>
+
 #include "gtest/gtest.h"
 #include "xform.h"
 
 using namespace quat;
 using namespace xform;
 using namespace Eigen;
+using namespace std;
 
 #define NUM_ITERS 10
 
@@ -38,13 +41,13 @@ using namespace Eigen;
 
 #define MATRIX_EQUAL(m1, m2, tol) {\
   for (int row = 0; row < (m1).rows(); row++ ) \
-  { \
-    for (int col = 0; col < (m1).cols(); col++) \
-    { \
-      EXPECT_NEAR((m1)(row, col), (m2)(row, col), tol); \
-    } \
+{ \
+  for (int col = 0; col < (m1).cols(); col++) \
+{ \
+  EXPECT_NEAR((m1)(row, col), (m2)(row, col), tol); \
   } \
-}
+  } \
+  }
 
 #define CALL_MEMBER_FN(objectptr,ptrToMember) ((objectptr).*(ptrToMember))
 #define HEADER "\033[95m"
@@ -60,53 +63,84 @@ void known_transform()
 {
   Xform T_known((Vector3d() << 1, 1, 0).finished(),
                 Quat::from_axis_angle((Vector3d() << 0, 0, 1).finished(), M_PI/4.0));
-  Xform T_known_inv((Vector3d() << 0, -pow(2, 0.5), 0).finished(),
+  Xform T_known_inv((Vector3d() << -sqrt(2), 0, 0).finished(),
                     Quat::from_axis_angle((Vector3d() << 0, 0, 1).finished(), -M_PI/4.0));
-
   TRANSFORM_EQUALS(T_known.inverse(), T_known_inv);
 }
 TEST(xform, known_transform){known_transform();}
 
+void known_vector_passive_transform()
+{
+  Vector3d p1; p1 << 1, 0, 0;
+  Xform T_known((Vector3d() << 1, 1, 0).finished(),
+                Quat::from_axis_angle((Vector3d() << 0, 0, 1).finished(), M_PI/4.0));
+  Vector3d p2; p2 << -sqrt(0.5), -sqrt(0.5), 0;
+  VECTOR3_EQUALS(p2, T_known.transformp(p1));
+}
+TEST(xform, known_vector_passive_transform){known_vector_passive_transform();}
+
+void known_vector_active_transform()
+{
+  Vector3d p1; p1 << 1, 0, 0;
+  Xform T_known((Vector3d() << 1, 1, 0).finished(),
+                Quat::from_axis_angle((Vector3d() << 0, 0, 1).finished(), M_PI/4.0));
+  Vector3d p2; p2 << 1+sqrt(0.5), 1+sqrt(0.5), 0;
+  VECTOR3_EQUALS(p2, T_known.transforma(p1));
+}
+TEST(xform, known_vector_active_transform){known_vector_active_transform();}
+
 void inverse()
 {
-  Xform T1 = Xform::Random();
-  Xform T2 = T1.inverse();
-  Xform T3 = T1 * T2;
-  QUATERNION_EQUALS(T3.q(), Quat::Identity());
-  EXPECT_NEAR(T3.t().norm(), 0, 1e-8);
+  for (int i = 0; i < NUM_ITERS; i++)
+  {
+    Xform T1 = Xform::Random();
+    Xform T2 = T1.inverse();
+    Xform T3 = T1 * T2;
+    QUATERNION_EQUALS(T3.q(), Quat::Identity());
+    EXPECT_NEAR(T3.t().norm(), 0, 1e-8);
+  }
 }
 TEST(xform, inverse){inverse();}
 
 void transform_vector()
 {
-  Xform T1 = Xform::Random();
-  Vector3d p;
-  p.setRandom();
-  VECTOR3_EQUALS(T1.transformp(T1.inverse().transformp(p)), p);
-  VECTOR3_EQUALS(T1.inverse().transformp(T1.transformp(p)), p);
-  VECTOR3_EQUALS(T1.transforma(T1.inverse().transforma(p)), p);
-  VECTOR3_EQUALS(T1.inverse().transforma(T1.transforma(p)), p);
+  for (int i = 0; i < NUM_ITERS; i++)
+  {
+    Xform T1 = Xform::Random();
+    Vector3d p;
+    p.setRandom();
+    VECTOR3_EQUALS(T1.transformp(T1.inverse().transformp(p)), p);
+    VECTOR3_EQUALS(T1.inverse().transformp(T1.transformp(p)), p);
+    VECTOR3_EQUALS(T1.transforma(T1.inverse().transforma(p)), p);
+    VECTOR3_EQUALS(T1.inverse().transforma(T1.transforma(p)), p);
+  }
 }
 TEST(xform, transform_vector){transform_vector();}
 
 void log_exp()
 {
-  Vector6d xi;
-  xi.setRandom();
-  MATRIX_EQUAL(Xform::log(Xform::exp(xi)), xi, 1e-8);
+  for (int i = 0; i < NUM_ITERS; i++)
+  {
+    Vector6d xi;
+    xi.setRandom();
+    MATRIX_EQUAL(Xform::log(Xform::exp(xi)), xi, 1e-8);
+  }
 }
 TEST(xform, log_exp){log_exp();}
 
 void boxplus_boxminus()
 {
-  Xform T = Xform::Random();
-  Xform T2 = Xform::Random();
-  Vector6d zeros, dT;
-  zeros.setZero();
-  dT.setRandom();
-  TRANSFORM_EQUALS(T + zeros, T);
-  TRANSFORM_EQUALS(T + (T2 - T), T2);
-  MATRIX_EQUAL((T + dT) - T, dT, 1e-8);
+  for (int i = 0; i < NUM_ITERS; i++)
+  {
+    Xform T = Xform::Random();
+    Xform T2 = Xform::Random();
+    Vector6d zeros, dT;
+    zeros.setZero();
+    dT.setRandom();
+    TRANSFORM_EQUALS(T + zeros, T);
+    TRANSFORM_EQUALS(T + (T2 - T), T2);
+    MATRIX_EQUAL((T + dT) - T, dT, 1e-8);
+  }
 }
 
 int main(int argc, char **argv) {

@@ -129,8 +129,8 @@ void VIEKF::keyframe_reset()
   double sp = std::sin(roll);
   double tt = std::tan(pitch);
   A_ = I_big_;
-  A_((int)xPOS, (int)xPOS) = 0;
-  A_((int)xPOS+1, (int)xPOS+1) = 0;
+  A_((int)dxPOS, (int)dxPOS) = 0;
+  A_((int)dxPOS+1, (int)dxPOS+1) = 0;
   A_.block<3,3>((int)dxATT, (int)dxATT) << 1, sp*tt, cp*tt,
       0, cp*cp, -cp*sp,
       0, -cp*sp, sp*sp;
@@ -139,6 +139,9 @@ void VIEKF::keyframe_reset()
   
   
   P_ = A_ * P_ * A_.transpose();
+  P_(dxPOS, dxPOS) += 1e-8;
+  P_(dxPOS+1, dxPOS+1) += 1e-8;
+  P_(dxATT+2, dxATT+2) += 1e-8;
   
   // Propagate Global Covariance
   propagate_global_covariance(global_pose_cov_, edge, global_pose_cov_);

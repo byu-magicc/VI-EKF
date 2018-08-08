@@ -169,8 +169,7 @@ public:
   }
 
   Xform inverse() const{
-    Quat qinv = q_.inverse();
-    Xform out(-qinv.rotp(t_), qinv);
+    Xform out(-q_.rotp(t_), q_.inverse());
     return out;
   }
 
@@ -181,18 +180,18 @@ public:
 
   Vector3d transforma(const Vector3d& v) const
   {
-    return q_.rotp(v) + t_;
+    return q_.rota(v) + t_;
   }
 
   Vector3d transformp(const Vector3d& v) const
   {
-    return q_.rota(v - t_);
+    return q_.rotp(v - t_);
   }
 
   Xform& invert()
   {
-    q_.invert();
     t_ = -q_.rotp(t_);
+    q_.invert();
   }
 
   Xform boxplus(const Vector6d& delta) const
@@ -206,5 +205,12 @@ public:
   }
 
 };
+
+inline std::ostream& operator<< (std::ostream& os, const Xform& T)
+{
+  os << "t: [ " << T.t_(0,0) << ", " << T.t_(1,0) << ", " << T.t_(2,0) <<
+        "] q: [ " << T.q_.w() << ", " << T.q_.x() << "i, " << T.q_.y() << "j, " << T.q_.z() << "k]";
+  return os;
+}
 
 }

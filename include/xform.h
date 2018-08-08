@@ -128,7 +128,7 @@ public:
       Matrix3d wx = Quat::skew(omega);
       double B = (1. - std::cos(th)) / (th * th);
       double C = (th - std::sin(th)) / (th * th * th);
-      return Xform((I_3x3 + B*wx + C*wx*wx) * u, q_exp);
+      return Xform((I_3x3 + B*wx + C*wx*wx).transpose() * u, q_exp);
     }
     else
     {
@@ -148,7 +148,7 @@ public:
       double A = std::sin(th)/th;
       double B = (1. - std::cos(th)) / (th * th);
       Matrix3d V = I_3x3 - (1./2.)*wx + (1./(th*th)) * (1.-(A/(2.*B)))*(wx* wx);
-      u.segment<3>(0) = V * T.t_;
+      u.segment<3>(0) = V.transpose() * T.t_;
     }
     else
     {

@@ -10,36 +10,7 @@ using namespace std;
 
 #define NUM_ITERS 10
 
-#define QUATERNION_EQUALS(q1, q2) \
-  if (sign((q1).w()) != sign((q2).w())) \
-{ \
-  EXPECT_NEAR((-1.0*(q1).w()), (q2).w(), 1e-8); \
-  EXPECT_NEAR((-1.0*(q1).x()), (q2).x(), 1e-8); \
-  EXPECT_NEAR((-1.0*(q1).y()), (q2).y(), 1e-8); \
-  EXPECT_NEAR((-1.0*(q1).z()), (q2).z(), 1e-8); \
-  } \
-  else\
-{\
-  EXPECT_NEAR((q1).w(), (q2).w(), 1e-8); \
-  EXPECT_NEAR((q1).x(), (q2).x(), 1e-8); \
-  EXPECT_NEAR((q1).y(), (q2).y(), 1e-8); \
-  EXPECT_NEAR((q1).z(), (q2).z(), 1e-8); \
-  }
-
-#define VECTOR3_EQUALS(v1, v2) \
-  EXPECT_NEAR((v1)(0,0), (v2)(0,0), 1e-8); \
-  EXPECT_NEAR((v1)(1,0), (v2)(1,0), 1e-8); \
-  EXPECT_NEAR((v1)(2,0), (v2)(2,0), 1e-8)
-
-#define VECTOR2_EQUALS(v1, v2) \
-  EXPECT_NEAR((v1)(0,0), (v2)(0,0), 1e-8); \
-  EXPECT_NEAR((v1)(1,0), (v2)(1,0), 1e-8)
-
-#define TRANSFORM_EQUALS(t1, t2) \
-  VECTOR3_EQUALS((t1).t(), (t2).t()); \
-  QUATERNION_EQUALS((t1).q(), (t2).q())
-
-#define MATRIX_EQUAL(m1, m2, tol) {\
+#define MATRIX_CLOSE(m1, m2, tol) {\
   for (int row = 0; row < (m1).rows(); row++ ) \
 { \
   for (int col = 0; col < (m1).cols(); col++) \
@@ -48,6 +19,21 @@ using namespace std;
   } \
   } \
   }
+
+#define QUATERNION_EQUALS(q1, q2) \
+  MATRIX_CLOSE(q1.arr_,  (sign(q2.w()) * sign(q1.w())) * q2.arr_, 1e-8)
+
+#define MATRIX_EQUALS(v1, v2) \
+  MATRIX_CLOSE(v1, v2, 1e-8)
+
+#define TRANSFORM_EQUALS(t1, t2) \
+  MATRIX_EQUALS((t1).t(), (t2).t()); \
+  QUATERNION_EQUALS((t1).q(), (t2).q())
+
+#define TRANSFORM_CLOSE(t1, t2, tol) \
+  MATRIX_CLOSE(t1.q_.arr_, (sign(t2.q_.w()) * sign(t1.q_.w())) * t2.q_.arr_, tol); \
+  MATRIX_CLOSE(t1.t_, t1.t_, tol)
+
 
 #define CALL_MEMBER_FN(objectptr,ptrToMember) ((objectptr).*(ptrToMember))
 #define HEADER "\033[95m"
@@ -75,7 +61,7 @@ void known_vector_passive_transform()
   Xform T_known((Vector3d() << 1, 1, 0).finished(),
                 Quat::from_axis_angle((Vector3d() << 0, 0, 1).finished(), M_PI/4.0));
   Vector3d p2; p2 << -sqrt(0.5), -sqrt(0.5), 0;
-  VECTOR3_EQUALS(p2, T_known.transformp(p1));
+  MATRIX_EQUALS(p2, T_known.transformp(p1));
 }
 TEST(xform, known_vector_passive_transform){known_vector_passive_transform();}
 
@@ -85,7 +71,7 @@ void known_vector_active_transform()
   Xform T_known((Vector3d() << 1, 1, 0).finished(),
                 Quat::from_axis_angle((Vector3d() << 0, 0, 1).finished(), M_PI/4.0));
   Vector3d p2; p2 << 1+sqrt(0.5), 1+sqrt(0.5), 0;
-  VECTOR3_EQUALS(p2, T_known.transforma(p1));
+  MATRIX_EQUALS(p2, T_known.transforma(p1));
 }
 TEST(xform, known_vector_active_transform){known_vector_active_transform();}
 
@@ -109,13 +95,37 @@ void transform_vector()
     Xform T1 = Xform::Random();
     Vector3d p;
     p.setRandom();
-    VECTOR3_EQUALS(T1.transformp(T1.inverse().transformp(p)), p);
-    VECTOR3_EQUALS(T1.inverse().transformp(T1.transformp(p)), p);
-    VECTOR3_EQUALS(T1.transforma(T1.inverse().transforma(p)), p);
-    VECTOR3_EQUALS(T1.inverse().transforma(T1.transforma(p)), p);
+    MATRIX_EQUALS(T1.transformp(T1.inverse().transformp(p)), p);
+    MATRIX_EQUALS(T1.inverse().transformp(T1.transformp(p)), p);
+    MATRIX_EQUALS(T1.transforma(T1.inverse().transforma(p)), p);
+    MATRIX_EQUALS(T1.inverse().transforma(T1.transforma(p)), p);
   }
 }
 TEST(xform, transform_vector){transform_vector();}
+
+void exp()
+{
+  Vector3d v;
+  Vector3d omega;
+  for (int i = 0; i < NUM_ITERS; i++)
+  {
+    v.setRandom();
+    omega.setRandom();
+
+    Xform x = Xform::Identity();
+    double dt = 0.0001;
+    for (double t = 0; t < 1.0; t += dt)
+    {
+      x.t_ += x.q_.rotp(v * dt);
+      x.q_ += omega*dt;
+    }
+
+    Vector6d delta; delta << v, omega;
+    Xform xexp = Xform::exp(delta);
+    TRANSFORM_CLOSE(x, xexp, 1e-4);
+  }
+}
+TEST(xform, exp){exp();}
 
 void log_exp()
 {
@@ -123,7 +133,7 @@ void log_exp()
   {
     Vector6d xi;
     xi.setRandom();
-    MATRIX_EQUAL(Xform::log(Xform::exp(xi)), xi, 1e-8);
+    MATRIX_EQUALS(Xform::log(Xform::exp(xi)), xi);
   }
 }
 TEST(xform, log_exp){log_exp();}
@@ -139,7 +149,7 @@ void boxplus_boxminus()
     dT.setRandom();
     TRANSFORM_EQUALS(T + zeros, T);
     TRANSFORM_EQUALS(T + (T2 - T), T2);
-    MATRIX_EQUAL((T + dT) - T, dT, 1e-8);
+    MATRIX_EQUALS((T + dT) - T, dT);
   }
 }
 

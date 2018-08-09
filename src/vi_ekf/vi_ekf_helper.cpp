@@ -13,15 +13,15 @@ void VIEKF::load(std::string ekf_file, std::string common_file, bool use_logger,
   Matrix<double, xMU, 1> x;
   double mu0;
   get_yaml_eigen("x0", common_file, x);
-  get_yaml_node("mu0", ekf_file, mu0);
+  get_yaml_node("mu0", common_file, mu0);
   Matrix<double, xZ,1> x0;
   x0.block<xMU,1>(0,0) = x;
   x0(xMU, 0) = mu0;
   
   Matrix<double, dxZ,1> P0, Qx, lambda;
-  get_yaml_eigen("P0", ekf_file, P0);
-  get_yaml_eigen("Qx", ekf_file, Qx);
-  get_yaml_eigen("lambda", ekf_file, lambda);
+  get_yaml_eigen("P0", common_file, P0);
+  get_yaml_eigen("Qx", common_file, Qx);
+  get_yaml_eigen("lambda", common_file, lambda);
 
   double accel_init_stdev, gyro_init_stdev;
   get_yaml_node("accel_init_stdev", common_file, accel_init_stdev);
@@ -46,9 +46,9 @@ void VIEKF::load(std::string ekf_file, std::string common_file, bool use_logger,
   Vector3d P0_feat, Qx_feat, lambda_feat, p_b_c;
   Vector2d cam_center, focal_len;
   Vector4d q_b_c;
-  get_yaml_eigen("P0_feat", ekf_file, P0_feat);
-  get_yaml_eigen("Qx_feat", ekf_file, Qx_feat);
-  get_yaml_eigen("lambda_feat", ekf_file, lambda_feat);
+  get_yaml_eigen("P0_feat", common_file, P0_feat);
+  get_yaml_eigen("Qx_feat", common_file, Qx_feat);
+  get_yaml_eigen("lambda_feat", common_file, lambda_feat);
   get_yaml_eigen("p_b_c", common_file, p_b_c);
   get_yaml_eigen("cam_center", common_file, cam_center);
   get_yaml_eigen("focal_len", common_file, focal_len);
@@ -65,12 +65,12 @@ void VIEKF::load(std::string ekf_file, std::string common_file, bool use_logger,
   std::string log_directory;
   double min_depth, keyframe_overlap;
   bool use_drag_term, partial_update, keyframe_reset;
-  get_yaml_node("min_depth", ekf_file, min_depth);
+  get_yaml_node("min_depth", common_file, min_depth);
   get_yaml_node("log_directory", common_file, log_directory);
   get_yaml_node("use_drag_term", ekf_file, use_drag_term);
   get_yaml_node("partial_update", ekf_file, partial_update);
   get_yaml_node("keyframe_reset", ekf_file, keyframe_reset);
-  get_yaml_node("keyframe_overlap", ekf_file, keyframe_overlap);
+  get_yaml_node("keyframe_overlap", common_file, keyframe_overlap);
   if (!use_logger)
   {
     log_directory = "~"; // special character to disable the logger

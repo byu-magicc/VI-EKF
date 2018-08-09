@@ -58,69 +58,75 @@ void VIEKF::keyframe_reset()
   // Save off current position into the new edge
   edge_t edge;
   edge.cov.setZero();
-  edge.transform.t().segment<2>(0) = x_.segment<2>(xPOS);
-  edge.transform.t()(2,0) = 0.0; // no altitude information in the edge
-  edge.cov.block<2,2>(0,0) = P_.block<2,2>((int)xPOS, (int)xPOS);
+  edge.transform.t() = x_.segment<3>(xPOS);
+  edge.cov.block<3,3>(0,0) = P_.block<3,3>(xPOS,xPOS);
   
-  // reset global xy position
-  x_(xPOS, 0) = 0;
-  x_(xPOS+1, 0) = 0;
+  // Reset global position
+  x_.segment<3>(xPOS).setZero();
+
+  // Get quaternion from state
+  Quat q_i2b(x_.segment<4>(xATT));
   
-  Quat qm(x_.block<4,1>((int)xATT, 0)); 
-  
-  //// James' way to reset z-axis rotation
+  /// James' way to reset z-axis rotation
+
 //  // precalculate some things
-//  Vector3d v = qm.rota(khat);
+//  Vector3d v = q_i2b.rota(khat);
 //  Vector3d s = khat.cross(v); s /= s.norm(); // Axis of rotation (without rotation about khat)
 //  double theta = acos(khat.transpose() * v); // Angle of rotation
 //  Matrix3d sk_tv = skew(theta*s);
 //  Matrix3d sk_u = skew(khat);
-//  Matrix3d qmR = qm.R();
+//  Matrix3d R_i2b = q_i2b.R();
 //  Quat qp = Quat::exp(theta * s); // q+
-//  edge.transform.q() = (qm * qp.inverse()).elements();
 
-//  // Save off quaternion and covariance /// TODO - do this right
-//  edge.cov(2,2) = P_(xATT+2, xATT+2);
+//  // Save off quaternion and covariance
+//  edge.transform.q_ = q_i2b * qp.inverse();
+//  edge.cov(5,5) = P_(xATT+2, xATT+2);
   
-//  // reset rotation about z
-//  x_.block<4,1>((int)(xATT), 0) = qp.elements();
+//  // Reset rotation about z
+//  x_.segment<4>(xATT) = qp.elements();
   
 //  // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
 //  A_ = I_big_;
-//  A_((int)xPOS, (int)xPOS) = 0;
-//  A_((int)xPOS+1, (int)xPOS+1) = 0;
-//  A_.block<3,3>((int)dxATT, (int)dxATT) = (I_3x3 + ((1.-cos(theta))*sk_tv)/(theta*theta) + ((theta - sin(theta))*sk_tv*sk_tv)/(theta*theta*theta)).transpose()
-//          * (-s * (khat.transpose() * qmR.transpose() * sk_u) - theta * sk_u * (qmR.transpose() * sk_u));
+//  A_.block<3,3>(dxPOS,dxPOS).setZero();
+//  A_.block<3,3>(dxATT,dxATT) = (I_3x3 + ((1.-cos(theta))*sk_tv)/(theta*theta) + ((theta - sin(theta))*sk_tv*sk_tv)/(theta*theta*theta)).transpose()
+//          * (-s * (khat.transpose() * R_i2b.transpose() * sk_u) - theta * sk_u * (R_i2b.transpose() * sk_u));
 
   /// Jerel's way to reset z-axis rotation
 
 //  // Pre-calculations
-//  Eigen::Matrix3d M = I_2x3.transpose() * I_2x3;
-//  Quat q_i2b(x_.segment<4>(xATT));
+//  Eigen::Matrix3d Ixy = I_2x3.transpose() * I_2x3;
+//  Eigen::Matrix3d Iz = I_3x3 - Ixy;
 //  Eigen::Vector3d logq = Quat::log(q_i2b);
-//  Eigen::Vector3d Mlogq = M * logq;
+//  Eigen::Vector3d Ixylogq = Ixy * logq;
+//  Eigen::Vector3d Izlogq = Iz * logq;
+//  Eigen::Matrix3d dqz_dq = Gamma(Izlogq) * Iz * Gamma(logq).inverse();
 
 //  // Save off quaternion and covariance
-//  x_.segment<4>(xATT) << Quat::exp(Mlogq).elements();
-//  edge.transform.q_ = Quat::exp((I_3x3 - M) * logq); // Quaternion associated with z-axis rotation
-//  edge.cov(2,2) = P_(xATT+2, xATT+2); /// TODO - do this right
+//  // Covariance is a first order approximation
+//  edge.transform.q_ = Quat::exp(Izlogq); // Quaternion associated with z-axis rotation
+//  edge.cov.block<3,3>(3,3) = dqz_dq * P_.block<3,3>(dxATT,dxATT) * dqz_dq.transpose();
+
+//  // Reset rotation about z
+//  x_.segment<4>(xATT) = Quat::exp(Ixylogq).elements();
 
 //  // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
 //  A_ = I_big_;
 //  A_.block<3,3>(dxPOS,dxPOS).setZero(); // No altimeter for now, so z also gets reset
-//  A_.block<3,3>(dxATT,dxATT) = Gamma(Mlogq) * M * Gamma(logq).inverse();
+//  A_.block<3,3>(dxATT,dxATT) = Gamma(Ixylogq) * Ixy * Gamma(logq).inverse();
   
   
   /// Dan's way to reset z-axis rotation
-  double yaw = qm.yaw();
-  double roll = qm.roll();
-  double pitch = qm.pitch();
+
+  double yaw = q_i2b.yaw();
+  double roll = q_i2b.roll();
+  double pitch = q_i2b.pitch();
   
   // Save off quaternion and covariance
   edge.transform.q_ = Quat::from_euler(0, 0, yaw);
-  edge.cov(5,5) = P_(xATT+2, xATT+2); /// TODO - do this right
+  edge.cov(5,5) = P_(xATT+2, xATT+2); /// TODO - this is wrong, need to compute covariance of yaw rotation
   
-  x_.block<4,1>((int)(xATT), 0) << Quat::from_euler(roll, pitch, 0.0).elements();
+  // Reset attitude
+  x_.segment<4>(xATT) = Quat::from_euler(roll, pitch, 0.0).elements();
   
   // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
   // RMEKF paper after Eq. 81
@@ -129,26 +135,19 @@ void VIEKF::keyframe_reset()
   double sp = std::sin(roll);
   double tt = std::tan(pitch);
   A_ = I_big_;
-  A_((int)dxPOS, (int)dxPOS) = 0;
-  A_((int)dxPOS+1, (int)dxPOS+1) = 0;
-  A_.block<3,3>((int)dxATT, (int)dxATT) << 1, sp*tt, cp*tt,
+  A_.block<3,3>(dxPOS,dxPOS).setZero();
+  A_.block<3,3>(dxATT, dxATT) << 1, sp*tt, cp*tt,
       0, cp*cp, -cp*sp,
       0, -cp*sp, sp*sp;
   
   NAN_CHECK;
   
-  
+  // Remove uncertainty associated with unobservable states
   P_ = A_ * P_ * A_.transpose();
-  P_(dxPOS, dxPOS) += 1e-8;
-  P_(dxPOS+1, dxPOS+1) += 1e-8;
-  P_(dxATT+2, dxATT+2) += 1e-8;
   
-  // Propagate Global Covariance
+  // Propagate global covariance and update global node frame
   propagate_global_covariance(global_pose_cov_, edge, global_pose_cov_);
-
   current_node_global_pose_ = current_node_global_pose_ * edge.transform;
-
-  // Calculate Global Node Frame Position
   
   NAN_CHECK;
   

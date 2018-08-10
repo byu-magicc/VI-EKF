@@ -182,6 +182,7 @@ private:
   bool keyframe_reset_;
   bool partial_update_;
   double min_depth_;
+  int cov_prop_skips_;
 
   // Camera Intrinsics and Extrinsics
   Vector2d cam_center_;
@@ -210,7 +211,7 @@ public:
             Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,
             Vector3d& lambda_feat, Vector2d& cam_center, Vector2d& focal_len,
             Vector4d& q_b_c, Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term,
-            bool partial_update, bool use_keyframe_reset, double keyframe_overlap, string prefix="");
+            bool partial_update, bool use_keyframe_reset, double keyframe_overlap, int cov_prop_skips, string prefix="");
 
   inline double now() const
   {

@@ -65,12 +65,14 @@ void VIEKF::load(std::string ekf_file, std::string common_file, bool use_logger,
   std::string log_directory;
   double min_depth, keyframe_overlap;
   bool use_drag_term, partial_update, keyframe_reset;
+  int cov_prop_skips;
   get_yaml_node("min_depth", common_file, min_depth);
   get_yaml_node("log_directory", common_file, log_directory);
   get_yaml_node("use_drag_term", ekf_file, use_drag_term);
   get_yaml_node("partial_update", ekf_file, partial_update);
   get_yaml_node("keyframe_reset", ekf_file, keyframe_reset);
   get_yaml_node("keyframe_overlap", common_file, keyframe_overlap);
+  get_yaml_node("cov_prop_skips", common_file, cov_prop_skips);
   if (!use_logger)
   {
     log_directory = "~"; // special character to disable the logger
@@ -78,7 +80,7 @@ void VIEKF::load(std::string ekf_file, std::string common_file, bool use_logger,
   
   init(x0, P0, Qx, lambda, Qu, P0_feat, Qx_feat, lambda_feat, cam_center,
        focal_len, q_b_c, p_b_c, min_depth, log_directory, use_drag_term, 
-       partial_update, keyframe_reset, keyframe_overlap, prefix);
+       partial_update, keyframe_reset, keyframe_overlap, cov_prop_skips, prefix);
 }
 #endif
 

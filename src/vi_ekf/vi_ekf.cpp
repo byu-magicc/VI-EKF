@@ -9,7 +9,7 @@ void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<dou
                  Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,
                  Vector3d& lambda_feat, Vector2d &cam_center, Vector2d &focal_len, Vector4d &q_b_c,
                  Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, bool partial_update,
-                 bool use_keyframe_reset, double keyframe_overlap, std::string prefix)
+                 bool use_keyframe_reset, double keyframe_overlap, int cov_prop_skips, std::string prefix)
 {
   x_.setZero();
   xp_.setZero();
@@ -50,6 +50,7 @@ void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<dou
   partial_update_ = partial_update;
   keyframe_reset_ = use_keyframe_reset;
   prev_t_ = -0.001;
+  cov_prop_skips_ = cov_prop_skips;
   
   min_depth_ = min_depth;
   
@@ -217,7 +218,7 @@ void VIEKF::propagate_state(const uVector &u, const double t)
   imu_sum_ += u;
   imu_count_++;
   
-  if (imu_count_ > 10)
+  if (imu_count_ > cov_prop_skips_)
   {
     // If it's been too long without a covariance update, do it now
     dynamics(x_, u, true, true);

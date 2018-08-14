@@ -10,7 +10,7 @@ using namespace quat;
 using namespace vi_ekf;
 using namespace Eigen;
 
-#define NUM_ITERS 10
+#define NUM_ITERS 100
 
 #define QUATERNION_EQUALS(q1, q2) \
   if (sign((q1).w()) != sign((q2).w())) \
@@ -398,10 +398,10 @@ void VI_EKF_h_test()
     ASSERT_FALSE(htest(&VIEKF::h_att, ekf, VIEKF::ATT, 0, 3));
     for (int i = 0; i < ekf.get_len_features(); i++)
     {
-      ASSERT_FALSE(htest(&VIEKF::h_feat, ekf, VIEKF::FEAT, i, 2));
-      ASSERT_FALSE(htest(&VIEKF::h_qzeta, ekf, VIEKF::QZETA, i, 2));
-      ASSERT_FALSE(htest(&VIEKF::h_depth, ekf, VIEKF::DEPTH, i, 1));
-      ASSERT_FALSE(htest(&VIEKF::h_inv_depth, ekf, VIEKF::INV_DEPTH, i, 1));
+      EXPECT_FALSE(htest(&VIEKF::h_feat, ekf, VIEKF::FEAT, i, 2, 1e-2));
+      EXPECT_FALSE(htest(&VIEKF::h_qzeta, ekf, VIEKF::QZETA, i, 2));
+      EXPECT_FALSE(htest(&VIEKF::h_depth, ekf, VIEKF::DEPTH, i, 1));
+      EXPECT_FALSE(htest(&VIEKF::h_inv_depth, ekf, VIEKF::INV_DEPTH, i, 1));
       //        ASSERT_EQ(htest(VIEKF::h_pixel_vel, ekf, VIEKF::PIXEL_VEL, i), 0); // Still needs to be implemented
     }
   }

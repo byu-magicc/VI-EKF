@@ -51,15 +51,15 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
   auto H = H_.topRows(z_dim);
 
   //  Perform Covariance Gating Check on Residual
-  if (active)
-  {
-    double mahal = residual.transpose() * (H * P_ * H.transpose() + R).inverse() * residual;
-    if (mahal > 9.0)
-    {
-//      std::cout << "gating " << measurement_names[meas_type] << " measurement: " << mahal << std::endl;
-      active = false;
-    }
-  }
+//  if (active)
+//  {
+//    double mahal = residual.transpose() * (H * P_ * H.transpose() + R).inverse() * residual;
+//    if (mahal > 9.0)
+//    {
+////      std::cout << "gating " << measurement_names[meas_type] << " measurement: " << mahal << std::endl;
+//      active = false;
+//    }
+//  }
   
   NAN_CHECK;
   

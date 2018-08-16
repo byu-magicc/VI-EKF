@@ -1,4 +1,4 @@
-#include <iostream>
+﻿#include <iostream>
 #include <stdio.h>
 #include <vector>
 #include <unistd.h>
@@ -98,8 +98,8 @@ int main(int argc, char * argv[])
     cout << "Please Specify bag file" << endl;
   }
 
-  ros::init(argc, argv, "vi_ekf_rosbag");  
-   
+  ros::init(argc, argv, "vi_ekf_rosbag");
+
   rosbag::Bag bag;
   try
   {

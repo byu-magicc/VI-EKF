@@ -39,6 +39,7 @@ public:
   void truth_callback(Vector3d &z_pos_, Vector4d &z_att_, ros::Time time);
   void imu_callback(const sensor_msgs::ImuConstPtr& msg);
   void keyframe_reset_callback();
+  vi_ekf::VIEKF ekf_;
   
 private:
 
@@ -60,7 +61,6 @@ private:
   nav_msgs::Odometry odom_msg_;
 
   std::mutex ekf_mtx_;
-  vi_ekf::VIEKF ekf_;
   KLT_Tracker klt_tracker_;
 
   cv::Mat depth_image_;

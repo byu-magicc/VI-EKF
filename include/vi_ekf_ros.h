@@ -29,8 +29,7 @@ typedef Matrix<double, 6, 1> Vector6d;
 class VIEKF_ROS
 {
 public:
-
-  VIEKF_ROS();
+  VIEKF_ROS(bool no_ros = false, string filename = "", bool cv_image = false);
   ~VIEKF_ROS();
   void color_image_callback(const sensor_msgs::ImageConstPtr &msg);
   void depth_image_callback(const sensor_msgs::ImageConstPtr& msg);
@@ -68,7 +67,9 @@ private:
   bool invert_image_;
 
   bool imu_init_ = false;
-  bool truth_init_ = false;
+  bool truth_init_ = false;\
+  bool disp_image_ = false;
+
   
   bool use_drag_term_ = false;
   bool is_flying_ = false;
@@ -105,8 +106,8 @@ private:
   std::vector<Point2f> features_;
   std::vector<int> ids_;
   
-  Quat q_b_IMU_;
-  Quat q_I_truth_;
+  Quat q_b_IMU_ = Quat::Identity();
+  Quat q_I_truth_ = Quat::Identity();
   
   Matrix2d feat_R_;
   Matrix2d acc_R_drag_;

@@ -1,27 +1,91 @@
 #include "vi_ekf_ros.h"
 #include "eigen_helpers.h"
+#include "utils.h"
 
-VIEKF_ROS::VIEKF_ROS() :
+VIEKF_ROS::VIEKF_ROS(bool no_ros, string filename, bool cv_image) :
   nh_private_("~"),
-  it_(nh_)
+  it_(nh_),
+  disp_image_(cv_image)
 {
+  //  if (no_ros)
+  //  {
+  //	// If we are processing a rosbag, we don't need to put up all the ros stuff.
+  //    // Initialize the depth image to all NaNs
+  //    Vector2d image_size;
+  //    double feature_radius;
+  //    get_yaml_eigen("image_size", filename, image_size);
+  //    get_yaml_node("feature_radius", filename, feature_radius);
+  //	get_yaml_node("feature_update_active", filename, use_features_);
+  //	get_yaml_node("drag_update_active", filename, use_acc_);
+  //	get_yaml_node("alt_update_active", filename, use_alt_);
+  //	get_yaml_node("attitude_update_active", filename, use_imu_att_);
+  //	get_yaml_node("depth_update_active", filename, use_depth_);
+  //	get_yaml_node("truth_update_active", filename, use_truth_);
+  //    depth_image_ = cv::Mat(image_size(0,0), image_size(1,0), CV_32FC1, cv::Scalar(NAN));
+  //    got_depth_ = false;
+  //	klt_tracker_.init(NUM_FEATURES, false, feature_radius, cv::Size(image_size(0,0), image_size(1,0)));
+  //    imu_init_ = false;
+  //    truth_init_ = false;
+
+  //	is_flying_ = false; // Start out not flying
+  //	ekf_.set_drag_term(false); // Start out not using the drag term
+
+  //	// Initialize keyframe variables
+  //	kf_att_ = Quat::Identity();
+  //	kf_pos_.setZero();
+
+  //	/*************************************************/
+  //	/* Load sensor noise parameters */
+  //	/*************************************************/
+
+  //	// Accelerometer
+  //	double accel_noise, accel_walk, accel_init;
+  //	get_yaml_node("accel_init_stdev", filename, accel_init);
+  //	get_yaml_node("accel_noise_stdev", filename, accel_noise);
+  //	get_yaml_node("accel_bias_walk", filename, accel_walk);
+  //	acc_R_drag_ << accel_noise*accel_noise, 0, 0, accel_noise*accel_noise;
+  //	acc_R_grav_ << accel_noise*accel_noise, 0, 0, 0, accel_noise*accel_noise, 0, 0, 0, accel_noise*accel_noise;
+
+  //	// Camera
+  //	double pixel_noise, depth_noise;
+  //	get_yaml_node("pixel_noise_stdev", filename, pixel_noise);
+  //	get_yaml_node("depth_noise_stdev", filename, depth_noise);
+  //	feat_R_ << pixel_noise*pixel_noise, 0, 0, pixel_noise*pixel_noise;
+  //	depth_R_ << depth_noise*depth_noise;
+
+  //	// Altimeter
+  //	double altimeter_noise;
+  //	get_yaml_node("altimeter_noise_stdev", filename, altimeter_noise);
+  //	alt_R_ << altimeter_noise*altimeter_noise;
+
+  //	// Mocap
+  //	double att_noise, pos_noise, vel_noise;
+  //	get_yaml_node("att_noise_stdev", filename, att_noise);
+  //	get_yaml_node("pos_noise_stdev", filename, pos_noise);
+  //	get_yaml_node("vel_noise_stdev", filename, vel_noise);
+  //	att_R_ << att_noise*att_noise, 0, 0, 0, att_noise*att_noise, 0, 0, 0, att_noise*att_noise;
+  //	pos_R_ << pos_noise*pos_noise, 0, 0, 0, pos_noise*pos_noise, 0, 0, 0, pos_noise*pos_noise;
+  //	vel_R_ << vel_noise*vel_noise, 0, 0, 0, vel_noise*vel_noise, 0, 0, 0, vel_noise*vel_noise;
+
+  //    return;
+  //  }
+
   imu_sub_ = nh_.subscribe("imu", 500, &VIEKF_ROS::imu_callback, this);
   pose_sub_ = nh_.subscribe("truth/pose", 10, &VIEKF_ROS::pose_truth_callback, this);
   transform_sub_ = nh_.subscribe("truth/transform", 10, &VIEKF_ROS::transform_truth_callback, this);
-//  odometry_pub_ = nh_.advertise<nav_msgs::Odometry>("odom", 1);
-//  bias_pub_ = nh_.advertise<sensor_msgs::Imu>("imu/bias", 1);
+  //  odometry_pub_ = nh_.advertise<nav_msgs::Odometry>("odom", 1);
+  //  bias_pub_ = nh_.advertise<sensor_msgs::Imu>("imu/bias", 1);
   
   image_sub_ = it_.subscribe("color", 10, &VIEKF_ROS::color_image_callback, this);
   depth_sub_ = it_.subscribe("depth", 10, &VIEKF_ROS::depth_image_callback, this);
-//  output_pub_ = it_.advertise("tracked", 1);
-//  cov_img_pub_ = it_.advertise("covariance", 1);
+  //  output_pub_ = it_.advertise("tracked", 1);
+  //  cov_img_pub_ = it_.advertise("covariance", 1);
   
   std::string log_directory, feature_mask;
   std::string default_log_folder = ros::package::getPath("vi_ekf") + "/logs/" + to_string(ros::Time::now().sec);
   nh_private_.param<std::string>("log_directory", log_directory, default_log_folder );
   nh_private_.param<std::string>("feature_mask", feature_mask, "");
   nh_private_.param<bool>("record_video", record_video_, true);
-  
   
   Eigen::Matrix<double, vi_ekf::VIEKF::xZ, 1> x0;
   Eigen::Matrix<double, vi_ekf::VIEKF::dxZ, 1> P0diag, Qxdiag, lambda;
@@ -33,6 +97,7 @@ VIEKF_ROS::VIEKF_ROS() :
   Vector2d feat_r_diag, acc_r_drag_diag;
   Vector3d att_r_diag, pos_r_diag, vel_r_diag, acc_r_grav_diag;
   Vector2i image_size;
+
   importMatrixFromParamServer(nh_private_, x0, "x0");
   importMatrixFromParamServer(nh_private_, P0diag, "P0");
   importMatrixFromParamServer(nh_private_, Qxdiag, "Qx");
@@ -72,13 +137,14 @@ VIEKF_ROS::VIEKF_ROS() :
   ROS_FATAL_COND(!nh_private_.getParam("keyframe_overlap", keyframe_overlap), "you need to specify the 'keyframe_overlap' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("feature_radius", feature_radius), "you need to specify the 'feature_radius' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("cov_prop_skips", cov_prop_skips), "you need to specify the 'cov_prop_skips' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("show_image", disp_image_), "you need to specify the 'show_image' parameter");
   
   num_features_ = (num_features_ > NUM_FEATURES) ? NUM_FEATURES : num_features_;
   
   P0feat(2,0) = 1.0/(16.0 * min_depth_ * min_depth_);
   
   ekf_.init(x0, P0diag, Qxdiag, lambda, Qudiag, P0feat, Qxfeat, lambdafeat,
-            cam_center, focal_len, q_b_c, p_b_c, min_depth_, log_directory, 
+            cam_center, focal_len, q_b_c, p_b_c, min_depth_, log_directory,
             use_drag_term_, partial_update, keyframe_reset, keyframe_overlap, cov_prop_skips);
   ekf_.register_keyframe_reset_callback(std::bind(&VIEKF_ROS::keyframe_reset_callback, this));
   
@@ -94,7 +160,7 @@ VIEKF_ROS::VIEKF_ROS() :
   // Initialize keyframe variables
   kf_att_ = Quat::Identity();
   kf_pos_.setZero();
-  
+
   // Initialize the depth image to all NaNs
   depth_image_ = cv::Mat(image_size(0,0), image_size(1,0), CV_32FC1, cv::Scalar(NAN));
   got_depth_ = false;
@@ -108,7 +174,7 @@ VIEKF_ROS::VIEKF_ROS() :
   pos_R_ = pos_r_diag.asDiagonal();
   vel_R_ = vel_r_diag.asDiagonal();
   alt_R_ << alt_r;
-  
+
   // Turn on the specified measurements
   ROS_FATAL_COND(!nh_private_.getParam("use_truth", use_truth_), "you need to specify the 'use_truth' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("use_depth", use_depth_), "you need to specify the 'use_depth' parameter");
@@ -178,46 +244,46 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
     z_acc_drag_ = imu_.block<2,1>(0, 0);
     ekf_.update(z_acc_drag_, vi_ekf::VIEKF::ACC, acc_R_drag_, use_acc_ && is_flying_);
   }
-  else
-  {
-    z_acc_grav_ = imu_.block<3,1>(0, 0);
-    double norm = z_acc_grav_.norm();
-    if (norm < 9.80665 * 1.15 && norm > 9.80665 * 0.85)
-      ekf_.update(z_acc_grav_, vi_ekf::VIEKF::ACC, acc_R_grav_, use_acc_);
-  }
-    ekf_mtx_.unlock();
-  
-  // update attitude measurement
-  z_att_ << msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z;
-  ekf_mtx_.lock();
-  if (use_imu_att_)
-    ekf_.update(z_att_, vi_ekf::VIEKF::ATT, att_R_, (use_truth_) ? true : use_imu_att_);
+  //  else
+  //  {
+  //    z_acc_grav_ = imu_.block<3,1>(0, 0);
+  //    double norm = z_acc_grav_.norm();
+  //    if (norm < 9.80665 * 1.15 && norm > 9.80665 * 0.85)
+  //      ekf_.update(z_acc_grav_, vi_ekf::VIEKF::ACC, acc_R_grav_, use_acc_);
+  //  }
   ekf_mtx_.unlock();
   
-//  odom_msg_.header.stamp = msg->header.stamp;
-//  odom_msg_.pose.pose.position.x = ekf_.get_state()(vi_ekf::VIEKF::xPOS,0);
-//  odom_msg_.pose.pose.position.y = ekf_.get_state()(vi_ekf::VIEKF::xPOS+1,0);
-//  odom_msg_.pose.pose.position.z = ekf_.get_state()(vi_ekf::VIEKF::xPOS+2,0);
-//  odom_msg_.pose.pose.orientation.w = ekf_.get_state()(vi_ekf::VIEKF::xATT,0);
-//  odom_msg_.pose.pose.orientation.x = ekf_.get_state()(vi_ekf::VIEKF::xATT+1,0);
-//  odom_msg_.pose.pose.orientation.y = ekf_.get_state()(vi_ekf::VIEKF::xATT+2,0);
-//  odom_msg_.pose.pose.orientation.z = ekf_.get_state()(vi_ekf::VIEKF::xATT+3,0);
-//  odom_msg_.twist.twist.linear.x = ekf_.get_state()(vi_ekf::VIEKF::xVEL,0);
-//  odom_msg_.twist.twist.linear.y = ekf_.get_state()(vi_ekf::VIEKF::xVEL+1,0);
-//  odom_msg_.twist.twist.linear.z = ekf_.get_state()(vi_ekf::VIEKF::xVEL+2,0);
-//  odom_msg_.twist.twist.angular.x = imu_(3);
-//  odom_msg_.twist.twist.angular.y = imu_(4);
-//  odom_msg_.twist.twist.angular.z = imu_(5);
-//  odometry_pub_.publish(odom_msg_);
+  // update attitude measurement
+  //  z_att_ << msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z;
+  //  ekf_mtx_.lock();
+  //  if (use_imu_att_)
+  //    ekf_.update(z_att_, vi_ekf::VIEKF::ATT, att_R_, (use_truth_) ? true : use_imu_att_);
+  //  ekf_mtx_.unlock();
+
+  //  odom_msg_.header.stamp = msg->header.stamp;
+  //  odom_msg_.pose.pose.position.x = ekf_.get_state()(vi_ekf::VIEKF::xPOS,0);
+  //  odom_msg_.pose.pose.position.y = ekf_.get_state()(vi_ekf::VIEKF::xPOS+1,0);
+  //  odom_msg_.pose.pose.position.z = ekf_.get_state()(vi_ekf::VIEKF::xPOS+2,0);
+  //  odom_msg_.pose.pose.orientation.w = ekf_.get_state()(vi_ekf::VIEKF::xATT,0);
+  //  odom_msg_.pose.pose.orientation.x = ekf_.get_state()(vi_ekf::VIEKF::xATT+1,0);
+  //  odom_msg_.pose.pose.orientation.y = ekf_.get_state()(vi_ekf::VIEKF::xATT+2,0);
+  //  odom_msg_.pose.pose.orientation.z = ekf_.get_state()(vi_ekf::VIEKF::xATT+3,0);
+  //  odom_msg_.twist.twist.linear.x = ekf_.get_state()(vi_ekf::VIEKF::xVEL,0);
+  //  odom_msg_.twist.twist.linear.y = ekf_.get_state()(vi_ekf::VIEKF::xVEL+1,0);
+  //  odom_msg_.twist.twist.linear.z = ekf_.get_state()(vi_ekf::VIEKF::xVEL+2,0);
+  //  odom_msg_.twist.twist.angular.x = imu_(3);
+  //  odom_msg_.twist.twist.angular.y = imu_(4);
+  //  odom_msg_.twist.twist.angular.z = imu_(5);
+  //  odometry_pub_.publish(odom_msg_);
   
-//  bias_msg_.header = msg->header;
-//  bias_msg_.linear_acceleration.x = ekf_.get_state()(vi_ekf::VIEKF::xB_A, 0);
-//  bias_msg_.linear_acceleration.y = ekf_.get_state()(vi_ekf::VIEKF::xB_A+1, 0);
-//  bias_msg_.linear_acceleration.z = ekf_.get_state()(vi_ekf::VIEKF::xB_A+2, 0);
-//  bias_msg_.angular_velocity.x = ekf_.get_state()(vi_ekf::VIEKF::xB_G, 0);
-//  bias_msg_.angular_velocity.y = ekf_.get_state()(vi_ekf::VIEKF::xB_G+1, 0);
-//  bias_msg_.angular_velocity.z = ekf_.get_state()(vi_ekf::VIEKF::xB_G+2, 0);
-//  bias_pub_.publish(bias_msg_);
+  //  bias_msg_.header = msg->header;
+  //  bias_msg_.linear_acceleration.x = ekf_.get_state()(vi_ekf::VIEKF::xB_A, 0);
+  //  bias_msg_.linear_acceleration.y = ekf_.get_state()(vi_ekf::VIEKF::xB_A+1, 0);
+  //  bias_msg_.linear_acceleration.z = ekf_.get_state()(vi_ekf::VIEKF::xB_A+2, 0);
+  //  bias_msg_.angular_velocity.x = ekf_.get_state()(vi_ekf::VIEKF::xB_G, 0);
+  //  bias_msg_.angular_velocity.y = ekf_.get_state()(vi_ekf::VIEKF::xB_G+1, 0);
+  //  bias_msg_.angular_velocity.z = ekf_.get_state()(vi_ekf::VIEKF::xB_G+2, 0);
+  //  bias_pub_.publish(bias_msg_);
 }
 
 void VIEKF_ROS::keyframe_reset_callback()
@@ -229,13 +295,13 @@ void VIEKF_ROS::keyframe_reset_callback()
   /// OLD WAY
   kf_att_ = Quat::from_euler(0, 0, truth_att_.yaw());
   
-// ///COOL WAY
-//  Vector3d u_rot = truth_att_.rota(vi_ekf::khat);
-//  Vector3d v = vi_ekf::khat.cross(u_rot); // Axis of rotation (without rotation about khat)
-//  double theta = vi_ekf::khat.transpose() * u_rot; // Angle of rotation
-//  Quat qp = Quat::exp(theta * v); // This is the same quaternion, but without rotation about z
-//  // Extract z-rotation only
-//  kf_att_ = (truth_att_ * qp.inverse());  
+  // ///COOL WAY
+  //  Vector3d u_rot = truth_att_.rota(vi_ekf::khat);
+  //  Vector3d v = vi_ekf::khat.cross(u_rot); // Axis of rotation (without rotation about khat)
+  //  double theta = vi_ekf::khat.transpose() * u_rot; // Angle of rotation
+  //  Quat qp = Quat::exp(theta * v); // This is the same quaternion, but without rotation about z
+  //  // Extract z-rotation only
+  //  kf_att_ = (truth_att_ * qp.inverse());
   
   
 }
@@ -266,7 +332,7 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
   
   ekf_mtx_.lock();
   // Propagate the covariance
-//  ekf_.propagate_Image();
+  //  ekf_.propagate_Image();
   // Set which features we are keeping
   ekf_.keep_only_features(ids_);
   ekf_mtx_.unlock();
@@ -285,26 +351,42 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
     z_feat_ << features_[i].x, features_[i].y;
     z_depth_ << depth;
     ekf_mtx_.lock();
-    bool new_feature = ekf_.update(z_feat_, vi_ekf::VIEKF::FEAT, feat_R_, use_features_, ids_[i], (use_depth_) ? depth : NAN);
-    if (!new_feature && got_depth_ && !(depth != depth))
-        ekf_.update(z_depth_, vi_ekf::VIEKF::DEPTH, depth_R_, use_depth_, ids_[i]);
+    int meas_result = ekf_.update(z_feat_, vi_ekf::VIEKF::FEAT, feat_R_, use_features_, ids_[i], (use_depth_) ? depth : NAN);
+    if (meas_result == vi_ekf::VIEKF::MEAS_NORMAL && got_depth_ && !(depth != depth))
+      ekf_.update(z_depth_, vi_ekf::VIEKF::DEPTH, depth_R_, use_depth_, ids_[i]);
+
+    if (meas_result == vi_ekf::VIEKF::MEAS_GATED)
+    {
+      klt_tracker_.drop_feature(ids_[i]);
+    }
     
-    ekf_mtx_.unlock();   
+    ekf_mtx_.unlock();
+
+    if (record_video_ || disp_image_ || output_pub_.getNumSubscribers() > 0)
+    {
+      // Draw depth and position of tracked features
+      z_feat_ = ekf_.get_feat(ids_[i]);
+      circle(img_, features_[i], 5, Scalar(0,255,0));
+      circle(img_, Point(z_feat_.x(), z_feat_.y()), 5, Scalar(255, 0, 255));
+      double h_true = 50.0 /depth;
+      double h_est = 50.0 /ekf_.get_depth(ids_[i]);
+      rectangle(img_, Point(x-h_true, y-h_true), Point(x+h_true, y+h_true), Scalar(0, 255, 0));
+      rectangle(img_, Point(z_feat_.x()-h_est, z_feat_.y()-h_est), Point(z_feat_.x()+h_est, z_feat_.y()+h_est), Scalar(255, 0, 255));
+    }
   }
-    
-//    // Draw depth and position of tracked features
-//    z_feat_ = ekf_.get_feat(ids_[i]);
-//    circle(img_, features_[i], 5, Scalar(0,255,0));
-//    circle(img_, Point(z_feat_.x(), z_feat_.y()), 5, Scalar(255, 0, 255));
-//    double h_true = 50.0 /depth;
-//    double h_est = 50.0 /ekf_.get_depth(ids_[i]);
-//    rectangle(img_, Point(x-h_true, y-h_true), Point(x+h_true, y+h_true), Scalar(0, 255, 0));
-//    rectangle(img_, Point(z_feat_.x()-h_est, z_feat_.y()-h_est), Point(z_feat_.x()+h_est, z_feat_.y()+h_est), Scalar(255, 0, 255));
-//  }
-//  if (record_video_)
-//    video_ << img_;
-//  sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img_).toImageMsg();
-//  output_pub_.publish(img_msg);
+
+  if (record_video_)
+    video_ << img_;
+  if (output_pub_.getNumSubscribers() > 0)
+  {
+    sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", img_).toImageMsg();
+    output_pub_.publish(img_msg);
+  }
+  if (disp_image_)
+  {
+    cv::imshow("output", img_);
+    cv::waitKey(1);
+  }
 }
 
 void VIEKF_ROS::depth_image_callback(const sensor_msgs::ImageConstPtr &msg)
@@ -379,42 +461,43 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att, ros::Time time)
   }
   
   // Decide whether we are flying or not
-  if (!is_flying_)
-  {
-    Vector3d error = truth_pos_ - kf_pos_;
-    // If we have moved a centimeter, then assume we are flying
-    if (error.norm() > 1e-2)
-    {
-      is_flying_ = true;
-      time_took_off_ = time;
-      // The drag term is now valid, activate it if we are supposed to use it.
-    }
-  }
+//  if (!is_flying_)
+//  {
+//    Vector3d error = truth_pos_ - kf_pos_;
+//    // If we have moved a centimeter, then assume we are flying
+//    if (error.norm() > 1e-2)
+//    {
+//      is_flying_ = true;
+//      time_took_off_ = time;
+//      // The drag term is now valid, activate it if we are supposed to use it.
+//    }
+//  }
   
-  if (time > time_took_off_ + ros::Duration(10.0))
-  {
-    // After 1 second of flying, turn on the drag term if we are supposed to
-    if (use_drag_term_ == true && ekf_.get_drag_term() ==  false)
-      ekf_.set_drag_term(true);
-  }
+//  if (time > time_took_off_ + ros::Duration(10.0))
+//  {1
+//    // After 1 second of flying, turn on the drag term if we are supposed to
+//    if (use_drag_term_ == true && ekf_.get_drag_term() ==  false)
+//      ekf_.set_drag_term(true);
+//  }
   
   // Low-pass filter Attitude (use manifold)
-  Quat y_t(z_att);  
-  truth_att_ = y_t + (truth_LPF_ * (truth_att_ - y_t));
+//  Quat y_t(z_att);
+//  truth_att_ = y_t + (truth_LPF_ * (truth_att_ - y_t));
   
-  z_alt_ << -z_pos(2,0);
+//  z_alt_ << -z_pos(2,0);
   
-  global_transform_.t() = z_pos;
-  global_transform_.q() = truth_att_;
-  ekf_mtx_.lock();
-  ekf_.log_global_position(global_transform_);
-  ekf_mtx_.unlock();
+//  global_transform_.t() = z_pos;
+//  global_transform_.q() = truth_att_;
+//  ekf_mtx_.lock();
+//  ekf_.log_global_position(global_transform_);
+//  ekf_mtx_.unlock();
   
-  // Convert truth measurement into current node frame
-  z_pos = kf_att_.rotp(z_pos - kf_pos_); // position offset, rotated into keyframe
-  z_att = (kf_att_.inverse() * truth_att_).elements();  
+//  // Convert truth measurement into current node frame
+//  z_pos = kf_att_.rotp(z_pos - kf_pos_); // position offset, rotated into keyframe
+//  z_att = (kf_att_.inverse() * truth_att_).elements();
   
-  bool truth_active = (use_truth_ || !is_flying_);
+//  bool truth_active = (use_truth_ || !is_flying_);
+  bool truth_active = true;
   
   ekf_mtx_.lock();
   ekf_.update(z_pos, vi_ekf::VIEKF::POS, pos_R_, truth_active);

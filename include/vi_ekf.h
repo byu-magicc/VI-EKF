@@ -80,6 +80,13 @@ public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW // http://eigen.tuxfamily.org/dox-devel/group__TopicStructHavingEigenMembers.html
 
   enum : int{
+    MEAS_NORMAL = 0,
+    MEAS_NEW_FEATURE = 1,
+    MEAS_NAN = 2,
+    MEAS_GATED = 3
+  };
+
+  enum : int{
     xPOS = 0,
     xVEL = 3,
     xATT = 6,
@@ -262,7 +269,7 @@ public:
   void dynamics(const xVector &x, const uVector& u, bool state = true, bool jac = true);
 
   // Measurement Updates
-  bool update(const VectorXd& z, const measurement_type_t& meas_type, const MatrixXd& R, bool active=false, const int id=-1, const double depth=NAN);
+  int update(const VectorXd& z, const measurement_type_t& meas_type, const MatrixXd& R, bool active=false, const int id=-1, const double depth=NAN);
   void h_acc(const xVector& x, zVector& h, hMatrix& H, const int id) const;
   void h_alt(const xVector& x, zVector& h, hMatrix& H, const int id) const;
   void h_att(const xVector& x, zVector& h, hMatrix& H, const int id) const;

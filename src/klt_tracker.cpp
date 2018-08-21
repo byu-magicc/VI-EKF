@@ -5,7 +5,7 @@ using namespace std;
 
 KLT_Tracker::KLT_Tracker()
 {
-  init(12, true, 30, cv::Size(640, 480));
+  init(12, true, 30, cv::Size(752, 480));
 }
 
 void KLT_Tracker::init(int _num_features, bool _show_image, int _radius, cv::Size _size)
@@ -48,7 +48,7 @@ bool KLT_Tracker::drop_feature(int feature_id)
 
 void KLT_Tracker::set_feature_mask(std::string filename)
 {
-  cv::threshold(cv::imread(filename, IMREAD_GRAYSCALE), mask_, 1, 255, CV_8UC1);
+//  cv::threshold(cv::imread(filename, IMREAD_GRAYSCALE), mask_, 1, 255, CV_8UC1);
 }
 
 void KLT_Tracker::load_image(const Mat& img, double t, std::vector<Point2f> &features, std::vector<int> &ids, OutputArray& output)
@@ -138,7 +138,7 @@ void KLT_Tracker::load_image(const Mat& img, double t, std::vector<Point2f> &fea
     }
   }
   
-  if (plot_matches_)
+  if (plot_matches_ && !output.empty())
   {
     Mat color_img;
     cvtColor(grey_img, color_img, COLOR_GRAY2BGR);

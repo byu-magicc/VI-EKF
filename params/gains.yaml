@@ -1,42 +1,42 @@
 {
 ## Initial Uncertainty
-P0: [0.001, 0.001, 0.001,
+P0: [0.000001, 0.000001, 0.000001,
+     0.000001, 0.000001, 0.000001,
+     0.01, 0.01, 0.01,
      0.001, 0.001, 0.001,
      0.001, 0.001, 0.001,
-     0.01, 0.01, 0.01,
-     0.01, 0.01, 0.01,
-     0.01],
-P0_feat: [0.2, 0.2, 0.1],
+     0.001],
+P0_feat: [0.001, 0.001, 0.1],
 
 ## Additive Process Noise
 Qx: [0.000, 0.000, 0.000,
-     0.001, 0.001, 0.001,
-     0.001, 0.001, 0.001,
-     0.001, 0.001, 0.001,
-     0.0001, 0.0001, 0.0001,
+     0.00001, 0.00001, 0.0001,
+     0.00, 0.00, 0.00,
+     0.00000001, 0.00000001, 0.00000001,
+     0.000001, 0.000001, 0.000001,
      0.00],
-Qx_feat: [0.05, 0.05, 0.1],
+Qx_feat: [0.00, 0.00, 0.],
 
 # Input Process Noise
-Qu: [0.05, 0.05, 0.05,      # u_acc
-     0.01, 0.01, 0.01],  # u_gyro
+Qu: [0.00, 0.00, 0.00,   # u_acc
+     0.00, 0.00, 0.00],  # u_gyro
 
 ## Partial Update Gain
-lambda: [0.7, 0.7, 0.7,     # POS
-         0.8, 0.8, 0.8,     # VEL
+lambda: [1.0, 1.0, 1.0,     # POS
+         1.0, 1.0, 1.0,     # VEL
          1.0, 1.0, 1.0,     # ATT
-         0.1, 0.1, 0.1,     # B_A
-         0.3, 0.3, 0.3,     # B_G
-         0.001],              # MU
-lambda_feat: [1.0, 1.0, 0.7],
+         1.0, 1.0, 1.0,     # B_A
+         1.0, 1.0, 1.0,     # B_G
+         1.0],              # MU
+lambda_feat: [1.0, 1.0, 1.0],
 
 ## Sensor Noise
 depth_R: 0.5,
-feat_R: [10.0, 10.0],
+feat_R: [4.0, 4.0],
 acc_R_drag: [0.5, 0.5],
 acc_R_grav: [0.75, 0.75, 0.75],
 att_R: [0.01, 0.01, 0.01],
-pos_R: [0.1, 0.1, 0.1],
+pos_R: [0.01, 0.01, 0.01],
 
 vel_R: [0.1, 0.1, 0.1],
 alt_R: 0.1,
@@ -44,19 +44,20 @@ alt_R: 0.1,
 ## Low-Pass Filtering on IMU and Truth
 imu_LPF: 0.0,
 truth_LPF: 0.0,
+cov_prop_skips: 0,
 
 ## Measurement Model Flags
-use_truth: false,
+use_truth: true,
 use_depth: false,
-use_features: true,
-use_acc: true,
+use_features: false,
+use_acc: false,
 use_imu_att: false,
 use_alt: false,
 
 ## Feature Flags
-drag_term: true,
-partial_update: true,
-keyframe_reset: true,
+drag_term: false,
+partial_update: false,
+keyframe_reset: false,
 
 ## Tracking Paramters
 min_depth: 1.5,
@@ -67,7 +68,11 @@ feature_radius: 45,
 ## CPU Threads
 num_threads: 1,
 
-record_video: false
+record_video: false,
+
+show_image: false,
+
+log_directory: "../logs"
 
 
 }

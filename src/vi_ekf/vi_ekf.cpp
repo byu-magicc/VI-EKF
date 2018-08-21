@@ -187,7 +187,9 @@ void VIEKF::propagate_covariance()
 
   // Discrete style covariance propagation ensures positive definite covariance
   A_ = I_big_ + A_*dt;
-  P_ = A_ * P_* A_.transpose() + G_ * Qu_ * G_.transpose() + Qx_;
+//  A_ = I_big_ + A_*dt + A_*A_*dt*dt/2.0;
+//  A_ = I_big_ + A_*dt + A_*A_*dt*dt/2.0 + A_*A_*A_*dt*dt*dt/6.0;
+  P_ = A_ * P_* A_.transpose() + (G_ * Qu_ * G_.transpose() + Qx_)*dt;
 
   // Continuous style covariance propagation keeps going negative
 //  P_ += (A_ * P_ + P_ * A_.transpose() + G_ * Qu_ * G_.transpose() + Qx_) * dt;

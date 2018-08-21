@@ -3,11 +3,11 @@
 namespace vi_ekf
 {
 
-bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
+int VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
                    const MatrixXd& R, bool active, const int id, const double depth)
 {  
   if ((z.array() != z.array()).any())
-    return true;
+    return MEAS_NAN;
   
   // If this is a new feature, initialize it
   if (meas_type == FEAT && id >= 0)
@@ -15,7 +15,7 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
     if (std::find(current_feature_ids_.begin(), current_feature_ids_.end(), id) == current_feature_ids_.end())
     {
       init_feature(z, id, depth);
-      return true; // Don't do a measurement update this time
+      return MEAS_NEW_FEATURE; // Don't do a measurement update this time
     }
   }
   
@@ -49,15 +49,24 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
 
   auto K = K_.leftCols(z_dim);
   auto H = H_.topRows(z_dim);
+  auto r = residual.topRows(z_dim);
 
   //  Perform Covariance Gating Check on Residual
   if (active)
   {
+<<<<<<< Updated upstream
     double mahal = residual.transpose() * (H * P_ * H.transpose() + R).inverse() * residual;
     if (mahal > 9.0)
     {
 //      std::cout << "gating " << measurement_names[meas_type] << " measurement: " << mahal << std::endl;
       active = false;
+=======
+    double mahal = r.transpose() * (H * P_ * H.transpose() + R).inverse() * r;
+    if (mahal > 9.0)
+    {
+      std::cout << "gating " << measurement_names[meas_type] << " measurement: " << mahal << std::endl;
+      active = MEAS_GATED;
+>>>>>>> Stashed changes
     }
   }
   
@@ -107,7 +116,7 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
   NEGATIVE_DEPTH;
   
   log_measurement(meas_type, prev_t_ - start_t_, z.rows(), z, zhat_, active, id);
-  return false;
+  return MEAS_NORMAL;
 }
 
 

@@ -141,7 +141,7 @@ VIEKF_ROS::VIEKF_ROS(bool no_ros, string filename, bool cv_image) :
   
   num_features_ = (num_features_ > NUM_FEATURES) ? NUM_FEATURES : num_features_;
   
-  P0feat(2,0) = 1.0/(16.0 * min_depth_ * min_depth_);
+//  P0feat(2,0) = 1.0/(16.0 * min_depth_ * min_depth_);
   
   ekf_.init(x0, P0diag, Qxdiag, lambda, Qudiag, P0feat, Qxfeat, lambdafeat,
             cam_center, focal_len, q_b_c, p_b_c, min_depth_, log_directory,
@@ -497,7 +497,7 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att, ros::Time time)
 //  z_att = (kf_att_.inverse() * truth_att_).elements();
   
 //  bool truth_active = (use_truth_ || !is_flying_);
-  bool truth_active = true;
+  bool truth_active = use_truth_;
   
   ekf_mtx_.lock();
   ekf_.update(z_pos, vi_ekf::VIEKF::POS, pos_R_, truth_active);

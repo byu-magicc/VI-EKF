@@ -38,6 +38,7 @@ bool KLT_Tracker::drop_feature(int feature_id)
   {
     ids_.erase(ids_.begin() + local_id);
     new_features_.erase(new_features_.begin() + local_id);
+    prev_features_.erase(prev_features_.begin() + local_id);
     return true;
   }
   else

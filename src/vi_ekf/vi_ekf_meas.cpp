@@ -15,6 +15,8 @@ int VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
     if (std::find(current_feature_ids_.begin(), current_feature_ids_.end(), id) == current_feature_ids_.end())
     {
       init_feature(z, id, depth);
+      (this->*(measurement_functions[meas_type]))(x_, zhat_, H_, id);
+      log_measurement(meas_type, prev_t_ - start_t_, z.rows(), z, zhat_, active, id);
       return MEAS_NEW_FEATURE; // Don't do a measurement update this time
     }
   }
@@ -52,23 +54,15 @@ int VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
   auto r = residual.topRows(z_dim);
 
   //  Perform Covariance Gating Check on Residual
-  if (active)
-  {
-<<<<<<< Updated upstream
-    double mahal = residual.transpose() * (H * P_ * H.transpose() + R).inverse() * residual;
-    if (mahal > 9.0)
-    {
+//  if (active)
+//  {
+//    double mahal = r.transpose() * (H * P_ * H.transpose() + R).inverse() * r;
+//    if (mahal > 16.0)
+//    {
 //      std::cout << "gating " << measurement_names[meas_type] << " measurement: " << mahal << std::endl;
-      active = false;
-=======
-    double mahal = r.transpose() * (H * P_ * H.transpose() + R).inverse() * r;
-    if (mahal > 9.0)
-    {
-      std::cout << "gating " << measurement_names[meas_type] << " measurement: " << mahal << std::endl;
-      active = MEAS_GATED;
->>>>>>> Stashed changes
-    }
-  }
+//      return MEAS_GATED;
+//    }
+//  }
   
   NAN_CHECK;
   

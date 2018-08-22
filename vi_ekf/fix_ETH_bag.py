@@ -8,17 +8,19 @@ import scipy.signal
 import sys
 from tqdm import tqdm
 
-bags = ['V1_01_easy',
-        'V1_02_medium',
-        'V1_03_difficult',
-        'V2_01_easy',
-        'V2_02_medium',
-        'V2_03_difficult',
-        'MH_01_easy',
-        'MH_02_easy',
-        'MH_03_medium',
-        'MH_04_difficult',
-        'MH_05_difficult']
+bags = [
+        'V1_01_easy'
+        # 'V1_02_medium',
+        # 'V1_03_difficult',
+        # 'V2_01_easy',
+        # 'V2_02_medium',
+        # 'V2_03_difficult',
+        # 'MH_01_easy',
+        # 'MH_02_easy',
+        # 'MH_03_medium',
+        # 'MH_04_difficult',
+        # 'MH_05_difficult'
+]
 
 print("Fix ETH Bag")
 
@@ -50,7 +52,7 @@ for bagfile in bags:
     inputfile = '/home/superjax/rosbag/EuRoC/original/' + bagfile + '.bag'
     outputfile = '/home/superjax/rosbag/EuRoC/' + bagfile + '_NED.bag'
 
-    # print console header
+    # print which bag we are processing
     print("input file: %s" % inputfile)
     print('output file: %s' % outputfile)
 

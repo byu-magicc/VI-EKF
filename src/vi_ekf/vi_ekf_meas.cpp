@@ -61,8 +61,6 @@ int VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
 //    {
 //      std::cout << "gating " << measurement_names[meas_type] << " measurement: " << mahal << std::endl;
 //      return MEAS_GATED;
-//    }
-//  }
   
   NAN_CHECK;
   

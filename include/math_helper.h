@@ -57,7 +57,7 @@ inline Eigen::Matrix3d skew(const Eigen::Vector3d v)
 
 inline Eigen::Matrix<double, 3, 2> T_zeta(quat::Quat q)
 {
-  return q.doublerot(I_2x3.transpose());
+  return q.doublerota(I_2x3.transpose());
 }
 
 inline Eigen::Vector2d q_feat_boxminus(quat::Quat q0, quat::Quat q1)

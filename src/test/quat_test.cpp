@@ -235,7 +235,7 @@ void quat_passive_derivative()
   Matrix3d I = Matrix3d::Identity();
   double epsilon = 1e-8;
   
-  a = skew(q0.rotp(v));  // -[R(q)v]
+  a = skew(q0.rotp(v));  // [R(q)v]
   
   for (int i = 0; i < 3; i++)
   {
@@ -261,7 +261,7 @@ void quat_active_derivative()
   Matrix3d I = Matrix3d::Identity();
   double epsilon = 1e-8;
   
-  a = -q0.R().transpose() * skew(v);  // R(q).T * [v]
+  a = -q0.R().transpose() * skew(v);  // -R(q).T * [v]
   
   for (int i = 0; i < 3; i++)
   {

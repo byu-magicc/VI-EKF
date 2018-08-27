@@ -10,7 +10,7 @@ logs/
 *.autosave
 *.idea*
 *.creator
-*.user
+*.user*
 *.pyc
 *.lyx~
 *.lyx#
@@ -20,7 +20,7 @@ logs/
 *.pkl
 *.bag
 */plots/*.png
-*build
+*build*
 *data
 *.emergency
 */plots/

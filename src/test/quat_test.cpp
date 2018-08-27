@@ -315,26 +315,25 @@ TEST(math_helper, T_zeta){math_helper_T_zeta();}
 
 void math_helper_d_dTdq()
 {
+  double epsilon = 1e-6;
   for (int j = 0; j < NUM_ITERS; j++)
   {
-    Matrix2d d_dTdq;
-    d_dTdq.setZero();
-    Vector3d v2;
-    v2.setRandom();
+    Vector3d v;
+    v.setRandom();
     Quat q = Quat::Random();
     q.setZ(0);
     q.normalize();
     auto T_z = T_zeta(q);
-    Vector2d x0 = T_z.transpose() * v2;
-    double epsilon = 1e-6;
-    Matrix2d I = Matrix2d::Identity() * epsilon;
-    Matrix2d a_dTdq = T_z.transpose() * skew(v2) * T_z;
+    Vector2d x0 = T_z.transpose() * v;
+    Matrix2d I = Matrix2d::Identity();
+    Matrix2d a_dTdq = -T_z.transpose() * skew(v) * T_z;
+    Matrix2d d_dTdq;
+    d_dTdq.setZero();
     for (int i = 0; i < 2; i++)
     {
-      quat::Quat qplus = q_feat_boxplus(q, I.col(i));
-      Vector2d xprime = T_zeta(qplus).transpose() * v2;
-      Vector2d dx = xprime - x0;
-      d_dTdq.row(i) = (dx) / epsilon;
+      Quat qplus = q_feat_boxplus(q, I.col(i) * epsilon);
+      Vector2d xprime = T_zeta(qplus).transpose() * v;
+      d_dTdq.col(i) = (xprime - x0) / epsilon;
     }
     MATRIX_EQUAL(d_dTdq, a_dTdq, 1e-6);
   }

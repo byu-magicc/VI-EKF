@@ -10,7 +10,7 @@
 using namespace quat;
 using namespace Eigen;
 
-#define NUM_ITERS 10
+#define NUM_ITERS 100
 
 #define QUATERNION_EQUALS(q1, q2) \
   if (sign((q1).w()) != sign((q2).w())) \
@@ -328,7 +328,7 @@ void math_helper_d_dTdq()
     Vector2d x0 = T_z.transpose() * v2;
     double epsilon = 1e-6;
     Matrix2d I = Matrix2d::Identity() * epsilon;
-    Matrix2d a_dTdq = -T_z.transpose() * skew(v2) * T_z;
+    Matrix2d a_dTdq = T_z.transpose() * skew(v2) * T_z;
     for (int i = 0; i < 2; i++)
     {
       quat::Quat qplus = q_feat_boxplus(q, I.col(i));
@@ -340,6 +340,28 @@ void math_helper_d_dTdq()
   }
 }
 TEST(math_helper, d_dTdq){math_helper_d_dTdq();}
+
+void math_helper_dzeta_dqzeta()
+{
+  double epsilon = 1e-6;
+  for(int j = 0; j < NUM_ITERS; j++)
+  {
+    Matrix<double, 3, 2> d_dzeta_dqzeta;
+    Quat q = Quat::Random();
+    q.setZ(0);
+    q.normalize();
+    Matrix2d I = Matrix2d::Identity() * epsilon;
+    for (int i = 0; i < 2; i++)
+    {
+      quat::Quat q_prime = q_feat_boxplus(q, I.col(i));
+      Vector3d dzeta  = zeta(q_prime) - zeta(q);
+      d_dzeta_dqzeta.col(i) = dzeta / epsilon;
+    }
+    Matrix<double, 3, 2> a_dzeta_dqzeta = skew(zeta(q)) * T_zeta(q);
+    MATRIX_EQUAL(a_dzeta_dqzeta, d_dzeta_dqzeta, 1e-6);
+  }
+}
+TEST(math_helper, dzeta_dqzeta){math_helper_dzeta_dqzeta();}
 
 void math_helper_dqzeta_dqzeta()
 {
@@ -365,26 +387,23 @@ TEST(math_helper, dqzeta_dqzeta){math_helper_dqzeta_dqzeta();}
 
 void math_helper_manifold_operations()
 {
-  Vector3d omega, omega2;
-  Vector2d dx, zeros;
+  Vector2d delta;
+  Vector2d zeros;
   zeros.setZero();
   for (int i = 0; i < NUM_ITERS; i++)
   {
-    omega.setRandom();
-    omega2.setRandom();
-    dx.setRandom();
-    dx /= 2.0;
-    omega(2) = 0;
-    omega2(2) = 0;
-    Quat x = Quat::exp(omega);
-    Quat y = Quat::exp(omega2);
+    delta.setRandom();
+    Quat q1 = Quat::Random();
+    q1.setZ(0);
+    q1.normalize();
+    Quat q2 = q_feat_boxplus(q1, delta);
     
-    // (x [+] 0) == x 
-    QUATERNION_EQUALS( q_feat_boxplus(x, zeros), x);
-    // (x [+] (x2 [-] x)) = x2
-    VECTOR3_EQUALS( q_feat_boxplus( x, q_feat_boxminus(y, x)).rota(e_z), y.rota(e_z));
-    // ((x [+] dx) [-] x) == dx
-    VECTOR2_EQUALS( q_feat_boxminus(q_feat_boxplus(x, dx), x), dx);
+    // (q1 [+] 0) == q1
+    QUATERNION_EQUALS( q_feat_boxplus(q1, zeros), q1);
+    // ((q1 [+] delta) [-] q1) == delta
+    VECTOR2_EQUALS( q_feat_boxminus(q2, q1), delta);
+    // (q1 [+] (q2 [-] q1)) = q2
+    VECTOR3_EQUALS( zeta(q_feat_boxplus( q1, q_feat_boxminus(q2, q1))), zeta(q2));
   }
 }
 TEST(math_helper, manifold_operations){math_helper_manifold_operations();}

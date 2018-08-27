@@ -1,5 +1,4 @@
 #include "vi_ekf.h"
-#include "utils.h"
 
 namespace vi_ekf
 {

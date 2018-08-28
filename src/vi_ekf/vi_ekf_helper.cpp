@@ -4,6 +4,7 @@ namespace vi_ekf
 {
 
 #ifdef MC_SIM
+#include "utils.h"
 void VIEKF::load(std::string ekf_file, std::string common_file, bool use_logger, string prefix)
 {
   Matrix<double, xMU, 1> x;

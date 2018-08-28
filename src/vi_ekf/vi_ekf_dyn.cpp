@@ -71,11 +71,11 @@ void VIEKF::dynamics(const xVector& x, const uVector &u, bool state, bool jac)
     
     // Input Jacobian
     if (use_drag_term_)
-      G_.block<3,3>((int)dxVEL, (int)uA) << 0, 0, 0, 0, 0, 0, 0, 0, 1;
+      G_.block<3,3>((int)dxVEL, (int)uA) << 0, 0, 0, 0, 0, 0, 0, 0, -1;
     else
-      G_.block<3,3>((int)dxVEL, (int)uA) = I_3x3;
-    G_.block<3,3>((int)dxVEL, (int)uG) = skew(vel);
-    G_.block<3,3>((int)dxATT, (int)uG) = I_3x3;
+      G_.block<3,3>((int)dxVEL, (int)uA) = -I_3x3;
+    G_.block<3,3>((int)dxVEL, (int)uG) = -skew(vel);
+    G_.block<3,3>((int)dxATT, (int)uG) = -I_3x3;
   }
   
   // Camera Dynamics
@@ -110,25 +110,25 @@ void VIEKF::dynamics(const xVector& x, const uVector &u, bool state, bool jac)
     // Feature Dynamics
     if (state)
     {
-      dx_.block<2,1>(dxZETA_i,0) = -T_z.transpose() * (omega_c_i + rho * zeta.cross(vel_c_i));
+      dx_.block<2,1>(dxZETA_i,0) = T_z.transpose() * (omega_c_i + rho * zeta.cross(vel_c_i));
       dx_(dxRHO_i) = rho2 * zeta.dot(vel_c_i);
     }
     
     // Feature Jacobian
     if (jac)
     {
-      A_.block<2, 3>(dxZETA_i, (int)dxVEL) = -rho * T_z.transpose() * skew_zeta * R_b_c;
-      A_.block<2, 3>(dxZETA_i, (int)dxB_G) = -T_z.transpose() * (rho * skew_zeta * R_b_c * skew_p_b_c - R_b_c);
-      A_.block<2, 2>(dxZETA_i, dxZETA_i) = -T_z.transpose() * (skew(rho * skew_zeta * vel_c_i + omega_c_i) + (rho * skew_vel_c * skew_zeta)) * T_z;
-      A_.block<2, 1>(dxZETA_i, dxRHO_i) = -T_z.transpose() * zeta.cross(vel_c_i);
+      A_.block<2, 3>(dxZETA_i, (int)dxVEL) = rho * T_z.transpose() * skew_zeta * R_b_c;
+      A_.block<2, 3>(dxZETA_i, (int)dxB_G) = T_z.transpose() * (rho * skew_zeta * R_b_c * skew_p_b_c - R_b_c);
+      A_.block<2, 2>(dxZETA_i, dxZETA_i) = -T_z.transpose() * (skew(omega_c_i + rho * zeta.cross(vel_c_i)) + (rho * skew_vel_c * skew_zeta)) * T_z;
+      A_.block<2, 1>(dxZETA_i, dxRHO_i) = T_z.transpose() * zeta.cross(vel_c_i);
       A_.block<1, 3>(dxRHO_i, (int)dxVEL) = rho2 * zeta.transpose() * R_b_c;
       A_.block<1, 3>(dxRHO_i, (int)dxB_G) = rho2 * zeta.transpose() * R_b_c * skew_p_b_c;
-      A_.block<1, 2>(dxRHO_i, dxZETA_i) = -rho2 * vel_c_i.transpose() * skew_zeta * T_z;
+      A_.block<1, 2>(dxRHO_i, dxZETA_i) = rho2 * vel_c_i.transpose() * skew_zeta * T_z;
       A_(dxRHO_i, dxRHO_i) = 2 * rho * zeta.transpose() * vel_c_i;
       
       // Feature Input Jacobian
       G_.block<2, 3>(dxZETA_i, (int)uG) = T_z.transpose() * (rho*skew_zeta * R_b_c*skew_p_b_c - R_b_c);
-      G_.block<1, 3>(dxRHO_i, (int)uG) = -rho2*zeta.transpose() * R_b_c * skew_p_b_c;
+      G_.block<1, 3>(dxRHO_i, (int)uG) = rho2*zeta.transpose() * R_b_c * skew_p_b_c;
     }
   }
 }

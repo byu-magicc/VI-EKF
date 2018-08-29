@@ -1,5 +1,8 @@
 #include "vi_ekf.h"
+
+#ifdef MC_SIM
 #include "utils.h"
+#endif
 
 namespace vi_ekf
 {

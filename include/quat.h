@@ -227,6 +227,11 @@ public:
     return std::atan2(2.0*(w()*z()+x()*y()), 1.0-2.0*(y()*y() + z()*z()));
   }
 
+  Vector3d bar() const
+  {
+    return arr_.segment<3>(1);
+  }
+
   Matrix3d R() const
   {
     double wx = w()*x();
@@ -256,24 +261,26 @@ public:
     arr_ /= arr_.norm();
   }
 
-  Matrix<double, 3, 2> doublerot(const Matrix<double, 3, 2>& v) const
+  Matrix<double, 3, 2> doublerota(const Matrix<double, 3, 2>& v) const
   {
-    Matrix<double, 3, 2> out(3, v.cols());
-    for (int i = 0; i < v.cols(); i++)
+    Matrix<double, 3, 2> out(3, 2);
+    Vector3d t;
+    for (int i = 0; i < 2; ++i)
     {
-       out.block<3,1>(0,i) = v.block<3,1>(0,i) + w() * (2.0 * arr_.block<3,1>(1,0).cross(v.block<3,1>(0,i))) + arr_.block<3,1>(1,0).cross((2.0 * arr_.block<3,1>(1,0).cross(v.block<3,1>(0,i))));
+      t = 2.0 * v.col(i).cross(bar());
+      out.col(i) = v.col(i) - w() * t + t.cross(bar());
     }
     return out;
   }
 
-  Matrix<double, 3, 2> doubleinvrot(const Matrix<double, 3, 2>& v) const
+  Matrix<double, 3, 2> doublerotp(const Matrix<double, 3, 2>& v) const
   {
-    Matrix<double, 3, 2> out(3, v.cols());
+    Matrix<double, 3, 2> out(3, 2);
     Vector3d t;
-    for (int i = 0; i < v.cols(); i++)
+    for (int i = 0; i < 2; ++i)
     {
-       t = -2.0 * arr_.block<3,1>(1,0).cross(v.block<3,1>(0,i));
-       out.block<3,1>(0,i) = v.block<3,1>(0,i) + w() * t - arr_.block<3,1>(1,0).cross(t);
+      t = 2.0 * v.col(i).cross(bar());
+      out.col(i) = v.col(i) + w() * t + t.cross(bar());
     }
     return out;
   }
@@ -282,15 +289,15 @@ public:
   // The same as R.T * v but faster
   Vector3d rota(const Vector3d& v) const
   {
-    Vector3d t = 2.0 * arr_.block<3,1>(1,0).cross(v);
-    return v + w() * t + arr_.block<3,1>(1,0).cross(t);
+    Vector3d t = 2.0 * v.cross(bar());
+    return v - w() * t + t.cross(bar());
   }
 
   // The same as R * v but faster
   Vector3d rotp(const Vector3d& v) const
   {
-    Vector3d t = -2.0 * arr_.block<3,1>(1,0).cross(v);
-    return v + w() * t - arr_.block<3,1>(1,0).cross(t);
+    Vector3d t = 2.0 * v.cross(bar());
+    return v + w() * t + t.cross(bar());
   }
 
   Quat& invert()

@@ -5,6 +5,8 @@
 #include <string>
 #include <eigen3/unsupported/Eigen/MatrixFunctions>
 #include "vi_ekf.h"
+#include <random>
+#include <chrono>
 
 using namespace quat;
 using namespace vi_ekf;
@@ -325,12 +327,12 @@ void VIEKF_dfdx_test()
       
       ASSERT_FALSE(check_block(zeta_key, "dxVEL", a_dfdx, d_dfdx));
       ASSERT_FALSE(check_block(zeta_key, "dxB_G", a_dfdx, d_dfdx));
-      ASSERT_FALSE(check_block(zeta_key, zeta_key, a_dfdx, d_dfdx, 2e-2));
+      ASSERT_FALSE(check_block(zeta_key, zeta_key, a_dfdx, d_dfdx));
       ASSERT_FALSE(check_block(zeta_key, rho_key, a_dfdx, d_dfdx));
-      ASSERT_FALSE(check_block(rho_key, "dxVEL", a_dfdx, d_dfdx, 2e-2));
-      ASSERT_FALSE(check_block(rho_key, "dxB_G", a_dfdx, d_dfdx, 1e-2));
-      ASSERT_FALSE(check_block(rho_key, zeta_key, a_dfdx, d_dfdx, 20.0));
-      ASSERT_FALSE(check_block(rho_key, rho_key, a_dfdx, d_dfdx, 1e-2));
+      ASSERT_FALSE(check_block(rho_key, "dxVEL", a_dfdx, d_dfdx));
+      ASSERT_FALSE(check_block(rho_key, "dxB_G", a_dfdx, d_dfdx));
+      ASSERT_FALSE(check_block(rho_key, zeta_key, a_dfdx, d_dfdx, 1e-2));
+      ASSERT_FALSE(check_block(rho_key, rho_key, a_dfdx, d_dfdx));
     }
   }
 }
@@ -338,15 +340,18 @@ TEST(VI_EKF, dfdx_test){VIEKF_dfdx_test();}
 
 void VIEKF_dfdu_test()
 {
+  // Variation w.r.t. accel/gyro noise is the same as w.r.t. their biases, so just perturb those
   xVector x0;
   uVector u0;
   dxVector dxprime;
-  uVector uprime;
+  xVector xprime;
   double epsilon = 1e-6;
   dxMatrix dfdx_dummy;
   dxuMatrix dfdu_dummy;
   dxuMatrix d_dfdu;
-  Matrix<double, 6, 6> Iu = Matrix<double, 6, 6>::Identity();
+  Matrix<double, MAX_DX, 6> Iu;
+  Iu.setZero();
+  Iu.block<6,6>(VIEKF::dxB_A,0).setIdentity();
   dxVector dx0;
   dxMatrix a_dfdx;
   dxuMatrix a_dfdu;
@@ -361,8 +366,8 @@ void VIEKF_dfdu_test()
     // Perform Numerical Differentiation
     for (int i = 0; i < d_dfdu.cols(); i++)
     {
-      uprime = u0 + (Iu.col(i) * epsilon);
-      ekf.dynamics(x0, uprime, dxprime, dfdx_dummy, dfdu_dummy);
+      ekf.boxplus(x0, (Iu.col(i) * epsilon), xprime);
+      ekf.dynamics(xprime, u0, dxprime, dfdx_dummy, dfdu_dummy);
       d_dfdu.col(i) = (dxprime - dx0) / epsilon;
     }
     
@@ -453,6 +458,7 @@ void VIEKF_KF_reset_test()
 TEST(VI_EKF, KF_reset_test){VIEKF_KF_reset_test();}
 
 int main(int argc, char **argv) {
+  srand(std::chrono::system_clock::now().time_since_epoch().count());
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

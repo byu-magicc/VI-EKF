@@ -55,15 +55,21 @@ inline Eigen::Matrix3d skew(const Eigen::Vector3d v)
   return mat;
 }
 
-inline Eigen::Matrix<double, 3, 2> T_zeta(quat::Quat q)
+inline Eigen::Vector3d zeta(quat::Quat q)
 {
-  return q.doublerot(I_2x3.transpose());
+  return q.rota(e_z);
 }
 
-inline Eigen::Vector2d q_feat_boxminus(quat::Quat q0, quat::Quat q1)
+inline Eigen::Matrix<double, 3, 2> T_zeta(quat::Quat q)
 {
-  Eigen::Vector3d zeta0 = q0.rota(e_z);
-  Eigen::Vector3d zeta1 = q1.rota(e_z);
+  return q.doublerota(I_2x3.transpose());
+}
+
+// q1 - q0
+inline Eigen::Vector2d q_feat_boxminus(quat::Quat q1, quat::Quat q0)
+{
+  Eigen::Vector3d zeta0 = zeta(q0);
+  Eigen::Vector3d zeta1 = zeta(q1);
 
   Eigen::Vector2d dq;
   if ((zeta0 - zeta1).norm() > 1e-8)
@@ -71,7 +77,7 @@ inline Eigen::Vector2d q_feat_boxminus(quat::Quat q0, quat::Quat q1)
     Eigen::Vector3d v = zeta1.cross(zeta0);
     v /= v.norm();
     double theta = std::acos(zeta1.dot(zeta0));
-    dq = theta * T_zeta(q1).transpose() * v;
+    dq = T_zeta(q0).transpose() * (theta * v);
   }
   else
   {
@@ -82,7 +88,7 @@ inline Eigen::Vector2d q_feat_boxminus(quat::Quat q0, quat::Quat q1)
 
 inline quat::Quat q_feat_boxplus(quat::Quat q, Eigen::Vector2d dq)
 {
-  return quat::Quat::exp(T_zeta(q) * dq) * q;
+  return quat::Quat::exp(-T_zeta(q) * dq) * q;
 }
 
 template <typename Derived>

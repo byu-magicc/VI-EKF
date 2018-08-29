@@ -7,6 +7,7 @@ from geometry_msgs.msg import Vector3
 import scipy.signal
 import sys
 from tqdm import tqdm
+import yaml
 
 bags = [
         'V1_01_easy'

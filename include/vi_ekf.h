@@ -269,7 +269,7 @@ public:
   void dynamics(const xVector &x, const uVector& u, bool state = true, bool jac = true);
 
   // Measurement Updates
-  int update(const VectorXd& z, const measurement_type_t& meas_type, const MatrixXd& R, bool active=false, const int id=-1, const double depth=NAN);
+  int update(const VectorXd& z, const measurement_type_t& meas_type, const MatrixXd& R, bool active=false, const int id=-1, const double depth=NAN, const bool gate=true);
   void h_acc(const xVector& x, zVector& h, hMatrix& H, const int id) const;
   void h_alt(const xVector& x, zVector& h, hMatrix& H, const int id) const;
   void h_att(const xVector& x, zVector& h, hMatrix& H, const int id) const;

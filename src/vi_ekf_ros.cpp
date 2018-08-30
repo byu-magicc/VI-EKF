@@ -207,7 +207,10 @@ VIEKF_ROS::VIEKF_ROS(bool no_ros, string filename, bool cv_image) :
 }
 
 VIEKF_ROS::~VIEKF_ROS()
-{}
+{
+  if (record_video_)
+    video_.release();
+}
 
 void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
 {
@@ -290,7 +293,7 @@ void VIEKF_ROS::keyframe_reset_callback()
 {
   
   kf_pos_ = truth_pos_;
-  kf_pos_(2) = 0.0; // always at the ground
+//  kf_pos_(2) = 0.0; // always at the ground
   
   /// OLD WAY
   kf_att_ = Quat::from_euler(0, 0, truth_att_.yaw());
@@ -424,12 +427,6 @@ void VIEKF_ROS::transform_truth_callback(const geometry_msgs::TransformStampedCo
 
 void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att, ros::Time time)
 {
-  static int counter = 0;
-  if (counter++ < 2)
-  {
-    return;
-  }
-  else counter = 0;
   // Rotate measurements into the proper frame
   z_pos = q_I_truth_.rotp(z_pos);
   z_att.block<3,1>(1,0) = q_I_truth_.rotp(z_att.block<3,1>(1,0));
@@ -441,12 +438,11 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att, ros::Time time)
   }
   
   truth_pos_ = z_pos;
+  truth_att_ = Quat(z_att);
   
   // Initialize Truth
   if (!truth_init_)
-  {
-    truth_att_ = Quat(z_att);
-    
+  {    
     // Initialize the EKF to the origin in the Vicon frame, but then immediately keyframe reset to start at origin
     ekf_mtx_.lock();
     Matrix<double, vi_ekf::VIEKF::xZ, 1> x0 = ekf_.get_state().topRows(vi_ekf::VIEKF::xZ);
@@ -461,53 +457,57 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att, ros::Time time)
   }
   
   // Decide whether we are flying or not
-//  if (!is_flying_)
-//  {
-//    Vector3d error = truth_pos_ - kf_pos_;
-//    // If we have moved a centimeter, then assume we are flying
-//    if (error.norm() > 1e-2)
-//    {
-//      is_flying_ = true;
-//      time_took_off_ = time;
-//      // The drag term is now valid, activate it if we are supposed to use it.
-//    }
-//  }
+  if (!is_flying_)
+  {
+    Vector3d error = truth_pos_ - kf_pos_;
+    time_took_off_ = time;
+    if (error.norm() > 1e-2)
+    {
+      // If we have moved a centimeter, then assume we are flying
+      is_flying_ = true;
+    }
+    else
+    {
+      // Apply a zero-velocity update
+      Vector3d z_vel; z_vel.setZero();
+      Matrix3d R_vel;
+      R_vel << 0.001, 0, 0, 0, 0.001, 0, 0, 0, 0.001;
+      ekf_mtx_.lock();
+      ekf_.update(z_vel, vi_ekf::VIEKF::VEL, R_vel, true);
+      ekf_mtx_.unlock();
+    }
+  }
   
-//  if (time > time_took_off_ + ros::Duration(10.0))
-//  {1
-//    // After 1 second of flying, turn on the drag term if we are supposed to
-//    if (use_drag_term_ == true && ekf_.get_drag_term() ==  false)
-//      ekf_.set_drag_term(true);
-//  }
+  if (time > time_took_off_ + ros::Duration(1.0))
+  {
+    // After 1 second of flying, turn on the drag term if we are supposed to
+    if (use_drag_term_ == true && ekf_.get_drag_term() ==  false)
+      ekf_.set_drag_term(true);
+  }
   
-  // Low-pass filter Attitude (use manifold)
-//  Quat y_t(z_att);
-//  truth_att_ = y_t + (truth_LPF_ * (truth_att_ - y_t));
+  z_alt_ << -z_pos(2,0);
   
-//  z_alt_ << -z_pos(2,0);
+  global_transform_.t() = z_pos;
+  global_transform_.q() = truth_att_;
+  ekf_mtx_.lock();
+  ekf_.log_global_position(global_transform_);
+  ekf_mtx_.unlock();
   
-//  global_transform_.t() = z_pos;
-//  global_transform_.q() = truth_att_;
-//  ekf_mtx_.lock();
-//  ekf_.log_global_position(global_transform_);
-//  ekf_mtx_.unlock();
+  // Convert truth measurement into current node frame
+  z_pos = kf_att_.rotp(z_pos - kf_pos_); // position offset, rotated into keyframe
+  z_att = (kf_att_.inverse() * truth_att_).elements();
   
-//  // Convert truth measurement into current node frame
-//  z_pos = kf_att_.rotp(z_pos - kf_pos_); // position offset, rotated into keyframe
-//  z_att = (kf_att_.inverse() * truth_att_).elements();
-  
-//  bool truth_active = (use_truth_ || !is_flying_);
-  bool truth_active = use_truth_;
+  bool truth_active = (use_truth_ || !is_flying_);
   
   ekf_mtx_.lock();
   ekf_.update(z_pos, vi_ekf::VIEKF::POS, pos_R_, truth_active);
-  ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, truth_active);
+  ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, truth_active, -1, NAN, false );
   ekf_mtx_.unlock();
   
   // Perform Altitude Measurement
-  ekf_mtx_.lock();
-  ekf_.update(z_alt_, vi_ekf::VIEKF::ALT, alt_R_, !truth_active);
-  ekf_mtx_.unlock();
+//  ekf_mtx_.lock();
+//  ekf_.update(z_alt_, vi_ekf::VIEKF::ALT, alt_R_, !truth_active);
+//  ekf_mtx_.unlock();
 }
 
 

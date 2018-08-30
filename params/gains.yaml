@@ -1,19 +1,19 @@
 {
 ## Initial Uncertainty
-P0: [0.000001, 0.000001, 0.000001,
+P0: [0.0001, 0.0001, 0.0001,
      0.0001, 0.0001, 0.0001,
-     0.01, 0.01, 0.01,
-     0.001, 0.001, 0.001,
-     0.001, 0.001, 0.001,
-     0.001],
-P0_feat: [0.01, 0.01, 0.03],
+     0.000001, 0.000001, 0.000001,
+     0.00001, 0.00001, 0.00001,
+     0.00001, 0.00001, 0.00001,
+     0.0001],
+P0_feat: [0.001, 0.001, 0.03],
 
 ## Additive Process Noise
 Qx: [0.000, 0.000, 0.000,
-     0.001, 0.001, 0.01,
+     0.0001, 0.0001, 0.0001,
      0.00, 0.00, 0.00,
-     0.00001, 0.00001, 0.00001,
      0.000001, 0.000001, 0.000001,
+     0.0000001, 0.0000001, 0.0000001,
      0.00],
 Qx_feat: [0.001, 0.001, 0.001],
 
@@ -47,9 +47,9 @@ truth_LPF: 0.0,
 cov_prop_skips: 0,
 
 ## Measurement Model Flags
-use_truth: true,
+use_truth: false,
 use_depth: false,
-use_features: false,
+use_features: true,
 use_acc: false,
 use_imu_att: false,
 use_alt: false,
@@ -70,7 +70,7 @@ num_threads: 1,
 
 record_video: false,
 
-show_image: true,
+show_image: false,
 
 log_directory: "../logs"
 

@@ -198,6 +198,9 @@ for log in bags:
         outbag.write("color", msg, msg.header.stamp)
 
 
+    sys.stdout.flush()
+    outbag.close()
+
 # imu = np.array(imu)
 # plt.figure(1)
 # plt.subplot(211)
@@ -217,9 +220,6 @@ for log in bags:
 # plt.plot(truth[:,4:])
 
 # plt.show()
-
-sys.stdout.flush()
-outbag.close()
 
 
 

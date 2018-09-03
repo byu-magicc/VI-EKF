@@ -2,8 +2,8 @@
 #include "eigen_helpers.h"
 #include "utils.h"
 
-VIEKF_ROS::VIEKF_ROS(bool no_ros, string filename, bool cv_image) :
-  nh_private_("~"),
+VIEKF_ROS::VIEKF_ROS(string ns, bool cv_image) :
+  nh_private_("~/" + ns),
   it_(nh_),
   disp_image_(cv_image)
 {

@@ -3,9 +3,9 @@
 P0: [0.0001, 0.0001, 0.0001,
      0.0001, 0.0001, 0.0001,
      0.000001, 0.000001, 0.000001,
-     0.00001, 0.00001, 0.00001,
-     0.00001, 0.00001, 0.00001,
-     0.0001],
+     0.001, 0.001, 0.001,
+     0.001, 0.001, 0.001,
+     0.001],
 P0_feat: [0.001, 0.001, 0.03],
 
 ## Additive Process Noise
@@ -15,10 +15,10 @@ Qx: [0.000, 0.000, 0.000,
      0.000001, 0.000001, 0.000001,
      0.0000001, 0.0000001, 0.0000001,
      0.00],
-Qx_feat: [0.001, 0.001, 0.001],
+Qx_feat: [0.001, 0.001, 0.01],
 
 # Input Process Noise
-Qu: [0.01, 0.01, 0.01,   # u_acc
+Qu: [0.05, 0.05, 0.05,   # u_acc
      0.001, 0.001, 0.001],  # u_gyro
 
 ## Partial Update Gain
@@ -53,11 +53,6 @@ use_features: true,
 use_acc: false,
 use_imu_att: false,
 use_alt: false,
-
-## Feature Flags
-drag_term: false,
-partial_update: false,
-keyframe_reset: false,
 
 ## Tracking Paramters
 min_depth: 1.5,

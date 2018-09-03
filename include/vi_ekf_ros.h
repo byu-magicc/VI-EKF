@@ -29,7 +29,7 @@ typedef Matrix<double, 6, 1> Vector6d;
 class VIEKF_ROS
 {
 public:
-  VIEKF_ROS(bool no_ros = false, string filename = "", bool cv_image = false);
+  VIEKF_ROS(string ns = "", bool cv_image = false);
   ~VIEKF_ROS();
   void color_image_callback(const sensor_msgs::ImageConstPtr &msg);
   void depth_image_callback(const sensor_msgs::ImageConstPtr& msg);

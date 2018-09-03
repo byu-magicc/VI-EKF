@@ -1,0 +1,6 @@
+{
+## Feature Flags
+drag_term: false,
+partial_update: false,
+keyframe_reset: true
+}

@@ -1,6 +1,9 @@
 #include "vi_ekf_ros.h"
 #include "eigen_helpers.h"
+
+#ifdef MC_SIM
 #include "utils.h"
+#endif
 
 VIEKF_ROS::VIEKF_ROS(bool no_ros, string filename, bool cv_image) :
   nh_private_("~"),

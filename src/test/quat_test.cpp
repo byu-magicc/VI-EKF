@@ -326,7 +326,7 @@ void math_helper_d_dTdq()
     auto T_z = T_zeta(q);
     Vector2d x0 = T_z.transpose() * v;
     Matrix2d I = Matrix2d::Identity();
-    Matrix2d a_dTdq = -T_z.transpose() * skew(v) * T_z;
+    Matrix2d a_dTdq = T_z.transpose() * skew(v) * T_z;
     Matrix2d d_dTdq;
     d_dTdq.setZero();
     for (int i = 0; i < 2; i++)
@@ -356,7 +356,7 @@ void math_helper_dzeta_dqzeta()
       Vector3d dzeta  = zeta(q_prime) - zeta(q);
       d_dzeta_dqzeta.col(i) = dzeta / epsilon;
     }
-    Matrix<double, 3, 2> a_dzeta_dqzeta = skew(zeta(q)) * T_zeta(q);
+    Matrix<double, 3, 2> a_dzeta_dqzeta = -skew(zeta(q)) * T_zeta(q);
     MATRIX_EQUAL(a_dzeta_dqzeta, d_dzeta_dqzeta, 1e-6);
   }
 }

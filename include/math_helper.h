@@ -74,9 +74,9 @@ inline Eigen::Vector2d q_feat_boxminus(quat::Quat q1, quat::Quat q0)
   Eigen::Vector2d dq;
   if ((zeta0 - zeta1).norm() > 1e-8)
   {
-    Eigen::Vector3d v = zeta1.cross(zeta0);
+    Eigen::Vector3d v = zeta0.cross(zeta1);
     v /= v.norm();
-    double theta = std::acos(zeta1.dot(zeta0));
+    double theta = std::acos(zeta0.dot(zeta1));
     dq = T_zeta(q0).transpose() * (theta * v);
   }
   else
@@ -88,7 +88,7 @@ inline Eigen::Vector2d q_feat_boxminus(quat::Quat q1, quat::Quat q0)
 
 inline quat::Quat q_feat_boxplus(quat::Quat q, Eigen::Vector2d dq)
 {
-  return quat::Quat::exp(-T_zeta(q) * dq) * q;
+  return quat::Quat::exp(T_zeta(q) * dq) * q;
 }
 
 template <typename Derived>

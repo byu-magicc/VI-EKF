@@ -197,7 +197,7 @@ void VIEKF::h_feat(const xVector& x, zVector& h, hMatrix& H, const int id) const
   h.topRows(2) = cam_F_ * zeta / ezT_zeta + cam_center_;
   
   H.setZero();
-  H.block<2,2>(0,dxZ+i*3) = (1.0 / ezT_zeta) * cam_F_ * (I_3x3 - (zeta * e_z.transpose()) / ezT_zeta) * sk_zeta * T_z;
+  H.block<2,2>(0,dxZ+i*3) = (1.0 / ezT_zeta) * cam_F_ * ((zeta * e_z.transpose()) / ezT_zeta - I_3x3) * sk_zeta * T_z;
 }
 
 void VIEKF::h_depth(const xVector& x, zVector& h, hMatrix& H, const int id) const

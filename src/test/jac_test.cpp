@@ -327,11 +327,11 @@ void VIEKF_dfdx_test()
       
       ASSERT_FALSE(check_block(zeta_key, "dxVEL", a_dfdx, d_dfdx));
       ASSERT_FALSE(check_block(zeta_key, "dxB_G", a_dfdx, d_dfdx));
-      ASSERT_FALSE(check_block(zeta_key, zeta_key, a_dfdx, d_dfdx));
+      ASSERT_FALSE(check_block(zeta_key, zeta_key, a_dfdx, d_dfdx, 1e-2));
       ASSERT_FALSE(check_block(zeta_key, rho_key, a_dfdx, d_dfdx));
       ASSERT_FALSE(check_block(rho_key, "dxVEL", a_dfdx, d_dfdx));
       ASSERT_FALSE(check_block(rho_key, "dxB_G", a_dfdx, d_dfdx));
-	  ASSERT_FALSE(check_block(rho_key, zeta_key, a_dfdx, d_dfdx, 1e-1));
+          ASSERT_FALSE(check_block(rho_key, zeta_key, a_dfdx, d_dfdx, 1));
       ASSERT_FALSE(check_block(rho_key, rho_key, a_dfdx, d_dfdx));
     }
   }
@@ -403,7 +403,7 @@ void VI_EKF_h_test()
     ASSERT_FALSE(htest(&VIEKF::h_att, ekf, VIEKF::ATT, 0, 3));
     for (int i = 0; i < ekf.get_len_features(); i++)
     {
-      EXPECT_FALSE(htest(&VIEKF::h_feat, ekf, VIEKF::FEAT, i, 2, 1e-1));
+      EXPECT_FALSE(htest(&VIEKF::h_feat, ekf, VIEKF::FEAT, i, 2, 1.0));
       EXPECT_FALSE(htest(&VIEKF::h_qzeta, ekf, VIEKF::QZETA, i, 2));
       EXPECT_FALSE(htest(&VIEKF::h_depth, ekf, VIEKF::DEPTH, i, 1));
       EXPECT_FALSE(htest(&VIEKF::h_inv_depth, ekf, VIEKF::INV_DEPTH, i, 1));

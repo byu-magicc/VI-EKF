@@ -12,10 +12,10 @@ P0_feat: [0.001, 0.001, 0.03],
 Qx: [0.000, 0.000, 0.000,
      0.001, 0.001, 0.001,
      0.00, 0.00, 0.00,
+     0.00001, 0.00001, 0.00001,
      0.000001, 0.000001, 0.000001,
-     0.00000001, 0.00000001, 0.00000001,
      0.00],
-Qx_feat: [0.001, 0.001, 0.01],
+Qx_feat: [0.0001, 0.0001, 0.001],
 
 # Input Process Noise
 Qu: [0.005, 0.005, 0.005,   # u_acc
@@ -32,7 +32,7 @@ lambda_feat: [1.0, 1.0, 1.0],
 
 ## Sensor Noise
 depth_R: 0.5,
-feat_R: [1.0, 1.0],
+feat_R: [0.5, 0.5],
 acc_R_drag: [0.5, 0.5],
 acc_R_grav: [0.75, 0.75, 0.75],
 att_R: [1.0, 1.0, 1.0],
@@ -56,7 +56,7 @@ use_alt: false,
 
 ## Tracking Paramters
 min_depth: 1.5,
-keyframe_overlap: 0.8,
+keyframe_overlap: 0.25,
 num_features: 20,
 feature_radius: 45,
 

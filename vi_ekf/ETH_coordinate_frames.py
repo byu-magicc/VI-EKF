@@ -31,7 +31,7 @@ bags = [
         # 'MH_05_difficult'
 ]
 
-duration = 30
+duration = 3000
 
 for log in bags:
     yaml_file = open('/home/superjax/rosbag/EuRoC/' + log + '/mav0/cam0/sensor.yaml','r')
@@ -173,6 +173,8 @@ for log in bags:
         msg.pose.position.x = T_B0_B.translation[0,0]
         msg.pose.position.y = T_B0_B.translation[1,0]
         msg.pose.position.z = T_B0_B.translation[2,0]
+        if T_B0_B.rotation.w < 0.0:
+            T_B0_B.rotation.arr *= -1.0
         msg.pose.orientation.w = T_B0_B.rotation.w
         msg.pose.orientation.x = T_B0_B.rotation.x
         msg.pose.orientation.y = T_B0_B.rotation.y

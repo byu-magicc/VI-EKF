@@ -148,10 +148,10 @@ private:
   Matrix<double, 6, 6> Qu_;
 
   // State, Covariance History
-  std::vector<xVector, aligned_allocator<xVector>> xhist_;
-  std::vector<dxMatrix, aligned_allocator<dxMatrix>> Phist_;
-  std::vector<zVector, aligned_allocator<zVector>> zhist_;
-  std::vector<Matrix3d, aligned_allocator<Matrix3d>> Rhist_;
+  double xbuf_[MAX_X * LEN_STATE_HIST];
+  double Pbuf_[MAX_DX * MAX_DX * LEN_STATE_HIST];
+  double zbuf_[4 * LEN_MEAS_HIST];
+  double Rbuf_[9 * LEN_MEAS_HIST];
 
   // Partial Update Gains
   dxVector lambda_;
@@ -246,8 +246,8 @@ public:
   VectorXd get_zeta(const int i) const;
   Vector2d get_feat(const int id) const;
   const Xform &get_current_node_global_pose() const;
-  const xVector& get_state() const;
-  const dxMatrix &get_covariance() const;
+  const Ref<xVector> get_state() const;
+  const Ref<dxMatrix> get_covariance() const;
   const dxVector get_covariance_diagonal() const;
   double get_depth(const int id) const;
   inline int get_len_features() const { return len_features_; }

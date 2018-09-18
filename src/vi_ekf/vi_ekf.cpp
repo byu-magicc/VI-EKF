@@ -3,7 +3,10 @@
 namespace vi_ekf
 {
 
-VIEKF::VIEKF(){}
+VIEKF::VIEKF() :
+  x_(nullptr),
+  P_(nullptr)
+{}
 
 void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<double, dxZ,1> &Qx,
                  Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,
@@ -11,9 +14,28 @@ void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<dou
                  Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, bool partial_update,
                  bool use_keyframe_reset, double keyframe_overlap, int cov_prop_skips, std::string prefix)
 {
-  x_.setZero();
+  // Initialize the history buffers
+  xhist_.resize(LEN_STATE_HIST);
+  Phist_.resize(LEN_STATE_HIST);
+  zhist_.resize(LEN_MEAS_HIST);
+  Rhist_.resize(LEN_MEAS_HIST);
+
+  // Zero out buffers
+  for (int i = 0; i < LEN_STATE_HIST; i++)
+  {
+    xhist_[i].setZero();
+    Phist_[i].setZero();
+  }
+  for (int i = 0; i < LEN_MEAS_HIST; i++)
+  {
+    zhist_[i].setZero();
+    Rhist_[i].setZero();
+  }
+
+  new (&x_) Map<xVector>(xhist_[0].data());
+  new (&P_) Map<dxMatrix>(Phist_[0].data());
+
   xp_.setZero();
-  P_.setZero();
   Qx_.setZero();
   x_.block<(int)xZ, 1>(0,0) = x0;
   P_.block<(int)dxZ, (int)dxZ>(0,0) = P0.asDiagonal();
@@ -101,7 +123,7 @@ void VIEKF::set_imu_bias(const Vector3d& b_g, const Vector3d& b_a)
 
 const xVector& VIEKF::get_state() const
 {
-  return x_;
+  return xhist_[i_];
 }
 
 const Xform &VIEKF::get_current_node_global_pose() const
@@ -111,7 +133,7 @@ const Xform &VIEKF::get_current_node_global_pose() const
 
 const dxMatrix& VIEKF::get_covariance() const
 {
-  return P_;
+  return Phist_[i_];
 }
 
 const dxVector VIEKF::get_covariance_diagonal() const
@@ -183,7 +205,7 @@ void VIEKF::propagate_covariance()
   imu_sum_ /= (double)imu_count_;
   
   // Update covariance over the interval
-  dynamics(x_, imu_sum_, false, true);   
+  dynamics(x_, imu_sum_, false, true);
 
   // Discrete style covariance propagation ensures positive definite covariance
   A_ = I_big_ + A_*dt;
@@ -248,6 +270,7 @@ void VIEKF::propagate_state(const uVector &u, const double t)
 }
 
 }
+
 
 
 

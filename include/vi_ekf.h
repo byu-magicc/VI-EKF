@@ -45,6 +45,9 @@ using namespace Eigen;
 #define MAX_X 17+NUM_FEATURES*5
 #define MAX_DX 16+NUM_FEATURES*3
 
+#define LEN_STATE_HIST 25
+#define LEN_MEAS_HIST 20
+
 typedef Matrix<double, MAX_X, 1> xVector;
 typedef Matrix<double, MAX_DX, 1> dxVector;
 typedef Matrix<double, MAX_X, MAX_X> xMatrix;
@@ -138,10 +141,17 @@ private:
   } log_type_t;
 
   // State and Covariance and Process Noise Matrices
-  xVector x_;
-  dxMatrix P_;
+  Map<xVector> x_;
+  Map<dxMatrix> P_;
+  int i_;
   dxMatrix Qx_;
   Matrix<double, 6, 6> Qu_;
+
+  // State, Covariance History
+  std::vector<xVector, aligned_allocator<xVector>> xhist_;
+  std::vector<dxMatrix, aligned_allocator<dxMatrix>> Phist_;
+  std::vector<zVector, aligned_allocator<zVector>> zhist_;
+  std::vector<Matrix3d, aligned_allocator<Matrix3d>> Rhist_;
 
   // Partial Update Gains
   dxVector lambda_;

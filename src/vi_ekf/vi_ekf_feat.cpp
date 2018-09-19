@@ -32,8 +32,8 @@ bool VIEKF::init_feature(const Vector2d& l, const int id, const double depth)
   
   //  Initialize the state vector
   int x_max = xZ + 5*len_features_;
-  x_.block<4,1>(x_max - 5, 0) = qzeta;
-  x_(x_max - 1 ) = 1.0/init_depth;
+  x_[i_].block<4,1>(x_max - 5, 0) = qzeta;
+  x_[i_](x_max - 1 ) = 1.0/init_depth;
   
   // Zero out the cross-covariance and reset the uncertainty on this new feature
   int dx_max = dxZ+3*len_features_;
@@ -59,13 +59,13 @@ void VIEKF::clear_feature(const int id)
   // Remove the right portions of state and covariance and shift everything to the upper-left corner of the matrix
   if (local_feature_id < len_features_)
   {
-    x_.block(xZETA_i, 0, (x_.rows() - (xZETA_i+5)), 1) = x_.bottomRows(x_.rows() - (xZETA_i + 5));
+    x_[i_].block(xZETA_i, 0, (x_[i_].rows() - (xZETA_i+5)), 1) = x_[i_].bottomRows(x_[i_].rows() - (xZETA_i + 5));
     P_.block(dxZETA_i, 0, (P_.rows() - (dxZETA_i+3)), P_.cols()) = P_.bottomRows(P_.rows() - (dxZETA_i+3));
     P_.block(0, dxZETA_i, P_.rows(), (P_.cols() - (dxZETA_i+3))) = P_.rightCols(P_.cols() - (dxZETA_i+3));
   }
 
   // Clean up the rest of the matrix
-  x_.bottomRows(x_.rows() - (xZ+5*len_features_)).setZero();
+  x_[i_].bottomRows(x_[i_].rows() - (xZ+5*len_features_)).setZero();
   P_.rightCols(P_.cols() - dx_max).setZero();
   P_.bottomRows(P_.rows() - dx_max).setZero();
 

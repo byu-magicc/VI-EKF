@@ -134,23 +134,23 @@ void VIEKF::fix_depth()
   {
     int xRHO_i = xZ + 5*i + 4;
     int dxRHO_i = dxZ + 3*i + 2;
-    if (x_(xRHO_i, 0) != x_(xRHO_i, 0))
+    if (x_[i_](xRHO_i, 0) != x_[i_](xRHO_i, 0))
     {
       // if a depth state has gone NaN, reset it
-      x_(xRHO_i, 0) = 1.0/(2.0*min_depth_);
+      x_[i_](xRHO_i, 0) = 1.0/(2.0*min_depth_);
     }
-    if (x_(xRHO_i, 0) < 0.0)
+    if (x_[i_](xRHO_i, 0) < 0.0)
     {
       // If the state has gone negative, reset it
-      double err = 1.0/(2.0*min_depth_) - x_(xRHO_i, 0);
+      double err = 1.0/(2.0*min_depth_) - x_[i_](xRHO_i, 0);
       P_(dxRHO_i, dxRHO_i) += err*err;
-      x_(xRHO_i, 0) = 1.0/(2.0*min_depth_);
+      x_[i_](xRHO_i, 0) = 1.0/(2.0*min_depth_);
     }
-    else if (x_(xRHO_i, 0) > 1e2)
+    else if (x_[i_](xRHO_i, 0) > 1e2)
     {
       // If the state has grown unreasonably large, reset it
       P_(dxRHO_i, dxRHO_i) = P0_feat_(2,2);
-      x_(xRHO_i, 0) = 1.0/(2.0*min_depth_);
+      x_[i_](xRHO_i, 0) = 1.0/(2.0*min_depth_);
     }
   }
 }

@@ -5,9 +5,9 @@ namespace vi_ekf
 
 void VIEKF::keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N)
 {
-  x_ = xm;
+  x_[i_] = xm;
   keyframe_reset();
-  xp = x_;
+  xp = x_[i_];
   N = A_;    
 }
 
@@ -15,7 +15,7 @@ Xform VIEKF::get_global_pose() const
 {
   // Log Global Position Estimate
   Xform global_pose;
-  Xform rel_pose(x_.block<3,1>((int)xPOS, 0), Quat(x_.block<4,1>((int)xATT, 0)));
+  Xform rel_pose(x_[i_].block<3,1>((int)xPOS, 0), Quat(x_[i_].block<4,1>((int)xATT, 0)));
   global_pose = current_node_global_pose_ * rel_pose;
   return global_pose;
 }
@@ -24,8 +24,8 @@ Matrix6d VIEKF::get_global_cov() const
 {
   Matrix6d cov;
   edge_t rel_pose;
-  rel_pose.transform.t() = x_.block<3,1>((int)xPOS, 0);
-  rel_pose.transform.q() = Quat(x_.block<4,1>((int)xATT, 0));
+  rel_pose.transform.t() = x_[i_].block<3,1>((int)xPOS, 0);
+  rel_pose.transform.q() = Quat(x_[i_].block<4,1>((int)xATT, 0));
   rel_pose.cov.block<3,3>(0, 0) = P_.block<3,3>(xPOS, xPOS);
   rel_pose.cov.block<3,3>(3, 0) = P_.block<3,3>(xATT, xPOS);
   rel_pose.cov.block<3,3>(0, 3) = P_.block<3,3>(xPOS, xATT);
@@ -58,14 +58,14 @@ void VIEKF::keyframe_reset()
   // Save off current position into the new edge
   edge_t edge;
   edge.cov.setZero();
-  edge.transform.t() = x_.segment<3>(xPOS);
+  edge.transform.t() = x_[i_].segment<3>(xPOS);
   edge.cov.block<3,3>(0,0) = P_.block<3,3>(xPOS,xPOS);
   
   // Reset global position
-  x_.segment<3>(xPOS).setZero();
+  x_[i_].segment<3>(xPOS).setZero();
 
   // Get quaternion from state
-  Quat q_i2b(x_.segment<4>(xATT));
+  Quat q_i2b(x_[i_].segment<4>(xATT));
   
   /// James' way to reset z-axis rotation
 
@@ -83,7 +83,7 @@ void VIEKF::keyframe_reset()
 //  edge.cov(5,5) = P_(xATT+2, xATT+2);
   
 //  // Reset rotation about z
-//  x_.segment<4>(xATT) = qp.elements();
+//  x_[i_].segment<4>(xATT) = qp.elements();
   
 //  // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
 //  A_ = I_big_;
@@ -107,7 +107,7 @@ void VIEKF::keyframe_reset()
 //  edge.cov.block<3,3>(3,3) = dqz_dq * P_.block<3,3>(dxATT,dxATT) * dqz_dq.transpose();
 
 //  // Reset rotation about z
-//  x_.segment<4>(xATT) = Quat::exp(Ixylogq).elements();
+//  x_[i_].segment<4>(xATT) = Quat::exp(Ixylogq).elements();
 
 //  // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
 //  A_ = I_big_;
@@ -126,7 +126,7 @@ void VIEKF::keyframe_reset()
   edge.cov(5,5) = P_(xATT+2, xATT+2); /// TODO - this is wrong, need to compute covariance of yaw rotation
   
   // Reset attitude
-  x_.segment<4>(xATT) = Quat::from_euler(roll, pitch, 0.0).elements();
+  x_[i_].segment<4>(xATT) = Quat::from_euler(roll, pitch, 0.0).elements();
   
   // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
   // RMEKF paper after Eq. 81

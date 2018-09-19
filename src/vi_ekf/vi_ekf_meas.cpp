@@ -27,7 +27,7 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
   H_.setZero();
   K_.setZero();
   
-  (this->*(measurement_functions[meas_type]))(x_, zhat_, H_, id);
+  (this->*(measurement_functions[meas_type]))(x_[i_], zhat_, H_, id);
   
   NAN_CHECK;
   
@@ -82,8 +82,8 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
         // Apply Fixed Gain Partial update per
         // "Partial-Update Schmidt-Kalman Filter" by Brink
         // Modified to operate inline and on the manifold 
-        boxplus(x_, lambda_.asDiagonal() * K * residual.topRows(z_dim), xp_);
-        x_ = xp_;
+        boxplus(x_[i_], lambda_.asDiagonal() * K * residual.topRows(z_dim), xp_);
+        x_[i_] = xp_;
         //  P_ = (Lambda_).cwiseProduct(K * H*P_); // Standard Form
         A_ = (I_big_ - K * H);
         P_ += (Lambda_).cwiseProduct(A_*P_*A_.transpose() + K * R * K.transpose() - P_);
@@ -91,8 +91,8 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
       }
       else
       {
-        boxplus(x_, K * residual.topRows(z_dim), xp_);
-        x_ = xp_;
+        boxplus(x_[i_], K * residual.topRows(z_dim), xp_);
+        x_[i_] = xp_;
         //  P_ -= K*H*P_;  // Standard Form
         A_ = (I_big_ - K * H);
         P_ = A_*P_*A_.transpose() + K * R * K.transpose();

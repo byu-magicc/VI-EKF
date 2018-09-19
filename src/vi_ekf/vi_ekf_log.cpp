@@ -94,7 +94,7 @@ void VIEKF::init_logger(string root_filename, string prefix)
 
   // Save configuration
   (*log_)[LOG_CONF] << "Test Num: " << root_filename << "\n";
-  (*log_)[LOG_CONF] << "x0" << x_.block<(int)xZ, 1>(0,0).transpose() << "\n";
+  (*log_)[LOG_CONF] << "x0" << x_[i_].block<(int)xZ, 1>(0,0).transpose() << "\n";
   (*log_)[LOG_CONF] << "P0: " << P_.diagonal().block<(int)xZ, 1>(0,0).transpose() << "\n";
   (*log_)[LOG_CONF] << "P0_feat: " << P0_feat_.diagonal().transpose() << "\n";
   (*log_)[LOG_CONF] << "Qx: " << Qx_.diagonal().block<(int)dxZ, 1>(0,0).transpose() << "\n";

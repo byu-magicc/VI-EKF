@@ -3,10 +3,7 @@
 namespace vi_ekf
 {
 
-VIEKF::VIEKF() :
-  x_(nullptr),
-  P_(nullptr)
-{}
+VIEKF::VIEKF(){}
 
 void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<double, dxZ,1> &Qx,
                  Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,
@@ -14,18 +11,17 @@ void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<dou
                  Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, bool partial_update,
                  bool use_keyframe_reset, double keyframe_overlap, int cov_prop_skips, std::string prefix)
 {
-  memset(xbuf_,0, sizeof(xbuf_));
   memset(Pbuf_,0, sizeof(Pbuf_));
   memset(zbuf_,0, sizeof(zbuf_));
   memset(Rbuf_,0, sizeof(Rbuf_));
 
+  x_.resize(LEN_STATE_HIST);
+
   i_ = 0;
-  new (&x_) Map<xVector>(xbuf_);
-  new (&P_) Map<dxMatrix>(Pbuf_);
 
   xp_.setZero();
   Qx_.setZero();
-  x_.block<(int)xZ, 1>(0,0) = x0;
+  x_[i_].block<(int)xZ, 1>(0,0) = x0;
   P_.block<(int)dxZ, (int)dxZ>(0,0) = P0.asDiagonal();
   Qx_.block<(int)dxZ, (int)dxZ>(0,0) = Qx.asDiagonal();
   lambda_.block<(int)dxZ, 1>(0,0) = lambda;
@@ -81,7 +77,7 @@ void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<dou
 
 void VIEKF::set_x0(const Matrix<double, xZ, 1>& _x0)
 {
-  x_.topRows(xZ) = _x0;
+  x_[i_].topRows(xZ) = _x0;
 }
 
 void VIEKF::register_keyframe_reset_callback(std::function<void(void)> cb)
@@ -104,14 +100,14 @@ VIEKF::~VIEKF()
 
 void VIEKF::set_imu_bias(const Vector3d& b_g, const Vector3d& b_a)
 {
-  x_.block<3,1>((int)xB_G,0) = b_g;
-  x_.block<3,1>((int)xB_A,0) = b_a;
+  x_[i_].block<3,1>((int)xB_G,0) = b_g;
+  x_[i_].block<3,1>((int)xB_A,0) = b_a;
 }
 
 
-const Ref<xVector> VIEKF::get_state() const
+const xVector& VIEKF::get_state() const
 {
-  return x_;
+  return x_[i_];
 }
 
 const Xform &VIEKF::get_current_node_global_pose() const
@@ -119,7 +115,7 @@ const Xform &VIEKF::get_current_node_global_pose() const
   return current_node_global_pose_;
 }
 
-const Ref<dxMatrix> VIEKF::get_covariance() const
+const dxMatrix& VIEKF::get_covariance() const
 {
   return P_;
 }
@@ -137,7 +133,7 @@ VectorXd VIEKF::get_depths() const
   VectorXd out(len_features_);
   for (int i = 0; i < len_features_; i++)
   {
-    out[i] = 1.0/x_((int)xZ + 4 + 5*i);
+    out[i] = 1.0/x_[i_]((int)xZ + 4 + 5*i);
   }
   return out;
 }
@@ -147,7 +143,7 @@ MatrixXd VIEKF::get_zetas() const
   MatrixXd out(3, len_features_);
   for (int i = 0; i < len_features_; i++)
   {
-    Vector4d qzeta = x_.block<4,1>(xZ + 5*i,0);
+    Vector4d qzeta = x_[i_].block<4,1>(xZ + 5*i,0);
     out.block<3,1>(0,i) = Quat(qzeta).rota(e_z);
   }
   return out;
@@ -158,27 +154,27 @@ MatrixXd VIEKF::get_qzetas() const
   MatrixXd out(4, len_features_);
   for (int i = 0; i < len_features_; i++)
   {
-    out.block<4,1>(0,i) = x_.block<4,1>(xZ + 5*i,0);
+    out.block<4,1>(0,i) = x_[i_].block<4,1>(xZ + 5*i,0);
   }
   return out;
 }
 
 VectorXd VIEKF::get_zeta(const int i) const
 {
-  Vector4d qzeta_i = x_.block<4,1>(xZ + 5*i,0);
+  Vector4d qzeta_i = x_[i_].block<4,1>(xZ + 5*i,0);
   return Quat(qzeta_i).rota(e_z);
 }
 
 double VIEKF::get_depth(const int id) const
 {
   int i = global_to_local_feature_id(id);
-  return 1.0/x_((int)xZ + 4 + 5*i);
+  return 1.0/x_[i_]((int)xZ + 4 + 5*i);
 }
 
 Vector2d VIEKF::get_feat(const int id) const
 {
   int i = global_to_local_feature_id(id);
-  Quat q_zeta(x_.block<4,1>(xZ+i*5, 0));
+  Quat q_zeta(x_[i_].block<4,1>(xZ+i*5, 0));
   Vector3d zeta = q_zeta.rota(e_z);
   double ezT_zeta = e_z.transpose() * zeta;
   return cam_F_ * zeta / ezT_zeta + cam_center_;
@@ -193,7 +189,7 @@ void VIEKF::propagate_covariance()
   imu_sum_ /= (double)imu_count_;
   
   // Update covariance over the interval
-  dynamics(x_, imu_sum_, false, true);
+  dynamics(x_[i_], imu_sum_, false, true);
 
   // Discrete style covariance propagation ensures positive definite covariance
   A_ = I_big_ + A_*dt;
@@ -227,24 +223,26 @@ void VIEKF::propagate_state(const uVector &u, const double t)
   // Add the IMU measurements for later covariance update
   imu_sum_ += u;
   imu_count_++;
+
+  NAN_CHECK;
   
   if (imu_count_ > cov_prop_skips_)
   {
     // If it's been too long without a covariance update, do it now
-    dynamics(x_, u, true, true);
+    dynamics(x_[i_], u, true, true);
     propagate_covariance();
   }
   else
   {
     // Don't calculate state jacobians (expensive)
-    dynamics(x_, u, true, false);
+    dynamics(x_[i_], u, true, false);
   }
 
   NAN_CHECK;
 
   // Propagate State
-  boxplus(x_, dx_*dt, xp_);
-  x_ = xp_;
+  boxplus(x_[i_], dx_*dt, xp_);
+  x_[i_] = xp_;
 
   NAN_CHECK;
   
@@ -254,7 +252,7 @@ void VIEKF::propagate_state(const uVector &u, const double t)
   NAN_CHECK;
   NEGATIVE_DEPTH;
   
-  log_state(t, x_, P_.diagonal(), u - x_.block<6,1>(xB_A, 0), dx_);
+  log_state(t, x_[i_], P_.diagonal(), u - x_[i_].block<6,1>(xB_A, 0), dx_);
 }
 
 }

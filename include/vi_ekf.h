@@ -143,15 +143,16 @@ private:
 
   // State and Covariance and Process Noise Matrices
 //  Map<xVector> x_;
-  dxMatrix P_;
+//  dxMatrix P_;
   int i_;
   dxMatrix Qx_;
   Matrix<double, 6, 6> Qu_;
 
   // State, Covariance History
   std::vector<xVector, aligned_allocator<xVector>> x_;
+  std::vector<dxMatrix, aligned_allocator<dxMatrix>> P_;
 //  double xbuf_[MAX_X * LEN_STATE_HIST];
-  double Pbuf_[MAX_DX * MAX_DX * LEN_STATE_HIST];
+//  double Pbuf_[MAX_DX * MAX_DX * LEN_STATE_HIST];
   double zbuf_[4 * LEN_MEAS_HIST];
   double Rbuf_[9 * LEN_MEAS_HIST];
 

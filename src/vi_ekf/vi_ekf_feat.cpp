@@ -37,9 +37,9 @@ bool VIEKF::init_feature(const Vector2d& l, const int id, const double depth)
   
   // Zero out the cross-covariance and reset the uncertainty on this new feature
   int dx_max = dxZ+3*len_features_;
-  P_.block(dx_max-3, 0, 3, dx_max-3).setZero();
-  P_.block(0, dx_max-3, dx_max-3, 3).setZero();
-  P_.block<3,3>(dx_max-3, dx_max-3) = P0_feat_;
+  P_[i_].block(dx_max-3, 0, 3, dx_max-3).setZero();
+  P_[i_].block(0, dx_max-3, dx_max-3, 3).setZero();
+  P_[i_].block<3,3>(dx_max-3, dx_max-3) = P0_feat_;
   
   NAN_CHECK;
   
@@ -60,14 +60,14 @@ void VIEKF::clear_feature(const int id)
   if (local_feature_id < len_features_)
   {
     x_[i_].block(xZETA_i, 0, (x_[i_].rows() - (xZETA_i+5)), 1) = x_[i_].bottomRows(x_[i_].rows() - (xZETA_i + 5));
-    P_.block(dxZETA_i, 0, (P_.rows() - (dxZETA_i+3)), P_.cols()) = P_.bottomRows(P_.rows() - (dxZETA_i+3));
-    P_.block(0, dxZETA_i, P_.rows(), (P_.cols() - (dxZETA_i+3))) = P_.rightCols(P_.cols() - (dxZETA_i+3));
+    P_[i_].block(dxZETA_i, 0, (P_[i_].rows() - (dxZETA_i+3)), P_[i_].cols()) = P_[i_].bottomRows(P_[i_].rows() - (dxZETA_i+3));
+    P_[i_].block(0, dxZETA_i, P_[i_].rows(), (P_[i_].cols() - (dxZETA_i+3))) = P_[i_].rightCols(P_[i_].cols() - (dxZETA_i+3));
   }
 
   // Clean up the rest of the matrix
   x_[i_].bottomRows(x_[i_].rows() - (xZ+5*len_features_)).setZero();
-  P_.rightCols(P_.cols() - dx_max).setZero();
-  P_.bottomRows(P_.rows() - dx_max).setZero();
+  P_[i_].rightCols(P_[i_].cols() - dx_max).setZero();
+  P_[i_].bottomRows(P_[i_].rows() - dx_max).setZero();
 
   NAN_CHECK;
 }

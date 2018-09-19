@@ -143,13 +143,13 @@ void VIEKF::fix_depth()
     {
       // If the state has gone negative, reset it
       double err = 1.0/(2.0*min_depth_) - x_[i_](xRHO_i, 0);
-      P_(dxRHO_i, dxRHO_i) += err*err;
+      P_[i_](dxRHO_i, dxRHO_i) += err*err;
       x_[i_](xRHO_i, 0) = 1.0/(2.0*min_depth_);
     }
     else if (x_[i_](xRHO_i, 0) > 1e2)
     {
       // If the state has grown unreasonably large, reset it
-      P_(dxRHO_i, dxRHO_i) = P0_feat_(2,2);
+      P_[i_](dxRHO_i, dxRHO_i) = P0_feat_(2,2);
       x_[i_](xRHO_i, 0) = 1.0/(2.0*min_depth_);
     }
   }

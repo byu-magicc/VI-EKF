@@ -26,10 +26,10 @@ Matrix6d VIEKF::get_global_cov() const
   edge_t rel_pose;
   rel_pose.transform.t() = x_[i_].block<3,1>((int)xPOS, 0);
   rel_pose.transform.q() = Quat(x_[i_].block<4,1>((int)xATT, 0));
-  rel_pose.cov.block<3,3>(0, 0) = P_.block<3,3>(xPOS, xPOS);
-  rel_pose.cov.block<3,3>(3, 0) = P_.block<3,3>(xATT, xPOS);
-  rel_pose.cov.block<3,3>(0, 3) = P_.block<3,3>(xPOS, xATT);
-  rel_pose.cov.block<3,3>(3, 3) = P_.block<3,3>(xATT, xATT);
+  rel_pose.cov.block<3,3>(0, 0) = P_[i_].block<3,3>(xPOS, xPOS);
+  rel_pose.cov.block<3,3>(3, 0) = P_[i_].block<3,3>(xATT, xPOS);
+  rel_pose.cov.block<3,3>(0, 3) = P_[i_].block<3,3>(xPOS, xATT);
+  rel_pose.cov.block<3,3>(3, 3) = P_[i_].block<3,3>(xATT, xATT);
   propagate_global_covariance(global_pose_cov_, rel_pose, cov);
   return cov;
 }
@@ -59,7 +59,7 @@ void VIEKF::keyframe_reset()
   edge_t edge;
   edge.cov.setZero();
   edge.transform.t() = x_[i_].segment<3>(xPOS);
-  edge.cov.block<3,3>(0,0) = P_.block<3,3>(xPOS,xPOS);
+  edge.cov.block<3,3>(0,0) = P_[i_].block<3,3>(xPOS,xPOS);
   
   // Reset global position
   x_[i_].segment<3>(xPOS).setZero();
@@ -123,7 +123,7 @@ void VIEKF::keyframe_reset()
   
   // Save off quaternion and covariance
   edge.transform.q_ = Quat::from_euler(0, 0, yaw);
-  edge.cov(5,5) = P_(xATT+2, xATT+2); /// TODO - this is wrong, need to compute covariance of yaw rotation
+  edge.cov(5,5) = P_[i_](xATT+2, xATT+2); /// TODO - this is wrong, need to compute covariance of yaw rotation
   
   // Reset attitude
   x_[i_].segment<4>(xATT) = Quat::from_euler(roll, pitch, 0.0).elements();
@@ -143,7 +143,7 @@ void VIEKF::keyframe_reset()
   NAN_CHECK;
   
   // Remove uncertainty associated with unobservable states
-  P_ = A_ * P_ * A_.transpose();
+  P_[i_] = A_ * P_[i_] * A_.transpose();
   
   // Propagate global covariance and update global node frame
   propagate_global_covariance(global_pose_cov_, edge, global_pose_cov_);

@@ -11,24 +11,24 @@ void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<dou
                  Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, bool partial_update,
                  bool use_keyframe_reset, double keyframe_overlap, int cov_prop_skips, std::string prefix)
 {
-  memset(Pbuf_,0, sizeof(Pbuf_));
   memset(zbuf_,0, sizeof(zbuf_));
   memset(Rbuf_,0, sizeof(Rbuf_));
 
   x_.resize(LEN_STATE_HIST);
+  P_.resize(LEN_STATE_HIST);
 
   i_ = 0;
 
   xp_.setZero();
   Qx_.setZero();
   x_[i_].block<(int)xZ, 1>(0,0) = x0;
-  P_.block<(int)dxZ, (int)dxZ>(0,0) = P0.asDiagonal();
+  P_[i_].block<(int)dxZ, (int)dxZ>(0,0) = P0.asDiagonal();
   Qx_.block<(int)dxZ, (int)dxZ>(0,0) = Qx.asDiagonal();
   lambda_.block<(int)dxZ, 1>(0,0) = lambda;
   
   for (int i = 0; i < NUM_FEATURES; i++)
   {
-    P_.block<3,3>(dxZ+3*i, dxZ+3*i) = P0_feat.asDiagonal();
+    P_[i_].block<3,3>(dxZ+3*i, dxZ+3*i) = P0_feat.asDiagonal();
     Qx_.block<3,3>(dxZ+3*i, dxZ+3*i) = Qx_feat.asDiagonal();
     lambda_.block<3,1>(dxZ+3*i,0) = lambda_feat;
   }
@@ -117,12 +117,12 @@ const Xform &VIEKF::get_current_node_global_pose() const
 
 const dxMatrix& VIEKF::get_covariance() const
 {
-  return P_;
+  return P_[i_];
 }
 
 const dxVector VIEKF::get_covariance_diagonal() const
 {
-  dxVector ret = P_.diagonal();
+  dxVector ret = P_[i_].diagonal();
   return ret;
 }
 
@@ -193,7 +193,7 @@ void VIEKF::propagate_covariance()
 
   // Discrete style covariance propagation ensures positive definite covariance
   A_ = I_big_ + A_*dt;
-  P_ = A_ * P_* A_.transpose() + G_ * Qu_ * G_.transpose() + Qx_;
+  P_[i_] = A_ * P_[i_]* A_.transpose() + G_ * Qu_ * G_.transpose() + Qx_;
 
   // Continuous style covariance propagation keeps going negative
 //  P_ += (A_ * P_ + P_ * A_.transpose() + G_ * Qu_ * G_.transpose() + Qx_) * dt;
@@ -252,10 +252,11 @@ void VIEKF::propagate_state(const uVector &u, const double t)
   NAN_CHECK;
   NEGATIVE_DEPTH;
   
-  log_state(t, x_[i_], P_.diagonal(), u - x_[i_].block<6,1>(xB_A, 0), dx_);
+  log_state(t, x_[i_], P_[i_].diagonal(), u - x_[i_].block<6,1>(xB_A, 0), dx_);
 }
 
 }
+
 
 
 

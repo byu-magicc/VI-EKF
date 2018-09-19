@@ -69,7 +69,7 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
     if (imu_count_ > 0)
       propagate_covariance();
 
-    K = P_ * H.transpose() * (R + H*P_ * H.transpose()).inverse();
+    K = P_[i_] * H.transpose() * (R + H*P_[i_] * H.transpose()).inverse();
     NAN_CHECK;
     
     //    CHECK_MAT_FOR_NANS(H_);
@@ -86,7 +86,7 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
         x_[i_] = xp_;
         //  P_ = (Lambda_).cwiseProduct(K * H*P_); // Standard Form
         A_ = (I_big_ - K * H);
-        P_ += (Lambda_).cwiseProduct(A_*P_*A_.transpose() + K * R * K.transpose() - P_);
+        P_[i_] += (Lambda_).cwiseProduct(A_*P_[i_]*A_.transpose() + K * R * K.transpose() - P_[i_]);
 
       }
       else
@@ -95,7 +95,7 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
         x_[i_] = xp_;
         //  P_ -= K*H*P_;  // Standard Form
         A_ = (I_big_ - K * H);
-        P_ = A_*P_*A_.transpose() + K * R * K.transpose();
+        P_[i_] = A_*P_[i_]*A_.transpose() + K * R * K.transpose();
       }
     }
     NAN_CHECK;

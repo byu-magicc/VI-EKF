@@ -8,10 +8,10 @@ bool VIEKF::NaNsInTheHouse() const
   int x_max = xZ + len_features_ *5;
   int dx_max = dxZ + len_features_*3;
   if( ( (x_[i_].topRows(x_max)).array() != (x_[i_].topRows(x_max)).array()).any()
-      || ((P_.topLeftCorner(dx_max,dx_max)).array() != (P_.topLeftCorner(dx_max,dx_max)).array()).any() )
+      || ((P_[i_].topLeftCorner(dx_max,dx_max)).array() != (P_[i_].topLeftCorner(dx_max,dx_max)).array()).any() )
   {
     std::cout << "x:\n" << x_[i_] << "\n";
-    std::cout << "P:\n" << P_ << "\n";
+    std::cout << "P:\n" << P_[i_] << "\n";
     return true;
   }
   else
@@ -20,7 +20,7 @@ bool VIEKF::NaNsInTheHouse() const
 
 bool VIEKF::BlowingUp() const
 {
-  if ( ((x_[i_]).array() > 1e6).any() || ((P_).array() > 1e6).any())
+  if ( ((x_[i_]).array() > 1e6).any() || ((P_[i_]).array() > 1e6).any())
     return true;
   else
     return false;

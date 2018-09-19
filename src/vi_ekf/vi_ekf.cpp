@@ -16,6 +16,7 @@ void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<dou
 
   x_.resize(LEN_STATE_HIST);
   P_.resize(LEN_STATE_HIST);
+  t_.resize(LEN_STATE_HIST);
 
   i_ = 0;
 
@@ -180,29 +181,6 @@ Vector2d VIEKF::get_feat(const int id) const
   return cam_F_ * zeta / ezT_zeta + cam_center_;
 }
 
-void VIEKF::propagate_covariance()
-{
-  double dt = prev_t_ - prev_cov_prop_t_;
-  prev_cov_prop_t_ = prev_t_;
-  
-  // Average IMU over the interval
-  imu_sum_ /= (double)imu_count_;
-  
-  // Update covariance over the interval
-  dynamics(x_[i_], imu_sum_, false, true);
-
-  // Discrete style covariance propagation ensures positive definite covariance
-  A_ = I_big_ + A_*dt;
-  P_[i_] = A_ * P_[i_]* A_.transpose() + G_ * Qu_ * G_.transpose() + Qx_;
-
-  // Continuous style covariance propagation keeps going negative
-//  P_ += (A_ * P_ + P_ * A_.transpose() + G_ * Qu_ * G_.transpose() + Qx_) * dt;
-  
-  // zero out imu counters
-  imu_sum_.setZero();
-  imu_count_ = 0;
-}
-
 void VIEKF::propagate_state(const uVector &u, const double t)
 {
   double start = now();
@@ -211,38 +189,27 @@ void VIEKF::propagate_state(const uVector &u, const double t)
   {
     start_t_ = t;
     prev_t_ = t;
-    prev_cov_prop_t_ = t;
-    imu_count_ = 0;
-    imu_sum_.setZero();
+    t_[i_] = t;
     return;
   }
   
   double dt = t - prev_t_;
   prev_t_ = t;
-  
-  // Add the IMU measurements for later covariance update
-  imu_sum_ += u;
-  imu_count_++;
-
-  NAN_CHECK;
-  
-  if (imu_count_ > cov_prop_skips_)
-  {
-    // If it's been too long without a covariance update, do it now
-    dynamics(x_[i_], u, true, true);
-    propagate_covariance();
-  }
-  else
-  {
-    // Don't calculate state jacobians (expensive)
-    dynamics(x_[i_], u, true, false);
-  }
+  int ip = (i_ + 1) % LEN_STATE_HIST; // next state history index
 
   NAN_CHECK;
 
-  // Propagate State
-  boxplus(x_[i_], dx_*dt, xp_);
-  x_[i_] = xp_;
+  // Calculate Dynamics and Jacobians
+  dynamics(x_[i_], u, true, true);
+
+  NAN_CHECK;
+
+  // Propagate State and Covariance
+  boxplus(x_[i_], dx_*dt, x_[ip]);
+  A_ = I_big_ + A_*dt;
+  P_[ip] = A_ * P_[i_]* A_.transpose() + G_ * Qu_ * G_.transpose() + Qx_;
+  t_[ip] = t;
+  i_ = ip;
 
   NAN_CHECK;
   

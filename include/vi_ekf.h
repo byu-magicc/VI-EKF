@@ -151,6 +151,7 @@ private:
   // State, Covariance History
   std::vector<xVector, aligned_allocator<xVector>> x_;
   std::vector<dxMatrix, aligned_allocator<dxMatrix>> P_;
+  std::vector<double> t_;
 //  double xbuf_[MAX_X * LEN_STATE_HIST];
 //  double Pbuf_[MAX_DX * MAX_DX * LEN_STATE_HIST];
   double zbuf_[4 * LEN_MEAS_HIST];
@@ -171,10 +172,6 @@ private:
   std::vector<int> current_feature_ids_;
   std::vector<int> keyframe_features_;
   double keyframe_overlap_threshold_;
-
-  double prev_cov_prop_t_;
-  uVector imu_sum_;
-  int imu_count_;
 
   std::deque<edge_t> edges_;
 
@@ -270,7 +267,6 @@ public:
   void boxminus(const xVector& x1, const xVector &x2, dxVector& out) const;
   void step(const uVector& u, const double t);
   void propagate_state(const uVector& u, const double t);
-  void propagate_covariance();
   void dynamics(const xVector &x, const uVector& u, dxVector& xdot, dxMatrix& dfdx, dxuMatrix& dfdu);
   void dynamics(const xVector &x, const uVector& u, bool state = true, bool jac = true);
 

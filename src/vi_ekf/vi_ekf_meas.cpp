@@ -65,10 +65,6 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
   
   if (active)
   {
-    // Check if we need to update the covariance
-    if (imu_count_ > 0)
-      propagate_covariance();
-
     K = P_[i_] * H.transpose() * (R + H*P_[i_] * H.transpose()).inverse();
     NAN_CHECK;
     

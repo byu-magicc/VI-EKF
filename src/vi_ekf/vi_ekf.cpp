@@ -11,12 +11,10 @@ void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<dou
                  Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, bool partial_update,
                  bool use_keyframe_reset, double keyframe_overlap, int cov_prop_skips, std::string prefix)
 {
-  memset(zbuf_,0, sizeof(zbuf_));
-  memset(Rbuf_,0, sizeof(Rbuf_));
-
   x_.resize(LEN_STATE_HIST);
   P_.resize(LEN_STATE_HIST);
-  t_.resize(LEN_STATE_HIST);
+  u_.resize(LEN_STATE_HIST);
+  t_.resize(LEN_STATE_HIST, -1);
 
   i_ = 0;
 
@@ -51,7 +49,7 @@ void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<dou
   // set camera intrinsics
   cam_center_ = cam_center;
   cam_F_ << focal_len(0), 0, 0,
-      0, focal_len(1), 0;
+            0, focal_len(1), 0;
   
   use_drag_term_ = use_drag_term;
   partial_update_ = partial_update;
@@ -181,10 +179,8 @@ Vector2d VIEKF::get_feat(const int id) const
   return cam_F_ * zeta / ezT_zeta + cam_center_;
 }
 
-void VIEKF::propagate_state(const uVector &u, const double t)
+void VIEKF::propagate_state(const uVector &u, const double t, bool save_input)
 {
-  double start = now();
-  
   if (prev_t_ < 0)
   {
     start_t_ = t;
@@ -194,7 +190,19 @@ void VIEKF::propagate_state(const uVector &u, const double t)
   }
   
   double dt = t - prev_t_;
+  if (dt < 1e-6)
+    return;
+
+  if (save_input)
+  {
+    input_t input;
+    input.t = t;
+    input.u = u;
+    u_.push_front(input);
+  }
+
   prev_t_ = t;
+
   int ip = (i_ + 1) % LEN_STATE_HIST; // next state history index
 
   NAN_CHECK;

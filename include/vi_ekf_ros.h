@@ -82,6 +82,7 @@ private:
   double truth_LPF_;
   double min_depth_;
   ros::Time time_took_off_;
+  ros::Time start_time_;
 
   Vector6d imu_;
   Vector3d kf_pos_;

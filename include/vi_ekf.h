@@ -128,6 +128,13 @@ public:
     Matrix6d cov;
   } edge_t;
 
+  typedef enum {
+    MEAS_SUCCESS,
+    MEAS_GATED,
+    MEAS_NAN,
+    MEAS_NEW_FEATURE
+  } meas_result_t;
+
 private:
   typedef enum {
     LOG_STATE = TOTAL_MEAS,
@@ -141,21 +148,40 @@ private:
     TOTAL_LOGS
   } log_type_t;
 
-  // State and Covariance and Process Noise Matrices
-//  Map<xVector> x_;
-//  dxMatrix P_;
-  int i_;
-  dxMatrix Qx_;
-  Matrix<double, 6, 6> Qu_;
 
   // State, Covariance History
+  int i_;
   std::vector<xVector, aligned_allocator<xVector>> x_;
   std::vector<dxMatrix, aligned_allocator<dxMatrix>> P_;
   std::vector<double> t_;
-//  double xbuf_[MAX_X * LEN_STATE_HIST];
-//  double Pbuf_[MAX_DX * MAX_DX * LEN_STATE_HIST];
-  double zbuf_[4 * LEN_MEAS_HIST];
-  double Rbuf_[9 * LEN_MEAS_HIST];
+
+  // Input Buffer
+  typedef struct
+  {
+    double t;
+    uVector u;
+  } input_t;
+  std::deque<input_t, aligned_allocator<input_t>> u_;
+
+  // Measurement Buffer
+  typedef struct
+  {
+    double t;
+    measurement_type_t type;
+    zVector z;
+    Matrix3d R;
+    bool active;
+    int id;
+    double depth;
+    int zdim;
+    int rdim;
+    bool handled;
+  } measurement_t;
+  std::deque<measurement_t, aligned_allocator<measurement_t>> zbuf_;
+
+  // State and Covariance and Process Noise Matrices
+  dxMatrix Qx_;
+  Matrix<double, 6, 6> Qu_;
 
   // Partial Update Gains
   dxVector lambda_;
@@ -266,12 +292,14 @@ public:
   void boxplus(const xVector &x, const dxVector &dx, xVector &out) const;
   void boxminus(const xVector& x1, const xVector &x2, dxVector& out) const;
   void step(const uVector& u, const double t);
-  void propagate_state(const uVector& u, const double t);
+  void propagate_state(const uVector& u, const double t, bool save_input=true);
   void dynamics(const xVector &x, const uVector& u, dxVector& xdot, dxMatrix& dfdx, dxuMatrix& dfdu);
   void dynamics(const xVector &x, const uVector& u, bool state = true, bool jac = true);
 
   // Measurement Updates
-  bool update(const VectorXd& z, const measurement_type_t& meas_type, const MatrixXd& R, bool active=false, const int id=-1, const double depth=NAN);
+  void handle_measurements(std::vector<int>& gated_feature_ids);
+  void add_measurement(const double t, const VectorXd& z, const measurement_type_t& meas_type, const MatrixXd& R, bool active=false, const int id=-1, const double depth=NAN);
+  meas_result_t update(measurement_t &meas);
   void h_acc(const xVector& x, zVector& h, hMatrix& H, const int id) const;
   void h_alt(const xVector& x, zVector& h, hMatrix& H, const int id) const;
   void h_att(const xVector& x, zVector& h, hMatrix& H, const int id) const;

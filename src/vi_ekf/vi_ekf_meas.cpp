@@ -3,23 +3,145 @@
 namespace vi_ekf
 {
 
-bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
-                   const MatrixXd& R, bool active, const int id, const double depth)
+void VIEKF::handle_measurements(std::vector<int> &gated_feature_ids)
+{
+  gated_feature_ids.clear();
+  double t_now = t_[i_];
+
+
+  // Find the oldest measurement that hasn't been handled yet
+  auto z_it = zbuf_.end() -1;
+  while (z_it->handled == true && z_it != zbuf_.begin())
+  {
+    z_it--;
+  }
+  // There were no messages to be handled - exit
+  if (z_it == zbuf_.begin() && z_it->handled)
+    return;
+
+
+  // Select the input corresponding to this time
+  auto u_it = u_.begin();
+  while (u_it != u_.end())
+  {
+    if (u_it->t <= z_it->t)
+      break;
+    u_it++;
+  }
+
+  if (u_it == u_.end() && u_it->t > z_it->t)
+  {
+    cerr << "not enough history in input buffer to handle measurement" << endl;
+    return;
+  }
+
+
+  // Rewind the state to just before the time indicated by the measurement
+  int i = LEN_STATE_HIST;
+  while (i > 0)
+  {
+    if (t_[(i_ + i) % LEN_STATE_HIST] <= z_it->t)
+    {
+      // rewind state to here (by just setting the position in the circular buffer)
+      i_ = (i_ + i) % LEN_STATE_HIST;
+      break;
+    }
+    i--;
+  }
+  if (i == 0)
+  {
+    cerr << "not enough history in state buffer to handle measurement" << endl;
+    return;
+  }
+
+
+  // Process all inputs and measurements to catch back up to where we were before (t_now)
+  while (t_[i_] < t_now)
+  {
+    double t_next = (u_it+1)->t; // Time of next input
+
+    // While the current measurment occurred between the current time step and the next
+    while (z_it->t < t_next && z_it->t > u_it->t)
+    {
+      // Propagate to the point of the measurement
+      propagate_state(u_it->u, z_it->t);
+      // Perform the measurement
+      update(*z_it);
+      if (z_it != zbuf_.begin())
+        z_it--;
+      else
+        break;
+
+    }
+    // Propagate to the time of the next input
+    propagate_state(u_it->u, u_it->t);
+  }
+
+  // If the measurement is exactly at this current time step, then just apply it.
+  while (z_it->t == t_[i_])
+  {
+    update(*z_it);
+    if (z_it != zbuf_.begin())
+      z_it--;
+    else
+      break;
+  }
+
+  // Clear any old measurements in the queue
+  while (zbuf_.size() > LEN_MEAS_HIST)
+    zbuf_.pop_back();
+
+}
+
+
+void VIEKF::add_measurement(const double t, const VectorXd& z, const measurement_type_t& meas_type,
+                                               const MatrixXd& R, bool active, const int id, const double depth)
+{
+  // Figure out the measurement that goes just before this one
+  auto z_it = zbuf_.begin();
+  while (z_it != zbuf_.end())
+  {
+    if (z_it->t < t)
+      break;
+    z_it ++;
+  }
+
+  // add the measurement to the measurement queue just after the one we just found
+  measurement_t meas;
+  meas.t = t;
+  meas.type = meas_type;
+  meas.zdim = z.rows();
+  meas.rdim = R.cols();
+  meas.R.block(0, 0, meas.rdim, meas.rdim) = R;
+  meas.z.segment(0, meas.zdim) = z;
+  meas.active = active;
+  meas.id = id;
+  meas.depth = depth;
+  meas.handled = false;
+  if (z_it == zbuf_.begin())
+  {
+    zbuf_.push_front(meas);
+    z_it = zbuf_.begin();
+  }
+  else
+    zbuf_.insert(z_it, meas);
+
+}
+
+VIEKF::meas_result_t VIEKF::update(measurement_t& meas)
 {  
-  if ((z.array() != z.array()).any())
-    return true;
+  if ((meas.z.topRows(meas.zdim).array() != meas.z.topRows(meas.zdim).array()).any())
+    return MEAS_NAN;
   
   // If this is a new feature, initialize it
-  if (meas_type == FEAT && id >= 0)
+  if (meas.type == FEAT && meas.id >= 0)
   {
-    if (std::find(current_feature_ids_.begin(), current_feature_ids_.end(), id) == current_feature_ids_.end())
+    if (std::find(current_feature_ids_.begin(), current_feature_ids_.end(), meas.id) == current_feature_ids_.end())
     {
-      init_feature(z, id, depth);
-      return true; // Don't do a measurement update this time
+      init_feature(meas.z.topRows(2), meas.id, meas.depth);
+      return MEAS_NEW_FEATURE; // Don't do a measurement update this time
     }
   }
-  
-  int z_dim = z.rows();
   
   NAN_CHECK;
   
@@ -27,45 +149,43 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
   H_.setZero();
   K_.setZero();
   
-  (this->*(measurement_functions[meas_type]))(x_[i_], zhat_, H_, id);
+  (this->*(measurement_functions[meas.type]))(x_[i_], zhat_, H_, meas.id);
   
   NAN_CHECK;
   
   zVector residual;
-  if (meas_type == QZETA)
+  if (meas.type == QZETA)
   {
-    residual.topRows(2) = q_feat_boxminus(Quat(z), Quat(zhat_));
-    z_dim = 2;
+    residual.topRows(2) = q_feat_boxminus(Quat(meas.z), Quat(zhat_));
   }
-  else if (meas_type == ATT)
+  else if (meas.type == ATT)
   {
-    residual.topRows(3) = Quat(z) - Quat(zhat_);
-    z_dim = 3;
+    residual.topRows(3) = Quat(meas.z) - Quat(zhat_);
   }
   else
   {
-    residual.topRows(z_dim) = z - zhat_.topRows(z_dim);
+    residual.topRows(meas.zdim) = meas.z.topRows(meas.zdim) - zhat_.topRows(meas.zdim);
   }
 
-  auto K = K_.leftCols(z_dim);
-  auto H = H_.topRows(z_dim);
+  auto K = K_.leftCols(meas.rdim);
+  auto H = H_.topRows(meas.rdim);
+  auto res = residual.topRows(meas.rdim);
+  auto R = meas.R.block(0, 0, meas.rdim, meas.rdim);
+
 
   //  Perform Covariance Gating Check on Residual
-//  if (active)
-//  {
-//    double mahal = residual.transpose() * (H * P_ * H.transpose() + R).inverse() * residual;
-//    if (mahal > 9.0)
-//    {
-////      std::cout << "gating " << measurement_names[meas_type] << " measurement: " << mahal << std::endl;
-//      active = false;
-//    }
-//  }
-  
-  NAN_CHECK;
-  
-  if (active)
+  if (meas.active)
   {
-    K = P_[i_] * H.transpose() * (R + H*P_[i_] * H.transpose()).inverse();
+    auto innov =  (H * P_[i_] * H.transpose() + R).inverse();
+
+    double mahal = res.transpose() * innov * res;
+    if (mahal > 9.0)
+    {
+//      std::cout << "gating " << measurement_names[meas_type] << " measurement: " << mahal << std::endl;
+      return MEAS_GATED;
+    }
+
+    K = P_[i_] * H.transpose() * innov;
     NAN_CHECK;
     
     //    CHECK_MAT_FOR_NANS(H_);
@@ -78,18 +198,16 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
         // Apply Fixed Gain Partial update per
         // "Partial-Update Schmidt-Kalman Filter" by Brink
         // Modified to operate inline and on the manifold 
-        boxplus(x_[i_], lambda_.asDiagonal() * K * residual.topRows(z_dim), xp_);
+        boxplus(x_[i_], lambda_.asDiagonal() * K * residual.topRows(meas.rdim), xp_);
         x_[i_] = xp_;
-        //  P_ = (Lambda_).cwiseProduct(K * H*P_); // Standard Form
         A_ = (I_big_ - K * H);
         P_[i_] += (Lambda_).cwiseProduct(A_*P_[i_]*A_.transpose() + K * R * K.transpose() - P_[i_]);
 
       }
       else
       {
-        boxplus(x_[i_], K * residual.topRows(z_dim), xp_);
+        boxplus(x_[i_], K * residual.topRows(meas.rdim), xp_);
         x_[i_] = xp_;
-        //  P_ -= K*H*P_;  // Standard Form
         A_ = (I_big_ - K * H);
         P_[i_] = A_*P_[i_]*A_.transpose() + K * R * K.transpose();
       }
@@ -102,8 +220,8 @@ bool VIEKF::update(const VectorXd& z, const measurement_type_t& meas_type,
   NAN_CHECK;
   NEGATIVE_DEPTH;
   
-  log_measurement(meas_type, prev_t_ - start_t_, z.rows(), z, zhat_, active, id);
-  return false;
+  log_measurement(meas.type, prev_t_ - start_t_, meas.zdim, meas.z, zhat_, meas.active, meas.id);
+  return MEAS_SUCCESS;
 }
 
 

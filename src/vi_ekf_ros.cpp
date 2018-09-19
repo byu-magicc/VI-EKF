@@ -163,27 +163,30 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
   {
     imu_ = u_;
     imu_init_ = true;
+    start_time_ = msg->header.stamp;
     return;
   }
+  double t = (msg->header.stamp - start_time_).toSec();
   
   // Propagate filter
   ekf_mtx_.lock();
-  ekf_.propagate_state(imu_, msg->header.stamp.toSec());
+  ekf_.propagate_state(imu_, t);
   ekf_mtx_.unlock();
+
   
   // update accelerometer measurement
   ekf_mtx_.lock();
   if (ekf_.get_drag_term() == true)
   {
     z_acc_drag_ = imu_.block<2,1>(0, 0);
-    ekf_.update(z_acc_drag_, vi_ekf::VIEKF::ACC, acc_R_drag_, use_acc_ && is_flying_);
+    ekf_.add_measurement(t, z_acc_drag_, vi_ekf::VIEKF::ACC, acc_R_drag_, use_acc_ && is_flying_);
   }
   else
   {
     z_acc_grav_ = imu_.block<3,1>(0, 0);
     double norm = z_acc_grav_.norm();
     if (norm < 9.80665 * 1.15 && norm > 9.80665 * 0.85)
-      ekf_.update(z_acc_grav_, vi_ekf::VIEKF::ACC, acc_R_grav_, use_acc_);
+      ekf_.add_measurement(t, z_acc_grav_, vi_ekf::VIEKF::ACC, acc_R_grav_, use_acc_);
   }
     ekf_mtx_.unlock();
   
@@ -191,7 +194,7 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
   z_att_ << msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z;
   ekf_mtx_.lock();
   if (use_imu_att_)
-    ekf_.update(z_att_, vi_ekf::VIEKF::ATT, att_R_, (use_truth_) ? true : use_imu_att_);
+    ekf_.add_measurement(t, z_att_, vi_ekf::VIEKF::ATT, att_R_, (use_truth_) ? true : use_imu_att_);
   ekf_mtx_.unlock();
   
 //  odom_msg_.header.stamp = msg->header.stamp;
@@ -270,6 +273,8 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
   // Set which features we are keeping
   ekf_.keep_only_features(ids_);
   ekf_mtx_.unlock();
+
+  double t = (msg->header.stamp - start_time_).toSec();
   
   for (int i = 0; i < features_.size(); i++)
   {
@@ -285,9 +290,9 @@ void VIEKF_ROS::color_image_callback(const sensor_msgs::ImageConstPtr &msg)
     z_feat_ << features_[i].x, features_[i].y;
     z_depth_ << depth;
     ekf_mtx_.lock();
-    bool new_feature = ekf_.update(z_feat_, vi_ekf::VIEKF::FEAT, feat_R_, use_features_, ids_[i], (use_depth_) ? depth : NAN);
+    bool new_feature = ekf_.add_measurement(t, z_feat_, vi_ekf::VIEKF::FEAT, feat_R_, use_features_, ids_[i], (use_depth_) ? depth : NAN);
     if (!new_feature && got_depth_ && !(depth != depth))
-        ekf_.update(z_depth_, vi_ekf::VIEKF::DEPTH, depth_R_, use_depth_, ids_[i]);
+        ekf_.add_measurement(t, z_depth_, vi_ekf::VIEKF::DEPTH, depth_R_, use_depth_, ids_[i]);
     
     ekf_mtx_.unlock();   
   }
@@ -415,15 +420,17 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att, ros::Time time)
   z_att = (kf_att_.inverse() * truth_att_).elements();  
   
   bool truth_active = (use_truth_ || !is_flying_);
+
+  double t = (time - start_time_).toSec();
   
   ekf_mtx_.lock();
-  ekf_.update(z_pos, vi_ekf::VIEKF::POS, pos_R_, truth_active);
-  ekf_.update(z_att, vi_ekf::VIEKF::ATT, att_R_, truth_active);
+  ekf_.add_measurement(t, z_pos, vi_ekf::VIEKF::POS, pos_R_, truth_active);
+  ekf_.add_measurement(t, z_att, vi_ekf::VIEKF::ATT, att_R_, truth_active);
   ekf_mtx_.unlock();
   
   // Perform Altitude Measurement
   ekf_mtx_.lock();
-  ekf_.update(z_alt_, vi_ekf::VIEKF::ALT, alt_R_, !truth_active);
+  ekf_.add_measurement(t, z_alt_, vi_ekf::VIEKF::ALT, alt_R_, !truth_active);
   ekf_mtx_.unlock();
 }
 

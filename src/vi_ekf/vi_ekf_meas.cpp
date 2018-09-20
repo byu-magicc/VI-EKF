@@ -3,37 +3,39 @@
 namespace vi_ekf
 {
 
-void VIEKF::handle_measurements(std::vector<int> &gated_feature_ids)
+void VIEKF::handle_measurements(std::vector<int>* gated_feature_ids)
 {
-  gated_feature_ids.clear();
+  if (gated_feature_ids)
+    gated_feature_ids->clear();
   double t_now = t_[i_];
 
+  if (zbuf_.size() == 0)
+    return;
 
   // Find the oldest measurement that hasn't been handled yet
   auto z_it = zbuf_.end() -1;
   while (z_it->handled == true && z_it != zbuf_.begin())
-  {
     z_it--;
-  }
+
   // There were no messages to be handled - exit
   if (z_it == zbuf_.begin() && z_it->handled)
     return;
 
 
-  // Select the input corresponding to this time
+  // Select the input which just before the measurement (so the measurement happened in the next interval))
   auto u_it = u_.begin();
   while (u_it != u_.end())
   {
-    if (u_it->t <= z_it->t)
+    if (z_it->t > u_it->t)
       break;
     u_it++;
   }
-
-  if (u_it == u_.end() && u_it->t > z_it->t)
+  if (z_it->t <= u_it->t)
   {
     cerr << "not enough history in input buffer to handle measurement" << endl;
     return;
   }
+
 
 
   // Rewind the state to just before the time indicated by the measurement
@@ -54,49 +56,77 @@ void VIEKF::handle_measurements(std::vector<int> &gated_feature_ids)
     return;
   }
 
-
-  // Process all inputs and measurements to catch back up to where we were before (t_now)
-  while (t_[i_] < t_now)
+  // Make sure everything is lined up
+  if (t_[i_] != (u_it-1)->t || t_[i_] != z_it->t)
   {
-    double t_next = (u_it+1)->t; // Time of next input
+    cerr << "something is messed up\n";
+  }
+
+
+  // Process all inputs and measurements to catch back up
+  while (u_it != u_.begin())
+  {
+    u_it--;
 
     // While the current measurment occurred between the current time step and the next
-    while (z_it->t < t_next && z_it->t > u_it->t)
+    while (z_it->t <= u_it->t)
     {
       // Propagate to the point of the measurement
-      propagate_state(u_it->u, z_it->t);
+      if (t_[i_] < z_it->t)
+        propagate_state(u_it->u, z_it->t, false);
+      else if (t_[i_] > z_it->t)
+        cerr << "can't propagate backwards\n";
+
       // Perform the measurement
-      update(*z_it);
+      if (z_it->handled)
+        cerr << "trying to handle measurement again\n";
+      else
+      {
+        meas_result_t result = update(*z_it);
+
+        if (gated_feature_ids != nullptr && result == MEAS_GATED && z_it->type == FEAT)
+          gated_feature_ids->push_back(z_it->id);
+      }
       if (z_it != zbuf_.begin())
-        z_it--;
+        z_it--; // Perform the next measurement in this interval
       else
         break;
 
     }
     // Propagate to the time of the next input
-    propagate_state(u_it->u, u_it->t);
-  }
-
-  // If the measurement is exactly at this current time step, then just apply it.
-  while (z_it->t == t_[i_])
-  {
-    update(*z_it);
-    if (z_it != zbuf_.begin())
-      z_it--;
-    else
-      break;
+    propagate_state(u_it->u, u_it->t, false);
   }
 
   // Clear any old measurements in the queue
   while (zbuf_.size() > LEN_MEAS_HIST)
     zbuf_.pop_back();
 
+  // Clear old propagation memory
+  while (u_.size() > LEN_STATE_HIST)
+    u_.pop_back();
+
 }
 
 
-void VIEKF::add_measurement(const double t, const VectorXd& z, const measurement_type_t& meas_type,
-                                               const MatrixXd& R, bool active, const int id, const double depth)
+VIEKF::meas_result_t VIEKF::add_measurement(const double t, const VectorXd& z, const measurement_type_t& meas_type,
+                                            const MatrixXd& R, bool active, const int id, const double depth)
 {
+  if (t < start_t_)
+    return MEAS_INVALID;
+
+  if ((z.array() != z.array()).any())
+    return MEAS_NAN;
+
+  // If this is a new feature, initialize it
+  if (meas_type == FEAT && id >= 0)
+  {
+    if (std::find(current_feature_ids_.begin(), current_feature_ids_.end(), id) == current_feature_ids_.end())
+    {
+      init_feature(z, id, depth);
+      return MEAS_NEW_FEATURE; // Don't do a measurement update this time
+    }
+  }
+
   // Figure out the measurement that goes just before this one
   auto z_it = zbuf_.begin();
   while (z_it != zbuf_.end())
@@ -126,23 +156,27 @@ void VIEKF::add_measurement(const double t, const VectorXd& z, const measurement
   else
     zbuf_.insert(z_it, meas);
 
+  //  // Ensure that all the measurements are in order
+  //  double t_prev = zbuf_.end()->t;
+  //  if (zbuf_.size() > 1)
+  //  {
+  //    for (auto it = zbuf_.end()-1; it != zbuf_.begin(); it--)
+  //    {
+  //      if (it->t < t_prev)
+  //      {
+  //        cerr << "measurements out of order" << endl;
+  //      }
+  //      t_prev = it->t;
+  //    }
+  //  }
+
+  return MEAS_SUCCESS;
+
 }
 
 VIEKF::meas_result_t VIEKF::update(measurement_t& meas)
-{  
-  if ((meas.z.topRows(meas.zdim).array() != meas.z.topRows(meas.zdim).array()).any())
-    return MEAS_NAN;
-  
-  // If this is a new feature, initialize it
-  if (meas.type == FEAT && meas.id >= 0)
-  {
-    if (std::find(current_feature_ids_.begin(), current_feature_ids_.end(), meas.id) == current_feature_ids_.end())
-    {
-      init_feature(meas.z.topRows(2), meas.id, meas.depth);
-      return MEAS_NEW_FEATURE; // Don't do a measurement update this time
-    }
-  }
-  
+{
+  meas.handled = true;
   NAN_CHECK;
   
   zhat_.setZero();
@@ -181,7 +215,7 @@ VIEKF::meas_result_t VIEKF::update(measurement_t& meas)
     double mahal = res.transpose() * innov * res;
     if (mahal > 9.0)
     {
-//      std::cout << "gating " << measurement_names[meas_type] << " measurement: " << mahal << std::endl;
+      //      std::cout << "gating " << measurement_names[meas_type] << " measurement: " << mahal << std::endl;
       return MEAS_GATED;
     }
 
@@ -197,7 +231,7 @@ VIEKF::meas_result_t VIEKF::update(measurement_t& meas)
       {
         // Apply Fixed Gain Partial update per
         // "Partial-Update Schmidt-Kalman Filter" by Brink
-        // Modified to operate inline and on the manifold 
+        // Modified to operate inline and on the manifold
         boxplus(x_[i_], lambda_.asDiagonal() * K * residual.topRows(meas.rdim), xp_);
         x_[i_] = xp_;
         A_ = (I_big_ - K * H);
@@ -220,7 +254,7 @@ VIEKF::meas_result_t VIEKF::update(measurement_t& meas)
   NAN_CHECK;
   NEGATIVE_DEPTH;
   
-  log_measurement(meas.type, prev_t_ - start_t_, meas.zdim, meas.z, zhat_, meas.active, meas.id);
+  log_measurement(meas.type, t_[i_] - start_t_, meas.zdim, meas.z, zhat_, meas.active, meas.id);
   return MEAS_SUCCESS;
 }
 
@@ -249,7 +283,7 @@ void VIEKF::h_acc(const xVector& x, zVector& h, hMatrix& H, const int id) const
     h.topRows(3) = b_a - gravity_B;
     H.block<3,3>(0, (int)dxATT) = skew(-1.0 * gravity_B);
     H.block<3,3>(0, (int)dxB_A) = I_3x3;
-  }  
+  }
 }
 
 void VIEKF::h_alt(const xVector& x, zVector& h, hMatrix& H, const int id) const

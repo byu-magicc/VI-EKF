@@ -13,8 +13,10 @@ void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<dou
 {
   x_.resize(LEN_STATE_HIST);
   P_.resize(LEN_STATE_HIST);
-  u_.resize(LEN_STATE_HIST);
   t_.resize(LEN_STATE_HIST, -1);
+
+  u_.clear();
+  zbuf_.clear();
 
   i_ = 0;
 
@@ -54,8 +56,8 @@ void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<dou
   use_drag_term_ = use_drag_term;
   partial_update_ = partial_update;
   keyframe_reset_ = use_keyframe_reset;
-  prev_t_ = -0.001;
   cov_prop_skips_ = cov_prop_skips;
+  start_t_ = NAN; // indicate that we need to initialize the filter
   
   min_depth_ = min_depth;
   
@@ -181,18 +183,6 @@ Vector2d VIEKF::get_feat(const int id) const
 
 void VIEKF::propagate_state(const uVector &u, const double t, bool save_input)
 {
-  if (prev_t_ < 0)
-  {
-    start_t_ = t;
-    prev_t_ = t;
-    t_[i_] = t;
-    return;
-  }
-  
-  double dt = t - prev_t_;
-  if (dt < 1e-6)
-    return;
-
   if (save_input)
   {
     input_t input;
@@ -201,9 +191,16 @@ void VIEKF::propagate_state(const uVector &u, const double t, bool save_input)
     u_.push_front(input);
   }
 
-  prev_t_ = t;
+  if (std::isnan(start_t_))
+  {
+    start_t_ = t;
+    t_[i_] = t;
+    return;
+  }
 
-  int ip = (i_ + 1) % LEN_STATE_HIST; // next state history index
+  double dt = t - t_[i_];
+  if (dt < 1e-6)
+    return;
 
   NAN_CHECK;
 
@@ -211,6 +208,7 @@ void VIEKF::propagate_state(const uVector &u, const double t, bool save_input)
   dynamics(x_[i_], u, true, true);
 
   NAN_CHECK;
+  int ip = (i_ + 1) % LEN_STATE_HIST; // next state history index
 
   // Propagate State and Covariance
   boxplus(x_[i_], dx_*dt, x_[ip]);

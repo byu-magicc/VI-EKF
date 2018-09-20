@@ -132,6 +132,7 @@ public:
     MEAS_SUCCESS,
     MEAS_GATED,
     MEAS_NAN,
+    MEAS_INVALID,
     MEAS_NEW_FEATURE
   } meas_result_t;
 
@@ -191,7 +192,6 @@ private:
   Matrix3d P0_feat_;
 
   // Internal bookkeeping variables
-  double prev_t_;
   double start_t_;
   int len_features_;
   int next_feature_id_;
@@ -297,8 +297,8 @@ public:
   void dynamics(const xVector &x, const uVector& u, bool state = true, bool jac = true);
 
   // Measurement Updates
-  void handle_measurements(std::vector<int>& gated_feature_ids);
-  void add_measurement(const double t, const VectorXd& z, const measurement_type_t& meas_type, const MatrixXd& R, bool active=false, const int id=-1, const double depth=NAN);
+  void handle_measurements(std::vector<int> *gated_feature_ids=nullptr);
+  meas_result_t add_measurement(const double t, const VectorXd& z, const measurement_type_t& meas_type, const MatrixXd& R, bool active=false, const int id=-1, const double depth=NAN);
   meas_result_t update(measurement_t &meas);
   void h_acc(const xVector& x, zVector& h, hMatrix& H, const int id) const;
   void h_alt(const xVector& x, zVector& h, hMatrix& H, const int id) const;

@@ -156,19 +156,19 @@ VIEKF::meas_result_t VIEKF::add_measurement(const double t, const VectorXd& z, c
   else
     zbuf_.insert(z_it, meas);
 
-  //  // Ensure that all the measurements are in order
-  //  double t_prev = zbuf_.end()->t;
-  //  if (zbuf_.size() > 1)
-  //  {
-  //    for (auto it = zbuf_.end()-1; it != zbuf_.begin(); it--)
-  //    {
-  //      if (it->t < t_prev)
-  //      {
-  //        cerr << "measurements out of order" << endl;
-  //      }
-  //      t_prev = it->t;
-  //    }
-  //  }
+    // Ensure that all the measurements are in order
+    double t_prev = zbuf_.end()->t;
+    if (zbuf_.size() > 1)
+    {
+      for (auto it = zbuf_.end()-1; it != zbuf_.begin(); it--)
+      {
+        if (it->t < t_prev)
+        {
+          cerr << "measurements out of order" << endl;
+        }
+        t_prev = it->t;
+      }
+    }
 
   return MEAS_SUCCESS;
 

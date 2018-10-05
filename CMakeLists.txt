@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(vi_ekf)
 
 set(CMAKE_CXX_FLAGS "-std=c++17 -mavx -mfma")
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -48,7 +49,7 @@ add_library(math_helper
         include/math_helper.h
 )
 
-add_library(vi_ekf
+add_library(vi_ekf STATIC
   src/vi_ekf/vi_ekf.cpp
   src/vi_ekf/vi_ekf_helper.cpp
   src/vi_ekf/vi_ekf_feat.cpp
@@ -59,7 +60,7 @@ add_library(vi_ekf
   src/vi_ekf/vi_ekf_dyn.cpp
   include/vi_ekf.h
 )
-target_link_libraries(vi_ekf math_helper ${YAML_CPP_LIBRARIES})
+target_link_libraries(vi_ekf math_helper ${YAML_CPP_LIBRARIES} geometry)
 
 add_library(klt_tracker
   src/klt_tracker.cpp
@@ -67,11 +68,7 @@ add_library(klt_tracker
 )
 
 add_executable(jac_test src/test/jac_test.cpp)
-target_link_libraries(jac_test ${GTEST_LIBRARIES} pthread vi_ekf)
-#add_executable(quat_test src/test/quat_test.cpp)
-#target_link_libraries(quat_test ${GTEST_LIBRARIES} pthread math_helper)
-#add_executable(xform_test src/test/xform_test.cpp)
-#target_link_libraries(xform_test ${GTEST_LIBRARIES} pthread math_helper)
+target_link_libraries(jac_test ${GTEST_LIBRARIES} pthread vi_ekf geometry)
 
 add_library(vi_ekf_ros
   src/vi_ekf_ros.cpp
@@ -91,6 +88,7 @@ add_executable(vi_ekf_node
 target_link_libraries(vi_ekf_node
   ${catkin_LIBRARIES}
   vi_ekf_ros  
+  geometry
 )
 
 add_executable(vi_ekf_rosbag
@@ -99,4 +97,6 @@ add_executable(vi_ekf_rosbag
 target_link_libraries(vi_ekf_rosbag
   ${catkin_LIBRARIES}
   vi_ekf_ros  
+  geometry
+  vi_ekf
 )

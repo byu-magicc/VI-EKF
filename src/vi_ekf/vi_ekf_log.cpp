@@ -28,11 +28,11 @@ void VIEKF::log_state(const double t, const xVector& x, const dxVector& P, const
   }
 }
 
-void VIEKF::log_global_position(const Xform &truth_global_transform) //Vector3d pos, const Vector4d att)
+void VIEKF::log_global_position(const Xformd &truth_global_transform) //Vector3d pos, const Vector4d att)
 { 
   if (log_)
   {
-    Xform global_pose = get_global_pose();
+    Xformd global_pose = get_global_pose();
 
     double t = t_[i_] - start_t_;
     (*log_)[LOG_GLOBAL].write((char*)&t, sizeof(double));

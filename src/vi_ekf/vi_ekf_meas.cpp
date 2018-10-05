@@ -279,7 +279,7 @@ void VIEKF::h_acc(const xVector& x, zVector& h, hMatrix& H, const int id) const
   }
   else
   {
-    Vector3d gravity_B = Quat(x.block<4,1>((int)xATT, 0)).rotp(gravity); // R_I^b * vel
+    Vector3d gravity_B = Quatd(x.block<4,1>((int)xATT, 0)).rotp(gravity); // R_I^b * vel
     h.topRows(3) = b_a - gravity_B;
     H.block<3,3>(0, (int)dxATT) = skew(-1.0 * gravity_B);
     H.block<3,3>(0, (int)dxB_A) = I_3x3;
@@ -335,7 +335,7 @@ void VIEKF::h_qzeta(const xVector& x, zVector& h, hMatrix &H, const int id) cons
 void VIEKF::h_feat(const xVector& x, zVector& h, hMatrix& H, const int id) const
 {
   int i = global_to_local_feature_id(id);
-  Quat q_zeta(x.block<4,1>(xZ+i*5, 0));
+  Quatd q_zeta(x.block<4,1>(xZ+i*5, 0));
   Vector3d zeta = q_zeta.rota(e_z);
   Matrix3d sk_zeta = skew(zeta);
   double ezT_zeta = e_z.transpose() * zeta;

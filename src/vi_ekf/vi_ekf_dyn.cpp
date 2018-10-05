@@ -25,7 +25,7 @@ void VIEKF::dynamics(const xVector& x, const uVector &u, bool state, bool jac)
   }
   
   Vector3d vel = x.block<3, 1>((int)xVEL, 0);
-  Quat q_I_b(x.block<4,1>((int)xATT,0));
+  Quatd q_I_b(x.block<4,1>((int)xATT,0));
   
   Vector3d acc = u.block<3,1>((int)uA, 0) - x.block<3,1>((int)xB_A, 0);
   Vector3d omega = u.block<3,1>((int)uG, 0) - x.block<3,1>((int)xB_G, 0);
@@ -83,7 +83,7 @@ void VIEKF::dynamics(const xVector& x, const uVector &u, bool state, bool jac)
   Vector3d omega_c_i = q_b_c_.rotp(omega);
   
   
-  Quat q_zeta;
+  Quatd q_zeta;
   double rho;
   Vector3d zeta;
   Matrix<double, 3, 2> T_z;

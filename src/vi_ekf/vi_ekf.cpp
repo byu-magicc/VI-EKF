@@ -61,7 +61,7 @@ void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<dou
   
   min_depth_ = min_depth;
   
-  current_node_global_pose_ = Xform::Identity();
+  current_node_global_pose_ = Xformd::Identity();
   global_pose_cov_.setZero();
   
   keyframe_overlap_threshold_ = keyframe_overlap;
@@ -111,7 +111,7 @@ const xVector& VIEKF::get_state() const
   return x_[i_];
 }
 
-const Xform &VIEKF::get_current_node_global_pose() const
+const Xformd &VIEKF::get_current_node_global_pose() const
 {
   return current_node_global_pose_;
 }
@@ -175,7 +175,7 @@ double VIEKF::get_depth(const int id) const
 Vector2d VIEKF::get_feat(const int id) const
 {
   int i = global_to_local_feature_id(id);
-  Quat q_zeta(x_[i_].block<4,1>(xZ+i*5, 0));
+  Quatd q_zeta(x_[i_].block<4,1>(xZ+i*5, 0));
   Vector3d zeta = q_zeta.rota(e_z);
   double ezT_zeta = e_z.transpose() * zeta;
   return cam_F_ * zeta / ezT_zeta + cam_center_;

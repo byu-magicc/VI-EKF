@@ -39,8 +39,8 @@ void concatenate_SE2(Eigen::Vector3d& T1, Eigen::Vector3d& T2, Eigen::Vector3d& 
 
 void concatenate_edges(const Eigen::Matrix<double,7,1>& T1, const Eigen::Matrix<double,7,1>& T2, Eigen::Matrix<double,7,1>& Tout)
 {
-  quat::Quat q1(T1.block<4,1>(3,0));
-  quat::Quat q2(T2.block<4,1>(3,0));
+  quat::Quatd q1(T1.block<4,1>(3,0));
+  quat::Quatd q2(T2.block<4,1>(3,0));
 
   Tout.block<3,1>(0,0) = T1.block<3,1>(0,0) + q1.rota(T2.block<3,1>(0,0));
   Tout.block<4,1>(3,0) = (q1 * q2).elements();
@@ -48,7 +48,7 @@ void concatenate_edges(const Eigen::Matrix<double,7,1>& T1, const Eigen::Matrix<
 
 const Eigen::Matrix<double,7,1> invert_edge(const Eigen::Matrix<double,7,1>& T1)
 {
-  quat::Quat qinv(T1.block<4,1>(3,0));
+  quat::Quatd qinv(T1.block<4,1>(3,0));
   qinv.invert();
   Eigen::Matrix<double, 7,1> Tout;
   Tout.topRows(3) = qinv.rotp(T1.topRows(3));

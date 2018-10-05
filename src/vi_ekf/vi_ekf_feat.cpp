@@ -16,7 +16,7 @@ bool VIEKF::init_feature(const Vector2d& l, const int id, const double depth)
   Vector3d zeta;
   zeta << l_centered(0), l_centered(1)*(cam_F_(1,1)/cam_F_(0,0)), cam_F_(0,0);
   zeta.normalize();
-  Vector4d qzeta = Quat::from_two_unit_vectors(e_z, zeta).elements();
+  Vector4d qzeta = Quatd::from_two_unit_vectors(e_z, zeta).elements();
   
   // If depth is NAN (default argument)
   double init_depth = depth;

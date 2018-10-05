@@ -124,7 +124,7 @@ public:
   } measurement_type_t;
 
   typedef struct{
-    Xform transform;
+    Xformd transform;
     Matrix6d cov;
   } edge_t;
 
@@ -223,11 +223,11 @@ private:
   // Camera Intrinsics and Extrinsics
   Vector2d cam_center_;
   Matrix<double, 2, 3> cam_F_;
-  Quat q_b_c_;
+  Quatd q_b_c_;
   Vector3d p_b_c_;
 
   Matrix6d global_pose_cov_;
-  Xform current_node_global_pose_;
+  Xformd current_node_global_pose_;
   std::default_random_engine generator_;
   std::normal_distribution<double> normal_;
 
@@ -271,7 +271,7 @@ public:
   MatrixXd get_qzetas() const;
   VectorXd get_zeta(const int i) const;
   Vector2d get_feat(const int id) const;
-  const Xform &get_current_node_global_pose() const;
+  const Xformd &get_current_node_global_pose() const;
   const xVector &get_state() const;
   const dxMatrix &get_covariance() const;
   const dxVector get_covariance_diagonal() const;
@@ -316,7 +316,7 @@ public:
   void keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N);
   void keyframe_reset();
   void register_keyframe_reset_callback(std::function<void(void)> cb);
-  Xform get_global_pose() const;
+  Xformd get_global_pose() const;
   Matrix6d get_global_cov() const;
 
   // Logger
@@ -324,7 +324,7 @@ public:
   void log_measurement(const measurement_type_t type, const double t, const int dim, const MatrixXd& z, const MatrixXd& zhat, const bool active, const int id);
   void init_logger(std::string root_filename, string prefix="");
   void disable_logger();
-  void log_global_position(const Xform& truth_global_transform);
+  void log_global_position(const Xformd& truth_global_transform);
 
   // Inequality Constraint on Depth
   void fix_depth();

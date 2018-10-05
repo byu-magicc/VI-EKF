@@ -11,11 +11,11 @@ void VIEKF::keyframe_reset(const xVector &xm, xVector &xp, dxMatrix &N)
   N = A_;    
 }
 
-Xform VIEKF::get_global_pose() const
+Xformd VIEKF::get_global_pose() const
 {
   // Log Global Position Estimate
-  Xform global_pose;
-  Xform rel_pose(x_[i_].block<3,1>((int)xPOS, 0), Quat(x_[i_].block<4,1>((int)xATT, 0)));
+  Xformd global_pose;
+  Xformd rel_pose(x_[i_].block<3,1>((int)xPOS, 0), Quatd(x_[i_].block<4,1>((int)xATT, 0)));
   global_pose = current_node_global_pose_ * rel_pose;
   return global_pose;
 }
@@ -25,7 +25,7 @@ Matrix6d VIEKF::get_global_cov() const
   Matrix6d cov;
   edge_t rel_pose;
   rel_pose.transform.t() = x_[i_].block<3,1>((int)xPOS, 0);
-  rel_pose.transform.q() = Quat(x_[i_].block<4,1>((int)xATT, 0));
+  rel_pose.transform.q() = Quatd(x_[i_].block<4,1>((int)xATT, 0));
   rel_pose.cov.block<3,3>(0, 0) = P_[i_].block<3,3>(xPOS, xPOS);
   rel_pose.cov.block<3,3>(3, 0) = P_[i_].block<3,3>(xATT, xPOS);
   rel_pose.cov.block<3,3>(0, 3) = P_[i_].block<3,3>(xPOS, xATT);
@@ -65,7 +65,7 @@ void VIEKF::keyframe_reset()
   x_[i_].segment<3>(xPOS).setZero();
 
   // Get quaternion from state
-  Quat q_i2b(x_[i_].segment<4>(xATT));
+  Quatd q_i2b(x_[i_].segment<4>(xATT));
   
   /// James' way to reset z-axis rotation
 
@@ -122,11 +122,11 @@ void VIEKF::keyframe_reset()
   double pitch = q_i2b.pitch();
   
   // Save off quaternion and covariance
-  edge.transform.q_ = Quat::from_euler(0, 0, yaw);
+  edge.transform.q_ = Quatd::from_euler(0, 0, yaw);
   edge.cov(5,5) = P_[i_](xATT+2, xATT+2); /// TODO - this is wrong, need to compute covariance of yaw rotation
   
   // Reset attitude
-  x_[i_].segment<4>(xATT) = Quat::from_euler(roll, pitch, 0.0).elements();
+  x_[i_].segment<4>(xATT) = Quatd::from_euler(roll, pitch, 0.0).elements();
   
   // Adjust covariance  (use A for N, because it is the right size and there is no need to allocate another one)
   // RMEKF paper after Eq. 81

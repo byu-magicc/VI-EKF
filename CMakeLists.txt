@@ -24,6 +24,12 @@ catkin_package(
     CATKIN_DEPENDS roscpp sensor_msgs image_transport cv_bridge geometry_msgs nav_msgs
 )
 
+if (NOT TARGET geometry)
+    add_subdirectory(lib/geometry)
+    include_directories(lib/geometry/include)
+endif()
+
+
 ###########
 ## Build ##
 ###########
@@ -40,8 +46,6 @@ include_directories(
 add_library(math_helper
         src/math_helper.cpp
         include/math_helper.h
-        include/quat.h
-        include/xform.h
 )
 
 add_library(vi_ekf
@@ -64,10 +68,10 @@ add_library(klt_tracker
 
 add_executable(jac_test src/test/jac_test.cpp)
 target_link_libraries(jac_test ${GTEST_LIBRARIES} pthread vi_ekf)
-add_executable(quat_test src/test/quat_test.cpp)
-target_link_libraries(quat_test ${GTEST_LIBRARIES} pthread math_helper)
-add_executable(xform_test src/test/xform_test.cpp)
-target_link_libraries(xform_test ${GTEST_LIBRARIES} pthread math_helper)
+#add_executable(quat_test src/test/quat_test.cpp)
+#target_link_libraries(quat_test ${GTEST_LIBRARIES} pthread math_helper)
+#add_executable(xform_test src/test/xform_test.cpp)
+#target_link_libraries(xform_test ${GTEST_LIBRARIES} pthread math_helper)
 
 add_library(vi_ekf_ros
   src/vi_ekf_ros.cpp

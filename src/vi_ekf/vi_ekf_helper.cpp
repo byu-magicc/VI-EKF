@@ -88,11 +88,11 @@ void VIEKF::load(std::string ekf_file, std::string common_file, bool use_logger,
 void VIEKF::boxplus(const xVector& x, const dxVector& dx, xVector& out) const
 {
   out.block<6,1>((int)xPOS, 0) = x.block<6,1>((int)xPOS, 0) + dx.block<6,1>((int)dxPOS, 0);
-  out.block<4,1>((int)xATT, 0) = (Quat(x.block<4,1>((int)xATT, 0)) + dx.block<3,1>((int)dxATT, 0)).elements();
+  out.block<4,1>((int)xATT, 0) = (Quatd(x.block<4,1>((int)xATT, 0)) + dx.block<3,1>((int)dxATT, 0)).elements();
   out.block<7,1>((int)xB_A, 0) = x.block<7,1>((int)xB_A, 0) + dx.block<7,1>((int)dxB_A, 0);
   for (int i = 0; i < len_features_; i++)
   {
-    out.block<4,1>(xZ+i*5,0) = q_feat_boxplus(Quat(x.block<4,1>(xZ+i*5,0)), dx.block<2,1>(dxZ+3*i,0)).elements();
+    out.block<4,1>(xZ+i*5,0) = q_feat_boxplus(Quatd(x.block<4,1>(xZ+i*5,0)), dx.block<2,1>(dxZ+3*i,0)).elements();
     out(xZ+i*5+4) = x(xZ+i*5+4) + dx(dxZ+3*i+2);
   }
 }
@@ -100,12 +100,12 @@ void VIEKF::boxplus(const xVector& x, const dxVector& dx, xVector& out) const
 void VIEKF::boxminus(const xVector &x1, const xVector &x2, dxVector &out) const
 {
   out.block<6,1>((int)dxPOS, 0) = x1.block<6,1>((int)xPOS, 0) - x2.block<6,1>((int)xPOS, 0);
-  out.block<3,1>((int)dxATT, 0) = (Quat(x1.block<4,1>((int)xATT, 0)) - Quat(x2.block<4,1>((int)xATT, 0)));
+  out.block<3,1>((int)dxATT, 0) = (Quatd(x1.block<4,1>((int)xATT, 0)) - Quatd(x2.block<4,1>((int)xATT, 0)));
   out.block<7,1>((int)dxB_A, 0) = x1.block<7,1>((int)xB_A, 0) - x2.block<7,1>((int)xB_A, 0);
   
   for (int i = 0; i < len_features_; i++)
   {
-    out.block<2,1>(dxZ+i*3,0) = q_feat_boxminus(Quat(x1.block<4,1>(xZ+i*5,0)), Quat(x2.block<4,1>(xZ+i*5,0)));
+    out.block<2,1>(dxZ+i*3,0) = q_feat_boxminus(Quatd(x1.block<4,1>(xZ+i*5,0)), Quatd(x2.block<4,1>(xZ+i*5,0)));
     out(dxZ+i*3+2) = x1(xZ+i*5+4) - x2(xZ+i*5+4);
   }
 }

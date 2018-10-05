@@ -92,7 +92,7 @@ VIEKF_ROS::VIEKF_ROS() :
   }
   
   // Initialize keyframe variables
-  kf_att_ = Quat::Identity();
+  kf_att_ = Quatd::Identity();
   kf_pos_.setZero();
   
   // Initialize the depth image to all NaNs
@@ -230,7 +230,7 @@ void VIEKF_ROS::keyframe_reset_callback()
   kf_pos_(2) = 0.0; // always at the ground
   
   /// OLD WAY
-  kf_att_ = Quat::from_euler(0, 0, truth_att_.yaw());
+  kf_att_ = Quatd::from_euler(0, 0, truth_att_.yaw());
   
 // ///COOL WAY
 //  Vector3d u_rot = truth_att_.rota(vi_ekf::khat);

@@ -86,9 +86,9 @@ private:
 
   Vector6d imu_;
   Vector3d kf_pos_;
-  Quat kf_att_;
+  Quatd kf_att_;
   Vector3d truth_pos_;
-  Quat truth_att_;
+  Quatd truth_att_;
   
   uVector u_;
   Vector2d z_acc_drag_;
@@ -98,7 +98,7 @@ private:
   Matrix1d z_depth_;
   Matrix1d z_alt_;
   Vector3d z_pos_;
-  xform::Xform global_transform_;
+  xform::Xformd global_transform_;
   sensor_msgs::Imu bias_msg_;
   
   cv_bridge::CvImagePtr cv_ptr_;
@@ -106,8 +106,8 @@ private:
   std::vector<Point2f> features_;
   std::vector<int> ids_;
   
-  Quat q_b_IMU_;
-  Quat q_I_truth_;
+  Quatd q_b_IMU_;
+  Quatd q_I_truth_;
   
   Matrix2d feat_R_;
   Matrix2d acc_R_drag_;

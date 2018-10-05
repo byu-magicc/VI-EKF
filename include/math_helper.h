@@ -2,71 +2,27 @@
 
 #include "math.h"
 #include "quat.h"
+#include "support.h"
 
 #include <random>
 
 #include <Eigen/Core>
 
-static const Eigen::Matrix<double, 2, 3> I_2x3 = [] {
-  Eigen::Matrix<double, 2, 3> tmp;
-  tmp << 1.0, 0, 0,
-         0, 1.0, 0;
-  return tmp;
-}();
-
-static const Eigen::Matrix3d I_3x3 = [] {
-  Eigen::Matrix3d tmp = Eigen::Matrix3d::Identity();
-  return tmp;
-}();
-
-static const Eigen::Matrix2d I_2x2 = [] {
-  Eigen::Matrix2d tmp = Eigen::Matrix2d::Identity();
-  return tmp;
-}();
-
-
-static const Eigen::Vector3d e_x = [] {
-  Eigen::Vector3d tmp;
-  tmp << 1.0, 0, 0;
-  return tmp;
-}();
-
-static const Eigen::Vector3d e_y = [] {
-  Eigen::Vector3d tmp;
-  tmp << 0, 1.0, 0;
-  return tmp;
-}();
-
-static const Eigen::Vector3d e_z = [] {
-  Eigen::Vector3d tmp;
-  tmp << 0, 0, 1.0;
-  return tmp;
-}();
-
 void removeRow(Eigen::MatrixXd& matrix, unsigned int rowToRemove);
 void removeColumn(Eigen::MatrixXd& matrix, unsigned int colToRemove);
 
-inline Eigen::Matrix3d skew(const Eigen::Vector3d v)
-{
-  Eigen::Matrix3d mat;
-  mat << 0.0, -v(2), v(1),
-         v(2), 0.0, -v(0),
-         -v(1), v(0), 0.0;
-  return mat;
-}
-
-inline Eigen::Vector3d zeta(quat::Quat q)
+inline Eigen::Vector3d zeta(quat::Quatd q)
 {
   return q.rota(e_z);
 }
 
-inline Eigen::Matrix<double, 3, 2> T_zeta(quat::Quat q)
+inline Eigen::Matrix<double, 3, 2> T_zeta(quat::Quatd q)
 {
   return q.doublerota(I_2x3.transpose());
 }
 
 // q1 - q0
-inline Eigen::Vector2d q_feat_boxminus(quat::Quat q1, quat::Quat q0)
+inline Eigen::Vector2d q_feat_boxminus(quat::Quatd q1, quat::Quatd q0)
 {
   Eigen::Vector3d zeta0 = zeta(q0);
   Eigen::Vector3d zeta1 = zeta(q1);
@@ -86,34 +42,15 @@ inline Eigen::Vector2d q_feat_boxminus(quat::Quat q1, quat::Quat q0)
   return dq;
 }
 
-inline quat::Quat q_feat_boxplus(quat::Quat q, Eigen::Vector2d dq)
+inline quat::Quatd q_feat_boxplus(quat::Quatd q, Eigen::Vector2d dq)
 {
-  return quat::Quat::exp(-T_zeta(q) * dq) * q;
+  return quat::Quatd::exp(-T_zeta(q) * dq) * q;
 }
-
-template <typename Derived>
-void setNormalRandom(MatrixBase<Derived>& M, std::normal_distribution<double>& N, std::default_random_engine& g)
-{
-  for (int i = 0; i < M.rows(); i++)
-  {
-    for (int j = 0; j < M.cols(); j++)
-    {
-      M(i,j) = N(g);
-    }
-  }
-}
-
 
 void concatenate_SE2(Eigen::Vector3d& T1, Eigen::Vector3d& T2, Eigen::Vector3d& Tout);
 void concatenate_edges(const Eigen::Matrix<double,7,1>& T1, const Eigen::Matrix<double,7,1>& T2, Eigen::Matrix<double,7,1>& Tout);
 const Eigen::Matrix<double,7,1> invert_edge(const Eigen::Matrix<double,7,1>& T1);
 void invert_SE2(Eigen::Vector3d& T, Eigen::Vector3d& Tout);
-
-template <typename T>
-int sign(T in)
-{
-  return (in >= 0) - (in < 0);
-}
 
 inline double random(double max, double min)
 {

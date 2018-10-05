@@ -123,7 +123,7 @@ VIEKF init_jacobians_test(xVector& x0, uVector& u0)
   x0(VIEKF::xMU) = 0.2;
   x0.block<3,1>((int)VIEKF::xPOS, 0) += Vector3d::Random() * 100.0;
   x0.block<3,1>((int)VIEKF::xVEL, 0) += Vector3d::Random() * 10.0;
-  x0.block<4,1>((int)VIEKF::xATT, 0) = (Quat(x0.block<4,1>((int)VIEKF::xATT, 0)) + Vector3d::Random()).elements();
+  x0.block<4,1>((int)VIEKF::xATT, 0) = (Quatd(x0.block<4,1>((int)VIEKF::xATT, 0)) + Vector3d::Random()).elements();
   x0.block<3,1>((int)VIEKF::xB_A, 0) += Vector3d::Random() * 1.0;
   x0.block<3,1>((int)VIEKF::xB_G, 0) += Vector3d::Random() * 0.5;
   x0((int)VIEKF::xMU, 0) += (static_cast <double> (rand()) / (static_cast <double> (RAND_MAX)))*0.05;
@@ -145,7 +145,7 @@ VIEKF init_jacobians_test(xVector& x0, uVector& u0)
   Vector2d focal_len;
   focal_len << static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/100.0)),
       static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/100.0));
-  Vector4d q_b_c = Quat::Random().elements();
+  Vector4d q_b_c = Quatd::Random().elements();
   Vector3d p_b_c = Vector3d::Random() * 0.5;
   Matrix<double, 17, 1> state_0;
   state_0 =x0.block<17, 1>(0,0); 
@@ -200,9 +200,9 @@ int htest(measurement_function_ptr fn, VIEKF& ekf, const VIEKF::measurement_type
     CALL_MEMBER_FN(ekf, fn)(x_prime, z_prime, dummy_H, id);
     
     if (type == VIEKF::QZETA)
-      d_dhdx.col(i) = q_feat_boxminus(Quat(z_prime), Quat(z0))/epsilon;
+      d_dhdx.col(i) = q_feat_boxminus(Quatd(z_prime), Quatd(z0))/epsilon;
     else if (type == VIEKF::ATT)
-      d_dhdx.col(i) = (Quat(z_prime) - Quat(z0))/epsilon;
+      d_dhdx.col(i) = (Quatd(z_prime) - Quatd(z0))/epsilon;
     else
       d_dhdx.col(i) = (z_prime.topRows(dim) - z0.topRows(dim))/epsilon;
   }
@@ -231,14 +231,14 @@ void XVECTOR_EQUAL(xVector& x1, xVector& x2)
   for (int i = 0; i < VIEKF::xATT; i++)
     EXPECT_NEAR(x1(i, 0), x2(i,0), 1e-8);
   
-  QUATERNION_EQUALS(Quat(x1.block<4,1>((int)VIEKF::xATT, 0)), Quat(x2.block<4,1>((int)VIEKF::xATT, 0)));
+  QUATERNION_EQUALS(Quatd(x1.block<4,1>((int)VIEKF::xATT, 0)), Quatd(x2.block<4,1>((int)VIEKF::xATT, 0)));
   
   for (int i = VIEKF::xB_A; i < VIEKF::xZ; i++)
     EXPECT_NEAR(x1(i, 0), x2(i,0), 1e-8);
   
   for (int i = 0; i < NUM_FEATURES; i++)
   {
-    VECTOR3_EQUALS(Quat(x1.block<4,1>(VIEKF::xZ+i*5,0)).rota(e_z), Quat(x2.block<4,1>(VIEKF::xZ+i*5,0)).rota(e_z));
+    VECTOR3_EQUALS(Quatd(x1.block<4,1>(VIEKF::xZ+i*5,0)).rota(e_z), Quatd(x2.block<4,1>(VIEKF::xZ+i*5,0)).rota(e_z));
     EXPECT_NEAR(x1(VIEKF::xZ+i*5+4), x1(VIEKF::xZ+i*5+4), 1e-8);
   }
 }
@@ -431,8 +431,8 @@ void VIEKF_KF_reset_test()
   {
     vi_ekf::VIEKF ekf = init_jacobians_test(xm, u0);
     ekf.keyframe_reset(xm, xp, a_dxpdxm);
-    Quat qm(xm.block<4,1>((int)VIEKF::xATT, 0));
-    Quat qp(xp.block<4,1>((int)VIEKF::xATT, 0));
+    Quatd qm(xm.block<4,1>((int)VIEKF::xATT, 0));
+    Quatd qp(xp.block<4,1>((int)VIEKF::xATT, 0));
     
     ASSERT_NEAR(qm.roll(), qp.roll(), 1e-8);
     ASSERT_NEAR(qm.pitch(), qp.pitch(), 1e-8);

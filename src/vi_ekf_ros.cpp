@@ -376,7 +376,7 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att, ros::Time time)
   // Initialize Truth
   if (!truth_init_)
   {
-    truth_att_ = Quat(z_att);
+    truth_att_ = Quatd(z_att);
     
     // Initialize the EKF to the origin in the Vicon frame, but then immediately keyframe reset to start at origin
     ekf_mtx_.lock();
@@ -412,7 +412,7 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att, ros::Time time)
   }
   
   // Low-pass filter Attitude (use manifold)
-  Quat y_t(z_att);  
+  Quatd y_t(z_att);
   truth_att_ = y_t + (truth_LPF_ * (truth_att_ - y_t));
   
   z_alt_ << -z_pos(2,0);

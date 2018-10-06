@@ -190,11 +190,11 @@ VIEKF::meas_result_t VIEKF::update(measurement_t& meas)
   zVector residual;
   if (meas.type == QZETA)
   {
-    residual.topRows(2) = q_feat_boxminus(Quat(meas.z), Quat(zhat_));
+    residual.topRows(2) = q_feat_boxminus(Quatd(meas.z), Quatd(zhat_));
   }
   else if (meas.type == ATT)
   {
-    residual.topRows(3) = Quat(meas.z) - Quat(zhat_);
+    residual.topRows(3) = Quatd(meas.z) - Quatd(zhat_);
   }
   else
   {

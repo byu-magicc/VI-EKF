@@ -46,7 +46,7 @@ void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<dou
   
   // set cam-to-body
   p_b_c_ = p_b_c;
-  q_b_c_ = Quat(q_b_c);
+  q_b_c_ = Quatd(q_b_c);
   
   // set camera intrinsics
   cam_center_ = cam_center;
@@ -145,7 +145,7 @@ MatrixXd VIEKF::get_zetas() const
   for (int i = 0; i < len_features_; i++)
   {
     Vector4d qzeta = x_[i_].block<4,1>(xZ + 5*i,0);
-    out.block<3,1>(0,i) = Quat(qzeta).rota(e_z);
+    out.block<3,1>(0,i) = Quatd(qzeta).rota(e_z);
   }
   return out;
 }
@@ -163,7 +163,7 @@ MatrixXd VIEKF::get_qzetas() const
 VectorXd VIEKF::get_zeta(const int i) const
 {
   Vector4d qzeta_i = x_[i_].block<4,1>(xZ + 5*i,0);
-  return Quat(qzeta_i).rota(e_z);
+  return Quatd(qzeta_i).rota(e_z);
 }
 
 double VIEKF::get_depth(const int id) const

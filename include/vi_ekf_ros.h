@@ -86,6 +86,7 @@ private:
 
   Vector6d imu_;
   Vector3d kf_pos_;
+  Vector3d init_pos_;
   Quatd kf_att_;
   Vector3d truth_pos_;
   Quatd truth_att_;

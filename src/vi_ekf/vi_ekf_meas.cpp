@@ -13,7 +13,7 @@ void VIEKF::handle_measurements(std::vector<int>* gated_feature_ids)
     return;
 
   // Find the oldest measurement that hasn't been handled yet
-  auto z_it = zbuf_.end() -1;
+  zBuf::iterator z_it = zbuf_.end() -1;
   while (z_it->handled == true && z_it != zbuf_.begin())
     z_it--;
 
@@ -23,20 +23,18 @@ void VIEKF::handle_measurements(std::vector<int>* gated_feature_ids)
 
 
   // Select the input which just before the measurement (so the measurement happened in the next interval))
-  auto u_it = u_.begin();
+  uBuf::iterator u_it = u_.begin();
   while (u_it != u_.end())
   {
-    if (z_it->t > u_it->t)
+    if (z_it->t > u_it->first)
       break;
     u_it++;
   }
-  if (z_it->t <= u_it->t)
+  if (z_it->t <= u_it->first)
   {
     cerr << "not enough history in input buffer to handle measurement" << endl;
     return;
   }
-
-
 
   // Rewind the state to just before the time indicated by the measurement
   int i = LEN_STATE_HIST;
@@ -53,13 +51,14 @@ void VIEKF::handle_measurements(std::vector<int>* gated_feature_ids)
   if (i == 0)
   {
     cerr << "not enough history in state buffer to handle measurement" << endl;
+    zbuf_.erase(z_it);
     return;
   }
 
   // Make sure everything is lined up
-  if (t_[i_] != (u_it-1)->t || t_[i_] != z_it->t)
+  if (t_[i_] > z_it->t || t_[i_] > u_it->first)
   {
-    cerr << "something is messed up\n";
+    cerr << "Time history misaligned\n";
   }
 
 
@@ -69,11 +68,11 @@ void VIEKF::handle_measurements(std::vector<int>* gated_feature_ids)
     u_it--;
 
     // While the current measurment occurred between the current time step and the next
-    while (z_it->t <= u_it->t)
+    while (z_it->t <= u_it->first)
     {
       // Propagate to the point of the measurement
       if (t_[i_] < z_it->t)
-        propagate_state(u_it->u, z_it->t, false);
+        propagate_state(u_it->second, z_it->t, false);
       else if (t_[i_] > z_it->t)
         cerr << "can't propagate backwards\n";
 
@@ -94,7 +93,7 @@ void VIEKF::handle_measurements(std::vector<int>* gated_feature_ids)
 
     }
     // Propagate to the time of the next input
-    propagate_state(u_it->u, u_it->t, false);
+    propagate_state(u_it->second, u_it->first, false);
   }
 
   // Clear any old measurements in the queue

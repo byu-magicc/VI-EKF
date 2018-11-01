@@ -32,6 +32,8 @@ void print_progress(double progress, double rate)
 int main(int argc, char * argv[])
 {
   string bag_filename = "";
+  string imu_topic = "";
+  string seen_imu_topic = "";
   bool realtime = false;
   bool verbose = false;
   double start_time = 0;
@@ -49,8 +51,18 @@ int main(int argc, char * argv[])
       cout << "\t -r \t\tRun bag in real time\n";
       cout << "\t -u DURATION\tduration to run bag (seconds)\n";
       cout << "\t -v Show Verbose Output\n";
+      cout << "\t -imu IMU topic to use\n";
       cout << endl;
       return 0;
+    }
+    else if (arg == "-imu")
+    {
+      if (i + 1 >= argc)
+      {
+        cout << "Please supply IMU topic" << endl;
+        return 0;
+      }
+      imu_topic = argv[++i];
     }
     else if (arg == "-f")
     {
@@ -183,22 +195,29 @@ int main(int argc, char * argv[])
     
     if (datatype.compare("sensor_msgs/Imu") == 0)
     {
+      if (!imu_topic.empty() && imu_topic.compare(m.getTopic()))
+        continue;
       const sensor_msgs::ImuConstPtr imu(m.instantiate<sensor_msgs::Imu>());
       node.imu_callback(imu);
+
+      if (!seen_imu_topic.empty() && seen_imu_topic.compare(m.getTopic()))
+        ROS_WARN_ONCE("Subscribed to Two IMU messages, use the -imu argument to specify IMU topic");
+
+      seen_imu_topic = m.getTopic();
     }
     
-    else if (datatype.compare("sensor_msgs/Image") == 0)
-    {
-      const sensor_msgs::ImageConstPtr image(m.instantiate<sensor_msgs::Image>());
-      if (m.getTopic().compare("depth") == 0)
-      {
-        node.depth_image_callback(image);
-      }
-      else
-      {
-        node.color_image_callback(image);
-      }
-    }
+//    else if (datatype.compare("sensor_msgs/Image") == 0)
+//    {
+//      const sensor_msgs::ImageConstPtr image(m.instantiate<sensor_msgs::Image>());
+//      if (m.getTopic().compare("depth") == 0)
+//      {
+//        node.depth_image_callback(image);
+//      }
+//      else
+//      {
+//        node.color_image_callback(image);
+//      }
+//    }
     
     else if (datatype.compare("geometry_msgs/PoseStamped") == 0)
     {

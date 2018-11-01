@@ -13,6 +13,7 @@
 #include <chrono>
 #include <iostream>
 #include <random>
+#include <tuple>
 
 #include "quat.h"
 #include "xform.h"
@@ -37,17 +38,17 @@ using namespace Eigen;
 
 #ifndef NUM_FEATURES
 #ifndef NDEBUG
-#define NUM_FEATURES 3
+#define NUM_FEATURES 0
 #else
-#define NUM_FEATURES 12
+#define NUM_FEATURES 0
 #endif
 #endif
 
 #define MAX_X 17+NUM_FEATURES*5
 #define MAX_DX 16+NUM_FEATURES*3
 
-#define LEN_STATE_HIST 25
-#define LEN_MEAS_HIST 20
+#define LEN_STATE_HIST 250
+#define LEN_MEAS_HIST 200
 
 typedef Matrix<double, MAX_X, 1> xVector;
 typedef Matrix<double, MAX_DX, 1> dxVector;
@@ -157,12 +158,8 @@ private:
   std::vector<double> t_;
 
   // Input Buffer
-  typedef struct
-  {
-    double t;
-    uVector u;
-  } input_t;
-  std::deque<input_t, aligned_allocator<input_t>> u_;
+  typedef std::deque<std::pair<double, uVector>, aligned_allocator<std::pair<double, uVector>>> uBuf;
+  uBuf u_;
 
   // Measurement Buffer
   typedef struct
@@ -178,7 +175,8 @@ private:
     int rdim;
     bool handled;
   } measurement_t;
-  std::deque<measurement_t, aligned_allocator<measurement_t>> zbuf_;
+  typedef std::deque<measurement_t, aligned_allocator<measurement_t>> zBuf;
+  zBuf zbuf_;
 
   // State and Covariance and Process Noise Matrices
   dxMatrix Qx_;

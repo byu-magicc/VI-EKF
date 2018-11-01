@@ -185,10 +185,7 @@ void VIEKF::propagate_state(const uVector &u, const double t, bool save_input)
 {
   if (save_input)
   {
-    input_t input;
-    input.t = t;
-    input.u = u;
-    u_.push_front(input);
+    u_.push_front(std::pair<double, uVector>{t, u});
   }
 
   if (std::isnan(start_t_))
@@ -225,7 +222,7 @@ void VIEKF::propagate_state(const uVector &u, const double t, bool save_input)
   NAN_CHECK;
   NEGATIVE_DEPTH;
   
-  log_state(t, x_[i_], P_[i_].diagonal(), u - x_[i_].block<6,1>(xB_A, 0), dx_);
+  log_state(t, x_[i_], P_[i_].diagonal(), u, dx_);
 }
 
 }

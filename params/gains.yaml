@@ -3,8 +3,8 @@
 P0: [0.001, 0.001, 0.001,
      0.001, 0.001, 0.001,
      0.001, 0.001, 0.001,
-     0.01, 0.01, 0.01,
-     0.01, 0.01, 0.01,
+     0.1, 0.1, 0.1,
+     0.1, 0.1, 0.1,
      0.01],
 P0_feat: [0.2, 0.2, 0.1],
 
@@ -46,9 +46,9 @@ imu_LPF: 0.0,
 truth_LPF: 0.0,
 
 ## Measurement Model Flags
-use_truth: false,
+use_truth: true,
 use_depth: false,
-use_features: true,
+use_features: false,
 use_acc: true,
 use_imu_att: false,
 use_alt: false,
@@ -56,7 +56,7 @@ use_alt: false,
 ## Feature Flags
 drag_term: true,
 partial_update: true,
-keyframe_reset: true,
+keyframe_reset: false,
 
 ## Tracking Paramters
 min_depth: 1.5,

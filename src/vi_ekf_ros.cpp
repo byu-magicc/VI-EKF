@@ -94,6 +94,7 @@ VIEKF_ROS::VIEKF_ROS() :
   // Initialize keyframe variables
   kf_att_ = Quatd::Identity();
   kf_pos_.setZero();
+  init_pos_.setZero();
   
   // Initialize the depth image to all NaNs
   depth_image_ = cv::Mat(image_size(0,0), image_size(1,0), CV_32FC1, cv::Scalar(NAN));
@@ -196,31 +197,38 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
   if (use_imu_att_)
     ekf_.add_measurement(t, z_att_, vi_ekf::VIEKF::ATT, att_R_, (use_truth_) ? true : use_imu_att_);
   ekf_mtx_.unlock();
+
+  if (odometry_pub_.getNumSubscribers() > 0)
+  {
+    odom_msg_.header.stamp = msg->header.stamp;
+    odom_msg_.pose.pose.position.x = ekf_.get_state()(vi_ekf::VIEKF::xPOS,0);
+    odom_msg_.pose.pose.position.y = ekf_.get_state()(vi_ekf::VIEKF::xPOS+1,0);
+    odom_msg_.pose.pose.position.z = ekf_.get_state()(vi_ekf::VIEKF::xPOS+2,0);
+    odom_msg_.pose.pose.orientation.w = ekf_.get_state()(vi_ekf::VIEKF::xATT,0);
+    odom_msg_.pose.pose.orientation.x = ekf_.get_state()(vi_ekf::VIEKF::xATT+1,0);
+    odom_msg_.pose.pose.orientation.y = ekf_.get_state()(vi_ekf::VIEKF::xATT+2,0);
+    odom_msg_.pose.pose.orientation.z = ekf_.get_state()(vi_ekf::VIEKF::xATT+3,0);
+    odom_msg_.twist.twist.linear.x = ekf_.get_state()(vi_ekf::VIEKF::xVEL,0);
+    odom_msg_.twist.twist.linear.y = ekf_.get_state()(vi_ekf::VIEKF::xVEL+1,0);
+    odom_msg_.twist.twist.linear.z = ekf_.get_state()(vi_ekf::VIEKF::xVEL+2,0);
+    odom_msg_.twist.twist.angular.x = imu_(3);
+    odom_msg_.twist.twist.angular.y = imu_(4);
+    odom_msg_.twist.twist.angular.z = imu_(5);
+    odometry_pub_.publish(odom_msg_);
+  }
   
-//  odom_msg_.header.stamp = msg->header.stamp;
-//  odom_msg_.pose.pose.position.x = ekf_.get_state()(vi_ekf::VIEKF::xPOS,0);
-//  odom_msg_.pose.pose.position.y = ekf_.get_state()(vi_ekf::VIEKF::xPOS+1,0);
-//  odom_msg_.pose.pose.position.z = ekf_.get_state()(vi_ekf::VIEKF::xPOS+2,0);
-//  odom_msg_.pose.pose.orientation.w = ekf_.get_state()(vi_ekf::VIEKF::xATT,0);
-//  odom_msg_.pose.pose.orientation.x = ekf_.get_state()(vi_ekf::VIEKF::xATT+1,0);
-//  odom_msg_.pose.pose.orientation.y = ekf_.get_state()(vi_ekf::VIEKF::xATT+2,0);
-//  odom_msg_.pose.pose.orientation.z = ekf_.get_state()(vi_ekf::VIEKF::xATT+3,0);
-//  odom_msg_.twist.twist.linear.x = ekf_.get_state()(vi_ekf::VIEKF::xVEL,0);
-//  odom_msg_.twist.twist.linear.y = ekf_.get_state()(vi_ekf::VIEKF::xVEL+1,0);
-//  odom_msg_.twist.twist.linear.z = ekf_.get_state()(vi_ekf::VIEKF::xVEL+2,0);
-//  odom_msg_.twist.twist.angular.x = imu_(3);
-//  odom_msg_.twist.twist.angular.y = imu_(4);
-//  odom_msg_.twist.twist.angular.z = imu_(5);
-//  odometry_pub_.publish(odom_msg_);
-  
-//  bias_msg_.header = msg->header;
-//  bias_msg_.linear_acceleration.x = ekf_.get_state()(vi_ekf::VIEKF::xB_A, 0);
-//  bias_msg_.linear_acceleration.y = ekf_.get_state()(vi_ekf::VIEKF::xB_A+1, 0);
-//  bias_msg_.linear_acceleration.z = ekf_.get_state()(vi_ekf::VIEKF::xB_A+2, 0);
-//  bias_msg_.angular_velocity.x = ekf_.get_state()(vi_ekf::VIEKF::xB_G, 0);
-//  bias_msg_.angular_velocity.y = ekf_.get_state()(vi_ekf::VIEKF::xB_G+1, 0);
-//  bias_msg_.angular_velocity.z = ekf_.get_state()(vi_ekf::VIEKF::xB_G+2, 0);
-//  bias_pub_.publish(bias_msg_);
+  if (bias_pub_.getNumSubscribers() > 0)
+  {
+    bias_msg_.header = msg->header;
+    bias_msg_.linear_acceleration.x = ekf_.get_state()(vi_ekf::VIEKF::xB_A, 0);
+    bias_msg_.linear_acceleration.y = ekf_.get_state()(vi_ekf::VIEKF::xB_A+1, 0);
+    bias_msg_.linear_acceleration.z = ekf_.get_state()(vi_ekf::VIEKF::xB_A+2, 0);
+    bias_msg_.angular_velocity.x = ekf_.get_state()(vi_ekf::VIEKF::xB_G, 0);
+    bias_msg_.angular_velocity.y = ekf_.get_state()(vi_ekf::VIEKF::xB_G+1, 0);
+    bias_msg_.angular_velocity.z = ekf_.get_state()(vi_ekf::VIEKF::xB_G+2, 0);
+    bias_pub_.publish(bias_msg_);
+  }
+
 }
 
 void VIEKF_ROS::keyframe_reset_callback()
@@ -386,6 +394,8 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att, ros::Time time)
     ekf_.set_x0(x0);
     ekf_.keyframe_reset();
     ekf_mtx_.unlock();
+
+    init_pos_ = z_pos;
     
     truth_init_ = true;
     return;
@@ -394,12 +404,13 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att, ros::Time time)
   // Decide whether we are flying or not
   if (!is_flying_)
   {
-    Vector3d error = truth_pos_ - kf_pos_;
-    // If we have moved a centimeter, then assume we are flying
-    if (error.norm() > 1e-2)
+    Vector3d error = truth_pos_ - init_pos_;
+    // If we have moved 3 centimeter, then assume we are flying
+    if (error.norm() > 3e-2)
     {
       is_flying_ = true;
       time_took_off_ = time;
+      cout << "took off!" << endl;
       // The drag term is now valid, activate it if we are supposed to use it.
     }
   }
@@ -434,7 +445,18 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att, ros::Time time)
   ekf_mtx_.lock();
   ekf_.add_measurement(t, z_pos, vi_ekf::VIEKF::POS, pos_R_, truth_active);
   ekf_.add_measurement(t, z_att, vi_ekf::VIEKF::ATT, att_R_, truth_active);
+  ekf_.handle_measurements();
   ekf_mtx_.unlock();
+
+  // Apply a zero-velocity update if we haven't started flying (helps accelerometer and gyro biases converge)
+  if (!is_flying_)
+  {
+    ekf_mtx_.lock();
+    Vector3d meas = Vector3d::Zero();
+    Matrix3d R = Matrix3d::Identity() * 1e-8;
+    ekf_.add_measurement(t, meas, vi_ekf::VIEKF::VEL, R, true);
+    ekf_mtx_.unlock();
+  }
   
   // Perform Altitude Measurement
   ekf_mtx_.lock();

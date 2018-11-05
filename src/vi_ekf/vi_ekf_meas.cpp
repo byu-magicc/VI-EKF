@@ -297,7 +297,7 @@ void VIEKF::h_alt(const xVector& x, zVector& h, hMatrix& H, const int id) const
 void VIEKF::h_att(const xVector& x, zVector& h, hMatrix& H, const int id) const
 {
   (void)id;
-  h = x.block<4,1>((int)xATT, 0);
+  h.topRows(4) = x.block<4,1>((int)xATT, 0);
   
   H.setZero();
   H.block<3,3>(0, dxATT) = I_3x3;
@@ -309,7 +309,7 @@ void VIEKF::h_pos(const xVector& x, zVector& h, hMatrix& H, const int id) const
   h.topRows(3) = x.block<3,1>((int)xPOS,0);
   
   H.setZero();
-  H.block<3,3>(0, (int)xPOS) = I_3x3;
+  H.block<3,3>(0, (int)dxPOS) = I_3x3;
 }
 
 void VIEKF::h_vel(const xVector& x, zVector& h, hMatrix& H, const int id) const
@@ -325,7 +325,7 @@ void VIEKF::h_qzeta(const xVector& x, zVector& h, hMatrix &H, const int id) cons
 {
   int i = global_to_local_feature_id(id);
   
-  h = x.block<4,1>(xZ+i*5, 0);
+  h.topRows(4) = x.block<4,1>(xZ+i*5, 0);
   
   H.setZero();
   H.block<2,2>(0, dxZ + i*3) = I_2x2;
@@ -371,6 +371,8 @@ void VIEKF::h_gps(const xVector &x, zVector &h, hMatrix &H, const int id) const
 
   /// HAYDEN - PUT THE MEASUREMENT MODEL HERE [p_B/E^E; v_B/E^E]
   h.setZero();
+  h.topRows(3) = x.segment<3>(xPOS);
+  h.bottomRows(3) = x.segment<3>(xVEL);
   H.setZero();
 }
 

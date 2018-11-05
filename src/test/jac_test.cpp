@@ -401,6 +401,7 @@ void VI_EKF_h_test()
     ASSERT_FALSE(htest(&VIEKF::h_att, ekf, VIEKF::ATT, 0, 3));
     ekf.set_drag_term(false);
     ASSERT_FALSE(htest(&VIEKF::h_att, ekf, VIEKF::ATT, 0, 3));
+    ASSERT_FALSE(htest(&VIEKF::h_gps, ekf, VIEKF::GPS, 0, 3));
     for (int i = 0; i < ekf.get_len_features(); i++)
     {
       EXPECT_FALSE(htest(&VIEKF::h_feat, ekf, VIEKF::FEAT, i, 2, 1e-1));

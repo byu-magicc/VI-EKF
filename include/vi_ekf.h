@@ -282,7 +282,7 @@ public:
   void set_x0(const Matrix<double, xZ, 1>& _x0);
   void set_imu_bias(const Vector3d& b_g, const Vector3d& b_a);
   void set_drag_term(const bool use_drag_term) { use_drag_term_ = use_drag_term; }
-  void set_ecef_to_NED_transform(const Xformd& T_e_I) { T_e_I_ = t_e_I; }
+  void set_ecef_to_NED_transform(const Xformd& T_e_I) { T_e_I_ = T_e_I; }
   bool get_drag_term() const { return use_drag_term_; }
   bool get_keyframe_reset() const { return keyframe_reset_; }
 

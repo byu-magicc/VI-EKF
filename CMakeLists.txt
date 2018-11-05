@@ -4,7 +4,8 @@ project(vi_ekf)
 set(CMAKE_CXX_FLAGS "-std=c++17 -mavx -mfma")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-find_package(catkin REQUIRED COMPONENTS
+find_package(catkin REQUIRED
+COMPONENTS
   roscpp
   rospy
   sensor_msgs
@@ -13,6 +14,9 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   nav_msgs
   rosbag
+OPTIONAL_COMPONENTS
+  rosflight_msgs
+  inertial_sense
 )
 find_package(Boost REQUIRED COMPONENTS system thread)
 find_package(Eigen3 REQUIRED)

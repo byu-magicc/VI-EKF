@@ -57,8 +57,8 @@ typedef Matrix<double, MAX_DX, MAX_DX> dxMatrix;
 typedef Matrix<double, MAX_DX, 6> dxuMatrix;
 typedef Matrix<double, 6, 1> uVector;
 typedef Matrix<double, 6, 6> Matrix6d;
-typedef Matrix<double, 4, 1> zVector;
-typedef Matrix<double, 3, MAX_DX> hMatrix;
+typedef Matrix<double, 6, 1> zVector;
+typedef Matrix<double, 6, MAX_DX> hMatrix;
 
 namespace vi_ekf
 {
@@ -119,6 +119,7 @@ public:
     QZETA,
     FEAT,
     PIXEL_VEL,
+    GPS,
     DEPTH,
     INV_DEPTH,
     TOTAL_MEAS
@@ -224,6 +225,8 @@ private:
   Quatd q_b_c_;
   Vector3d p_b_c_;
 
+  Xformd T_e_I_; // The transform from ECEF to the local NED frame
+
   Matrix6d global_pose_cov_;
   Xformd current_node_global_pose_;
   std::default_random_engine generator_;
@@ -278,9 +281,10 @@ public:
 
   void set_x0(const Matrix<double, xZ, 1>& _x0);
   void set_imu_bias(const Vector3d& b_g, const Vector3d& b_a);
-  void set_drag_term(const bool use_drag_term) {use_drag_term_ = use_drag_term;}
-  bool get_drag_term() const {return use_drag_term_;}
-  bool get_keyframe_reset() const {return keyframe_reset_;}
+  void set_drag_term(const bool use_drag_term) { use_drag_term_ = use_drag_term; }
+  void set_ecef_to_NED_transform(const Xformd& T_e_I) { T_e_I_ = t_e_I; }
+  bool get_drag_term() const { return use_drag_term_; }
+  bool get_keyframe_reset() const { return keyframe_reset_; }
 
   bool init_feature(const Vector2d &l, const int id, const double depth=-1.0);
   void clear_feature(const int id);
@@ -308,6 +312,7 @@ public:
   void h_depth(const xVector& x, zVector& h, hMatrix& H, const int id) const;
   void h_inv_depth(const xVector& x, zVector& h, hMatrix& H, const int id) const;
   void h_pixel_vel(const xVector& x, zVector& h, hMatrix& H, const int id) const;
+  void h_gps(const xVector& x, zVector& h, hMatrix& H, const int id) const;
 
   // Keyframe Reset
   void propagate_global_covariance(const Matrix6d &P_prev, const edge_t& edge, Matrix6d &P_new) const;
@@ -341,6 +346,7 @@ static std::vector<std::string> measurement_names = [] {
   tmp[VIEKF::DEPTH] = "DEPTH";
   tmp[VIEKF::INV_DEPTH] = "INV_DEPTH";
   tmp[VIEKF::PIXEL_VEL] = "PIXEL_VEL";
+  tmp[VIEKF::GPS] = "GPS";
   return tmp;
 }();
 
@@ -357,6 +363,7 @@ static std::vector<measurement_function_ptr> measurement_functions = [] {
   tmp[VIEKF::DEPTH] = &VIEKF::h_depth;
   tmp[VIEKF::INV_DEPTH] = &VIEKF::h_inv_depth;
   tmp[VIEKF::PIXEL_VEL] = &VIEKF::h_pixel_vel;
+  tmp[VIEKF::GPS] = &VIEKF::h_gps;
   return tmp;
 }();
 

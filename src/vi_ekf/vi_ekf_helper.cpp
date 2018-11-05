@@ -84,7 +84,6 @@ void VIEKF::load(std::string ekf_file, std::string common_file, bool use_logger,
 }
 #endif
 
-
 void VIEKF::boxplus(const xVector& x, const dxVector& dx, xVector& out) const
 {
   out.block<6,1>((int)xPOS, 0) = x.block<6,1>((int)xPOS, 0) + dx.block<6,1>((int)dxPOS, 0);
@@ -123,7 +122,6 @@ int VIEKF::global_to_local_feature_id(const int global_id) const
     return -1;
   }
 }
-
 
 void VIEKF::fix_depth()
 {

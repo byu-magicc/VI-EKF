@@ -365,6 +365,15 @@ void VIEKF::h_inv_depth(const xVector& x, zVector& h, hMatrix& H, const int id) 
   H(0, dxZ+3*i+2) = 1.0;
 }
 
+void VIEKF::h_gps(const xVector &x, zVector &h, hMatrix &H, const int id) const
+{
+  (void)id; // tell the compiler we aren't using this variable so it doesn't get mad at us
+
+  /// HAYDEN - PUT THE MEASUREMENT MODEL HERE [p_B/E^E; v_B/E^E]
+  h.setZero();
+  H.setZero();
+}
+
 void VIEKF::h_pixel_vel(const xVector& x, zVector& h, hMatrix& H, const int id) const
 {
   (void)x;

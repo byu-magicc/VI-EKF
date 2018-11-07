@@ -72,6 +72,7 @@ VIEKF_ROS::VIEKF_ROS() :
   ROS_FATAL_COND(!nh_private_.getParam("keyframe_overlap", keyframe_overlap), "you need to specify the 'keyframe_overlap' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("feature_radius", feature_radius), "you need to specify the 'feature_radius' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("cov_prop_skips", cov_prop_skips), "you need to specify the 'cov_prop_skips' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("sync_time_samples", num_sync_time_samples_), "you need to specify the 'sync_time_samples' parameter");
   
   num_features_ = (num_features_ > NUM_FEATURES) ? NUM_FEATURES : num_features_;
   
@@ -134,6 +135,7 @@ VIEKF_ROS::VIEKF_ROS() :
   // Wait for truth to initialize pose
   imu_init_ = false;
   truth_init_ = false;
+  time_took_off_.fromSec(1e9);
   
   odom_msg_.header.frame_id = "body";
   
@@ -167,29 +169,34 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
     start_time_ = msg->header.stamp;
     return;
   }
+  imu_time_ = msg->header.stamp;
+  if (!time_sync_complete_)
+    return;
+
   double t = (msg->header.stamp - start_time_).toSec();
   
+
   // Propagate filter
   ekf_mtx_.lock();
   ekf_.propagate_state(imu_, t);
   ekf_mtx_.unlock();
 
   
-  // update accelerometer measurement
-  ekf_mtx_.lock();
-  if (ekf_.get_drag_term() == true)
-  {
-    z_acc_drag_ = imu_.block<2,1>(0, 0);
-    ekf_.add_measurement(t, z_acc_drag_, vi_ekf::VIEKF::ACC, acc_R_drag_, use_acc_ && is_flying_);
-  }
-  else
-  {
-    z_acc_grav_ = imu_.block<3,1>(0, 0);
-    double norm = z_acc_grav_.norm();
-    if (norm < 9.80665 * 1.15 && norm > 9.80665 * 0.85)
-      ekf_.add_measurement(t, z_acc_grav_, vi_ekf::VIEKF::ACC, acc_R_grav_, use_acc_);
-  }
-    ekf_mtx_.unlock();
+//  // update accelerometer measurement
+//  ekf_mtx_.lock();
+//  if (ekf_.get_drag_term() == true)
+//  {
+//    z_acc_drag_ = imu_.block<2,1>(0, 0);
+//    ekf_.add_measurement(t, z_acc_drag_, vi_ekf::VIEKF::ACC, acc_R_drag_, use_acc_ && is_flying_);
+//  }
+//  else
+//  {
+//    z_acc_grav_ = imu_.block<3,1>(0, 0);
+//    double norm = z_acc_grav_.norm();
+//    if (norm < 9.80665 * 1.15 && norm > 9.80665 * 0.85)
+//      ekf_.add_measurement(t, z_acc_grav_, vi_ekf::VIEKF::ACC, acc_R_grav_, use_acc_);
+//  }
+//    ekf_mtx_.unlock();
   
   // update attitude measurement
   z_att_ << msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z;
@@ -380,10 +387,13 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att, ros::Time time)
   }
   
   truth_pos_ = z_pos;
+
+  double t = (time - start_time_).toSec();
   
   // Initialize Truth
   if (!truth_init_)
   {
+
     truth_att_ = Quatd(z_att);
     
     // Initialize the EKF to the origin in the Vicon frame, but then immediately keyframe reset to start at origin
@@ -396,10 +406,30 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att, ros::Time time)
     ekf_mtx_.unlock();
 
     init_pos_ = z_pos;
-    
     truth_init_ = true;
+  }
+
+  if (!time_sync_complete_)
+  {
+    if (!imu_init_)
+      return;
+    if (++time_sync_samples_ < num_sync_time_samples_)
+    {
+      double offset = (time - imu_time_).toSec();
+      min_offset_ = (fabs(offset) < min_offset_) ? offset : min_offset_;
+    }
+    else
+    {
+      time_sync_complete_ = true;
+      if (!isfinite(min_offset_))
+      {
+        min_offset_ = 0;
+      }
+    }
     return;
   }
+
+  t -= min_offset_;
   
   // Decide whether we are flying or not
   if (!is_flying_)
@@ -415,7 +445,7 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att, ros::Time time)
     }
   }
   
-  if (time > time_took_off_ + ros::Duration(10.0))
+  if (time > time_took_off_ + ros::Duration(1.0))
   {
     // After 1 second of flying, turn on the drag term if we are supposed to
     if (use_drag_term_ == true && ekf_.get_drag_term() ==  false)
@@ -440,7 +470,7 @@ void VIEKF_ROS::truth_callback(Vector3d& z_pos, Vector4d& z_att, ros::Time time)
   
   bool truth_active = (use_truth_ || !is_flying_);
 
-  double t = (time - start_time_).toSec();
+
   
   ekf_mtx_.lock();
   ekf_.add_measurement(t, z_pos, vi_ekf::VIEKF::POS, pos_R_, truth_active);

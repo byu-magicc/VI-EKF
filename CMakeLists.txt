@@ -3,6 +3,7 @@ project(vi_ekf)
 
 set(CMAKE_CXX_FLAGS "-std=c++17 -mavx -mfma")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+add_definitions("-DNUM_FEATURES=0")
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp

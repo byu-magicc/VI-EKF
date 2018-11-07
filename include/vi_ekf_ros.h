@@ -118,7 +118,14 @@ private:
   Matrix3d pos_R_;
   Matrix3d vel_R_;
   Matrix1d depth_R_;
-  
+
+  // Mocap Time Sync
+  int time_sync_samples_ = 0;
+  int num_sync_time_samples_;
+  double min_offset_ = INFINITY;
+  bool time_sync_complete_ = false;
+  ros::Time imu_time_;
+
   bool record_video_;
   cv::VideoWriter video_;
 };

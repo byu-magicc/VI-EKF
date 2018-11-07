@@ -7,7 +7,6 @@ void VIEKF::handle_measurements(std::vector<int>* gated_feature_ids)
 {
   if (gated_feature_ids)
     gated_feature_ids->clear();
-  double t_now = t_[i_];
 
   if (zbuf_.size() == 0)
     return;
@@ -56,7 +55,7 @@ void VIEKF::handle_measurements(std::vector<int>* gated_feature_ids)
   }
 
   // Make sure everything is lined up
-  if (t_[i_] > z_it->t || t_[i_] > u_it->first)
+  if (t_[i_] > z_it->t || t_[i_] < u_it->first)
   {
     cerr << "Time history misaligned\n";
   }
@@ -74,18 +73,17 @@ void VIEKF::handle_measurements(std::vector<int>* gated_feature_ids)
       if (t_[i_] < z_it->t)
         propagate_state(u_it->second, z_it->t, false);
       else if (t_[i_] > z_it->t)
-        cerr << "can't propagate backwards\n";
-
-      // Perform the measurement
-      if (z_it->handled)
-        cerr << "trying to handle measurement again\n";
+      {
+//        cerr << "can't propagate backwards\n";
+      }
       else
       {
+        // Perform the measurement
         meas_result_t result = update(*z_it);
-
         if (gated_feature_ids != nullptr && result == MEAS_GATED && z_it->type == FEAT)
           gated_feature_ids->push_back(z_it->id);
       }
+
       if (z_it != zbuf_.begin())
         z_it--; // Perform the next measurement in this interval
       else

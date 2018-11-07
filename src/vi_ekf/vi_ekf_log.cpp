@@ -95,15 +95,25 @@ void VIEKF::init_logger(string root_filename, string prefix)
   // Save configuration
   (*log_)[LOG_CONF] << "Test Num: " << root_filename << "\n";
   (*log_)[LOG_CONF] << "x0" << x_[i_].block<(int)xZ, 1>(0,0).transpose() << "\n";
-  (*log_)[LOG_CONF] << "P0: " << P_[i_].diagonal().block<(int)xZ, 1>(0,0).transpose() << "\n";
-  (*log_)[LOG_CONF] << "P0_feat: " << P0_feat_.diagonal().transpose() << "\n";
+  (*log_)[LOG_CONF] << "P0: " << P_[i_].diagonal().block<(int)dxZ, 1>(0,0).transpose() << "\n";
+  if (NUM_FEATURES)
+    (*log_)[LOG_CONF] << "P0_feat: " << P0_feat_.diagonal().transpose() << "\n";
+  else
+    (*log_)[LOG_CONF] << "P0_feat: " << "0, 0, 0" << "\n";
   (*log_)[LOG_CONF] << "Qx: " << Qx_.diagonal().block<(int)dxZ, 1>(0,0).transpose() << "\n";
-  (*log_)[LOG_CONF] << "Qx_feat: " << Qx_.diagonal().block<3, 1>((int)dxZ,0).transpose() << "\n";
+  if (NUM_FEATURES)
+    (*log_)[LOG_CONF] << "Qx_feat: " << Qx_.diagonal().block<3, 1>((int)dxZ,0).transpose() << "\n";
+  else
+    (*log_)[LOG_CONF] << "Qx_feat: " << "0, 0, 0" << "\n";
+
   (*log_)[LOG_CONF] << "Qu: " << Qu_.diagonal().transpose() << "\n";
   (*log_)[LOG_CONF] << "q_b_c: " << q_b_c_.arr_.transpose() << "\n";
   (*log_)[LOG_CONF] << "p_b_c: " << p_b_c_.transpose() << "\n";
   (*log_)[LOG_CONF] << "lambda: " << lambda_.block<(int)dxZ,1>(0,0).transpose() << "\n";
-  (*log_)[LOG_CONF] << "lambda_feat: " << lambda_.block<3,1>((int)dxZ,0).transpose() << "\n";
+  if (NUM_FEATURES)
+    (*log_)[LOG_CONF] << "lambda_feat: " << lambda_.block<3,1>((int)dxZ,0).transpose() << "\n";
+  else
+    (*log_)[LOG_CONF] << "lambda_feat: " << "0, 0, 0" << "\n";
   (*log_)[LOG_CONF] << "partial_update: " << partial_update_ << "\n";
   (*log_)[LOG_CONF] << "keyframe reset: " << keyframe_reset_ << "\n";
   (*log_)[LOG_CONF] << "Using Drag Term: " << use_drag_term_ << "\n";

@@ -54,8 +54,8 @@ use_imu_att: false,
 use_alt: false,
 
 ## Feature Flags
-drag_term: true,
-partial_update: true,
+drag_term: false,
+partial_update: false,
 keyframe_reset: false,
 
 ## Tracking Paramters
@@ -63,6 +63,10 @@ min_depth: 1.5,
 keyframe_overlap: 0.8,
 num_features: 20,
 feature_radius: 45,
+
+sync_time_samples: 20,
+cov_prop_skips: 1,
+
 
 ## CPU Threads
 num_threads: 1,

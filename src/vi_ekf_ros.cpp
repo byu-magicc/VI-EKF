@@ -8,7 +8,7 @@ VIEKF_ROS::VIEKF_ROS() :
   imu_sub_ = nh_.subscribe("imu", 500, &VIEKF_ROS::imu_callback, this);
   pose_sub_ = nh_.subscribe("truth/pose", 10, &VIEKF_ROS::pose_truth_callback, this);
   transform_sub_ = nh_.subscribe("truth/transform", 10, &VIEKF_ROS::transform_truth_callback, this);
-//  odometry_pub_ = nh_.advertise<nav_msgs::Odometry>("odom", 1);
+  odometry_pub_ = nh_.advertise<nav_msgs::Odometry>("odom", 1);
 //  bias_pub_ = nh_.advertise<sensor_msgs::Imu>("imu/bias", 1);
   
   image_sub_ = it_.subscribe("color", 10, &VIEKF_ROS::color_image_callback, this);

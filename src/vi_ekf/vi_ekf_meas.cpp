@@ -31,12 +31,14 @@ void VIEKF::handle_measurements(std::vector<int>* gated_feature_ids)
   }
   if (z_it->t <= u_it->first)
   {
-    cerr << "not enough history in input buffer to handle measurement" << endl;
+    cerr << "not enough history in input buffer to handle measurement: needed "
+         << z_it->t - t_[i_] << "s of buffer, you have " << u_it->first - u_.begin()->first << "s" << endl;
     return;
   }
 
   // Rewind the state to just before the time indicated by the measurement
   int i = LEN_STATE_HIST;
+  double t_now = t_[i_];
   while (i > 0)
   {
     if (t_[(i_ + i) % LEN_STATE_HIST] <= z_it->t)
@@ -49,7 +51,8 @@ void VIEKF::handle_measurements(std::vector<int>* gated_feature_ids)
   }
   if (i == 0)
   {
-    cerr << "not enough history in state buffer to handle measurement" << endl;
+    cerr << "not enough history in state buffer to handle measurement: needed " << t_now - z_it->t
+         << "s of buffer, you have " << t_now - t_[(i_ + 1) % LEN_STATE_HIST] << "s" << endl;
     zbuf_.erase(z_it);
     return;
   }

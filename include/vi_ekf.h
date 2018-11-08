@@ -48,7 +48,7 @@ using namespace Eigen;
 #define MAX_DX 16+NUM_FEATURES*3
 
 #define LEN_STATE_HIST 250
-#define LEN_MEAS_HIST 200
+#define LEN_MEAS_HIST 2
 
 typedef Matrix<double, MAX_X, 1> xVector;
 typedef Matrix<double, MAX_DX, 1> dxVector;

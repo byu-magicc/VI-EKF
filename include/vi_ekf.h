@@ -224,6 +224,7 @@ private:
   Quatd q_b_c_;
   Vector3d p_b_c_;
 
+  double gating_threshold_;
   Matrix6d global_pose_cov_;
   Xformd current_node_global_pose_;
   std::default_random_engine generator_;
@@ -245,7 +246,8 @@ public:
             Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,
             Vector3d& lambda_feat, Vector2d& cam_center, Vector2d& focal_len,
             Vector4d& q_b_c, Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term,
-            bool partial_update, bool use_keyframe_reset, double keyframe_overlap, int cov_prop_skips, string prefix="");
+            bool partial_update, bool use_keyframe_reset, double keyframe_overlap, int cov_prop_skips,
+            double gating_threshold, string prefix="");
 
   inline double now() const
   {

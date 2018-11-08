@@ -64,9 +64,9 @@ keyframe_overlap: 0.8,
 num_features: 20,
 feature_radius: 45,
 
-sync_time_samples: 20,
+sync_time_samples: 30,
 cov_prop_skips: 1,
-
+gating_threshold: 16,
 
 ## CPU Threads
 num_threads: 1,

@@ -56,7 +56,7 @@ VIEKF_ROS::VIEKF_ROS() :
   importMatrixFromParamServer(nh_private_, image_size, "image_size");
   q_b_IMU_.arr_ = q_b_IMU;
   q_I_truth_.arr_ = q_I_truth;
-  double depth_r, alt_r, keyframe_overlap;
+  double depth_r, alt_r, keyframe_overlap, gating_threshold;
   bool partial_update, keyframe_reset;
   int feature_radius, cov_prop_skips;
   ROS_FATAL_COND(!nh_private_.getParam("depth_R", depth_r), "you need to specify the 'depth_R' parameter");
@@ -73,6 +73,7 @@ VIEKF_ROS::VIEKF_ROS() :
   ROS_FATAL_COND(!nh_private_.getParam("feature_radius", feature_radius), "you need to specify the 'feature_radius' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("cov_prop_skips", cov_prop_skips), "you need to specify the 'cov_prop_skips' parameter");
   ROS_FATAL_COND(!nh_private_.getParam("sync_time_samples", num_sync_time_samples_), "you need to specify the 'sync_time_samples' parameter");
+  ROS_FATAL_COND(!nh_private_.getParam("gating_threshold", gating_threshold), "you need to specify the 'gating_threshold' parameter");
   
   num_features_ = (num_features_ > NUM_FEATURES) ? NUM_FEATURES : num_features_;
   
@@ -80,7 +81,7 @@ VIEKF_ROS::VIEKF_ROS() :
   
   ekf_.init(x0, P0diag, Qxdiag, lambda, Qudiag, P0feat, Qxfeat, lambdafeat,
             cam_center, focal_len, q_b_c, p_b_c, min_depth_, log_directory, 
-            use_drag_term_, partial_update, keyframe_reset, keyframe_overlap, cov_prop_skips);
+            use_drag_term_, partial_update, keyframe_reset, keyframe_overlap, cov_prop_skips, gating_threshold);
   ekf_.register_keyframe_reset_callback(std::bind(&VIEKF_ROS::keyframe_reset_callback, this));
   
   is_flying_ = false; // Start out not flying
@@ -159,7 +160,8 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
   u_.block<3,1>(3,0) = q_b_IMU_.rotp(u_.block<3,1>(3,0));
   
   imu_ = (1. - IMU_LPF_) * u_ + IMU_LPF_ * imu_;
-  
+  imu_time_ = msg->header.stamp;
+
   if (!truth_init_)
     return;
   else if (!imu_init_)
@@ -169,7 +171,6 @@ void VIEKF_ROS::imu_callback(const sensor_msgs::ImuConstPtr &msg)
     start_time_ = msg->header.stamp;
     return;
   }
-  imu_time_ = msg->header.stamp;
   if (!time_sync_complete_)
     return;
 

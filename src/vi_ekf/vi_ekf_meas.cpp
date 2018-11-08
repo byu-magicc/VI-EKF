@@ -80,8 +80,12 @@ void VIEKF::handle_measurements(std::vector<int>* gated_feature_ids)
       {
         // Perform the measurement
         meas_result_t result = update(*z_it);
-        if (gated_feature_ids != nullptr && result == MEAS_GATED && z_it->type == FEAT)
-          gated_feature_ids->push_back(z_it->id);
+        if (result == MEAS_GATED)
+        {
+          cerr << "gating " << measurement_names[z_it->type] << " measurement\n";
+          if (gated_feature_ids != nullptr && z_it->type == FEAT)
+            gated_feature_ids->push_back(z_it->id);
+        }
       }
 
       if (z_it != zbuf_.begin())
@@ -210,7 +214,7 @@ VIEKF::meas_result_t VIEKF::update(measurement_t& meas)
     auto innov =  (H * P_[i_] * H.transpose() + R).inverse();
 
     double mahal = res.transpose() * innov * res;
-    if (mahal > 9.0)
+    if (mahal > gating_threshold_)
     {
       //      std::cout << "gating " << measurement_names[meas_type] << " measurement: " << mahal << std::endl;
       return MEAS_GATED;
@@ -251,7 +255,7 @@ VIEKF::meas_result_t VIEKF::update(measurement_t& meas)
   NAN_CHECK;
   NEGATIVE_DEPTH;
   
-  log_measurement(meas.type, t_[i_] - start_t_, meas.zdim, meas.z, zhat_, meas.active, meas.id);
+  log_measurement(meas.type, t_[i_], meas.zdim, meas.z, zhat_, meas.active, meas.id);
   return MEAS_SUCCESS;
 }
 

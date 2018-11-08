@@ -9,7 +9,7 @@ void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<dou
                  Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,
                  Vector3d& lambda_feat, Vector2d &cam_center, Vector2d &focal_len, Vector4d &q_b_c,
                  Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, bool partial_update,
-                 bool use_keyframe_reset, double keyframe_overlap, int cov_prop_skips, std::string prefix)
+                 bool use_keyframe_reset, double keyframe_overlap, int cov_prop_skips, double gating_threshold, std::string prefix)
 {
   x_.resize(LEN_STATE_HIST);
   P_.resize(LEN_STATE_HIST);
@@ -68,6 +68,7 @@ void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<dou
   keyframe_features_.clear();
   edges_.clear();
   keyframe_reset_callback_ = nullptr;
+  gating_threshold_ = gating_threshold;
   
   if (log_directory.compare("~") != 0)
     init_logger(log_directory);

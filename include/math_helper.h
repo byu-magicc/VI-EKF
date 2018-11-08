@@ -1,8 +1,7 @@
 #pragma once
 
 #include "math.h"
-#include "quat.h"
-#include "support.h"
+#include "geometry/xform.h"
 
 #include <random>
 

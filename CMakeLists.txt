@@ -26,12 +26,6 @@ catkin_package(
     CATKIN_DEPENDS roscpp sensor_msgs image_transport cv_bridge geometry_msgs nav_msgs
 )
 
-if (NOT TARGET geometry)
-    add_subdirectory(lib/geometry)
-    include_directories(lib/geometry/include)
-endif()
-
-
 ###########
 ## Build ##
 ###########
@@ -49,6 +43,7 @@ add_library(math_helper
         src/math_helper.cpp
         include/math_helper.h
 )
+target_include_directories(math_helper PUBLIC lib/geometry/include)
 
 add_library(vi_ekf STATIC
   src/vi_ekf/vi_ekf.cpp
@@ -61,20 +56,24 @@ add_library(vi_ekf STATIC
   src/vi_ekf/vi_ekf_dyn.cpp
   include/vi_ekf.h
 )
-target_link_libraries(vi_ekf math_helper ${YAML_CPP_LIBRARIES} geometry)
-
+target_link_libraries(vi_ekf math_helper ${YAML_CPP_LIBRARIES})
+target_include_directories(vi_ekf INTERFACE lib/geometry/include)
 add_library(klt_tracker
   src/klt_tracker.cpp
   include/klt_tracker.h
 )
 
 add_executable(jac_test src/test/jac_test.cpp)
-target_link_libraries(jac_test ${GTEST_LIBRARIES} pthread vi_ekf geometry)
+target_include_directories(jac_test INTERFACE lib/geometry/include)
+target_link_libraries(jac_test ${GTEST_LIBRARIES} pthread vi_ekf)
 
 add_library(vi_ekf_ros
   src/vi_ekf_ros.cpp
   include/vi_ekf_ros.h
   include/eigen_helpers.h
+)
+target_include_directories(vi_ekf_ros INTERFACE
+    lib/geometry/include
 )
 target_link_libraries(vi_ekf_ros
   ${catkin_LIBRARIES}
@@ -86,18 +85,20 @@ target_link_libraries(vi_ekf_ros
 add_executable(vi_ekf_node
   src/vi_ekf_node.cpp
   )
+target_include_directories(vi_ekf_node INTERFACE
+    lib/geometry/include)
 target_link_libraries(vi_ekf_node
   ${catkin_LIBRARIES}
   vi_ekf_ros  
-  geometry
 )
 
 add_executable(vi_ekf_rosbag
   src/rosbag_parser.cpp
   )
+target_include_directories(vi_ekf_rosbag INTERFACE
+    lib/geometry/include)
 target_link_libraries(vi_ekf_rosbag
   ${catkin_LIBRARIES}
   vi_ekf_ros  
-  geometry
   vi_ekf
 )

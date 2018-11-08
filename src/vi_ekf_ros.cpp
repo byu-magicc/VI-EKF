@@ -8,7 +8,9 @@ VIEKF_ROS::VIEKF_ROS() :
   imu_sub_ = nh_.subscribe("imu", 500, &VIEKF_ROS::imu_callback, this);
   pose_sub_ = nh_.subscribe("truth/pose", 10, &VIEKF_ROS::pose_truth_callback, this);
   transform_sub_ = nh_.subscribe("truth/transform", 10, &VIEKF_ROS::transform_truth_callback, this);
-//  odometry_pub_ = nh_.advertise<nav_msgs::Odometry>("odom", 1);
+  odom_truth_sub_ = nh_.subscribe("multirotor/truth/NED", 10, &VIEKF_ROS::odom_truth_callback, this);
+
+  odometry_pub_ = nh_.advertise<nav_msgs::Odometry>("odom", 1);
 //  bias_pub_ = nh_.advertise<sensor_msgs::Imu>("imu/bias", 1);
   
   image_sub_ = it_.subscribe("color", 10, &VIEKF_ROS::color_image_callback, this);
@@ -358,6 +360,13 @@ void VIEKF_ROS::transform_truth_callback(const geometry_msgs::TransformStampedCo
 {
   z_pos_ << msg->transform.translation.x, msg->transform.translation.y, msg->transform.translation.z;
   z_att_ << msg->transform.rotation.w, msg->transform.rotation.x, msg->transform.rotation.y, msg->transform.rotation.z;
+  truth_callback(z_pos_, z_att_, msg->header.stamp);
+}
+
+void VIEKF_ROS::odom_truth_callback(const nav_msgs::OdometryConstPtr &msg) {
+  // the rosflight_sim gazebo plugin published truth data in an odometry message
+  z_pos_ << msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z;
+  z_att_ << msg->pose.pose.orientation.w, msg->pose.pose.orientation.x, msg->pose.pose.orientation.y, msg->pose.pose.orientation.z;
   truth_callback(z_pos_, z_att_, msg->header.stamp);
 }
 

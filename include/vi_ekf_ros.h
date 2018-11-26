@@ -18,6 +18,8 @@
 #include <opencv/cv.hpp>
 #include <opencv2/core/eigen.hpp>
 
+#include <inertial_sense/GPS.h>
+
 
 using namespace Eigen;
 using namespace quat;
@@ -38,6 +40,7 @@ public:
   void transform_truth_callback(const geometry_msgs::TransformStampedConstPtr &msg);
   void truth_callback(Vector3d &z_pos_, Vector4d &z_att_, ros::Time time);
   void imu_callback(const sensor_msgs::ImuConstPtr& msg);
+  void gps_callback(const inertial_sense::GPSConstPtr &msg);
   void keyframe_reset_callback();
   vi_ekf::VIEKF ekf_;
   
@@ -53,6 +56,7 @@ private:
   image_transport::Publisher cov_img_pub_;
   image_transport::Subscriber image_sub_;
   image_transport::Subscriber depth_sub_;
+  ros::Subscriber gps_sub_;
   ros::Subscriber imu_sub_;
   ros::Subscriber pose_sub_;
   ros::Subscriber transform_sub_;
@@ -69,6 +73,7 @@ private:
 
   bool imu_init_ = false;
   bool truth_init_ = false;
+  bool gps_init_ = false;
   
   bool use_drag_term_ = false;
   bool is_flying_ = false;
@@ -78,6 +83,7 @@ private:
   bool use_acc_;
   bool use_imu_att_;
   bool use_alt_;
+  bool use_gps_;
   double IMU_LPF_;
   double truth_LPF_;
   double min_depth_;

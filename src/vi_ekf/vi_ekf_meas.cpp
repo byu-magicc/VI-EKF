@@ -371,9 +371,37 @@ void VIEKF::h_gps(const xVector &x, zVector &h, hMatrix &H, const int id) const
 
   /// HAYDEN - PUT THE MEASUREMENT MODEL HERE [p_B/E^E; v_B/E^E]
   h.setZero();
-  h.topRows(3) = x.segment<3>(xPOS);
-  h.bottomRows(3) = x.segment<3>(xVEL);
   H.setZero();
+  // define ZNED in ECEF frame
+  // define ZECEF in ECEF frame
+  // convert unit vector transform to quaternion
+  Xformd Pinit = T_e_I_;
+  Vector3d ZECEF;
+  Vector3d YECEF;
+  Vector3d ZNEDI;
+  Vector3d YNEDI;
+  Quatd q1;
+  Quatd q2;
+  Quatd qinit;
+  Quatd qb;
+  ZECEF << 0,0,1;
+  YECEF << 0,1,0;
+  ZNEDI = -1*(Pinit.t_)/(Pinit.t_.transpose()*Pinit.t_); //normalize
+  YNEDI = skew(ZECEF)*(-ZNEDI);
+  q1.from_two_unit_vectors(ZNEDI,ZECEF);
+  q2.from_two_unit_vectors(YNEDI,YECEF);
+  qinit = q1.otimes(q2);
+  qinit.normalize();
+  qb = x.block<4,1>((int)xATT, 0);
+  qb.normalize();
+  // set top left block of H to qinit.R
+  H.block<3,3>(0,(int)dxPOS) = qinit.R();
+  // set bottom center block of H to qinit.R*qb.R (qb is data input quaternion)
+  H.block<3,3>(3,(int)dxVEL) = qinit.R()*qb.R();
+  // set bottom right block of H to qinit.R*qb.R*skew(vb) (where vb is the obtained velocity)
+  H.block<3,3>(3,(int)dxATT) = qinit.R()*qb.R()*skew(x.block<3,1>((int)xVEL,0));
+  h.topRows(3) = qinit.R()*x.block<3,1>((int)xPOS,0)+Pinit.t_;
+  h.bottomRows(3) = qinit.R()*qb.R()*x.block<3,1>((int)xVEL,0);
 }
 
 void VIEKF::h_pixel_vel(const xVector& x, zVector& h, hMatrix& H, const int id) const

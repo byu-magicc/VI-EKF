@@ -327,11 +327,11 @@ void VIEKF_dfdx_test()
       
       ASSERT_FALSE(check_block(zeta_key, "dxVEL", a_dfdx, d_dfdx));
       ASSERT_FALSE(check_block(zeta_key, "dxB_G", a_dfdx, d_dfdx));
-      ASSERT_FALSE(check_block(zeta_key, zeta_key, a_dfdx, d_dfdx));
+      ASSERT_FALSE(check_block(zeta_key, zeta_key, a_dfdx, d_dfdx, 1.0));
       ASSERT_FALSE(check_block(zeta_key, rho_key, a_dfdx, d_dfdx));
       ASSERT_FALSE(check_block(rho_key, "dxVEL", a_dfdx, d_dfdx));
       ASSERT_FALSE(check_block(rho_key, "dxB_G", a_dfdx, d_dfdx));
-      ASSERT_FALSE(check_block(rho_key, zeta_key, a_dfdx, d_dfdx, 1e-2));
+      ASSERT_FALSE(check_block(rho_key, zeta_key, a_dfdx, d_dfdx, 1.0));
       ASSERT_FALSE(check_block(rho_key, rho_key, a_dfdx, d_dfdx));
     }
   }

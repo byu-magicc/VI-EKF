@@ -21,19 +21,19 @@ inline Eigen::Matrix<double, 3, 2> T_zeta(quat::Quatd q)
   return q.doublerota(I_2x3.transpose());
 }
 
-// q1 - q0
-inline Eigen::Vector2d q_feat_boxminus(quat::Quatd q1, quat::Quatd q0)
+// q_j - q_i
+inline Eigen::Vector2d q_feat_boxminus(quat::Quatd q_j, quat::Quatd q_i)
 {
-  Eigen::Vector3d zeta0 = zeta(q0);
-  Eigen::Vector3d zeta1 = zeta(q1);
+  Eigen::Vector3d zeta_i = zeta(q_i);
+  Eigen::Vector3d zeta_j = zeta(q_j);
 
   Eigen::Vector2d dq;
-  if ((zeta0 - zeta1).norm() > 1e-8)
+  if ((zeta_i - zeta_j).norm() > 1e-8)
   {
-    Eigen::Vector3d v = zeta1.cross(zeta0);
-    v /= v.norm();
-    double theta = std::acos(zeta1.dot(zeta0));
-    dq = T_zeta(q0).transpose() * (theta * v);
+    Eigen::Vector3d s = zeta_i.cross(zeta_j);
+    s /= s.norm();
+    double theta = std::acos(zeta_i.dot(zeta_j));
+    dq = T_zeta(q_i).transpose() * (theta * s);
   }
   else
   {
@@ -44,7 +44,7 @@ inline Eigen::Vector2d q_feat_boxminus(quat::Quatd q1, quat::Quatd q0)
 
 inline quat::Quatd q_feat_boxplus(quat::Quatd q, Eigen::Vector2d dq)
 {
-  return quat::Quatd::exp(-T_zeta(q) * dq) * q;
+  return quat::Quatd::exp(T_zeta(q) * dq) * q;
 }
 
 void concatenate_SE2(Eigen::Vector3d& T1, Eigen::Vector3d& T2, Eigen::Vector3d& Tout);

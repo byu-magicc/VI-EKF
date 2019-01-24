@@ -308,16 +308,13 @@ void VIEKF_dfdx_test()
 {  
   xVector x_hat;
   uVector u;
-  dxMatrix dummydfdx;
-  dxuMatrix dummydfdu;
   dxVector x_tilde, x_tilde_plus, x_tilde_minus, dx_tilde, dx_tilde_plus, dx_tilde_minus;
-  xVector xprime;
   dxMatrix Idx = dxMatrix::Identity();
   double epsilon = 1e-5;
   double dt = 1e-3;
   
   dxMatrix d_dfdx;
-  dxVector dx0;
+  dxVector dummy_dx;
   dxuMatrix a_dfdu;
   dxMatrix a_dfdx;
   for (int j = 0; j < NUM_ITERS; j++)
@@ -325,7 +322,7 @@ void VIEKF_dfdx_test()
     vi_ekf::VIEKF ekf = init_jacobians_test(x_hat, u);
     
     // analytical differentiation
-    ekf.dynamics(x_hat, u, dx0, a_dfdx, a_dfdu);
+    ekf.dynamics(x_hat, u, dummy_dx, a_dfdx, a_dfdu);
     d_dfdx.setZero();
     
     // numerical differentiation
@@ -342,27 +339,27 @@ void VIEKF_dfdx_test()
 
     ASSERT_FALSE(check_block("dxPOS", "dxVEL", a_dfdx, d_dfdx, 1e-2));
     ASSERT_FALSE(check_block("dxPOS", "dxATT", a_dfdx, d_dfdx, 1e-2));
-    ASSERT_FALSE(check_block("dxATT", "dxATT", a_dfdx, d_dfdx, 1e-2));
     ASSERT_FALSE(check_block("dxVEL", "dxVEL", a_dfdx, d_dfdx, 1e-2));
-    ASSERT_FALSE(check_block("dxVEL", "dxPOS", a_dfdx, d_dfdx, 1e-2));
     ASSERT_FALSE(check_block("dxVEL", "dxATT", a_dfdx, d_dfdx, 1e-2));
     ASSERT_FALSE(check_block("dxVEL", "dxB_A", a_dfdx, d_dfdx, 1e-2));
     ASSERT_FALSE(check_block("dxVEL", "dxB_G", a_dfdx, d_dfdx, 1e-2));
     ASSERT_FALSE(check_block("dxVEL", "dxMU", a_dfdx, d_dfdx,  1e-2));
+    ASSERT_FALSE(check_block("dxATT", "dxATT", a_dfdx, d_dfdx, 1e-2));
+    ASSERT_FALSE(check_block("dxATT", "dxB_G", a_dfdx, d_dfdx, 1e-2));
     
     for (int i = 0; i < ekf.get_len_features(); i++)
     {
       std::string zeta_key = "dxZETA_" + std::to_string(i);
       std::string rho_key = "dxRHO_" + std::to_string(i);
       
-      ASSERT_FALSE(check_block(zeta_key, "dxVEL", a_dfdx, d_dfdx,  1.0));
-      ASSERT_FALSE(check_block(zeta_key, "dxB_G", a_dfdx, d_dfdx,  1.0));
-      ASSERT_FALSE(check_block(zeta_key, zeta_key, a_dfdx, d_dfdx, 1.0));
-      ASSERT_FALSE(check_block(zeta_key, rho_key, a_dfdx, d_dfdx,  1.0));
-      ASSERT_FALSE(check_block(rho_key, "dxVEL", a_dfdx, d_dfdx,   1.0));
-      ASSERT_FALSE(check_block(rho_key, "dxB_G", a_dfdx, d_dfdx,   1.0));
-      ASSERT_FALSE(check_block(rho_key, zeta_key, a_dfdx, d_dfdx,  1.0));
-      ASSERT_FALSE(check_block(rho_key, rho_key, a_dfdx, d_dfdx,   1.0));
+      ASSERT_FALSE(check_block(zeta_key, "dxVEL", a_dfdx, d_dfdx,  5e-1));
+      ASSERT_FALSE(check_block(zeta_key, "dxB_G", a_dfdx, d_dfdx,  5e-1));
+      ASSERT_FALSE(check_block(zeta_key, zeta_key, a_dfdx, d_dfdx, 5e-1));
+      ASSERT_FALSE(check_block(zeta_key, rho_key, a_dfdx, d_dfdx,  5e-1));
+      ASSERT_FALSE(check_block(rho_key, "dxVEL", a_dfdx, d_dfdx,   5e-1));
+      ASSERT_FALSE(check_block(rho_key, "dxB_G", a_dfdx, d_dfdx,   5e-1));
+      ASSERT_FALSE(check_block(rho_key, zeta_key, a_dfdx, d_dfdx,  5e-1));
+      ASSERT_FALSE(check_block(rho_key, rho_key, a_dfdx, d_dfdx,   5e-1));
     }
   }
 }
@@ -371,45 +368,48 @@ TEST(VI_EKF, dfdx_test){VIEKF_dfdx_test();}
 void VIEKF_dfdu_test()
 {
   // Variation w.r.t. accel/gyro noise is the same as w.r.t. their biases, so just perturb those
-  xVector x0;
-  uVector u0;
-  dxVector dxprime;
-  xVector xprime;
-  double epsilon = 1e-6;
-  dxMatrix dfdx_dummy;
-  dxuMatrix dfdu_dummy;
-  dxuMatrix d_dfdu;
+  xVector x_hat;
+  uVector u;
+  dxVector x_tilde, x_tilde_plus, x_tilde_minus, dx_tilde, dx_tilde_plus, dx_tilde_minus;
   Matrix<double, MAX_DX, 6> Iu;
   Iu.setZero();
   Iu.block<6,6>(VIEKF::dxB_A,0).setIdentity();
-  dxVector dx0;
+  double epsilon = 1e-5;
+  double dt = 1e-3;
+
+  dxuMatrix d_dfdu;
+  dxVector dummy_dx;
   dxMatrix a_dfdx;
   dxuMatrix a_dfdu;
   for (int j = 0; j < NUM_ITERS; j++)
   {
-    vi_ekf::VIEKF ekf = init_jacobians_test(x0, u0);
-    
-    // Perform Analytical Differentiation
-    ekf.dynamics(x0, u0, dx0, a_dfdx, a_dfdu);
+    vi_ekf::VIEKF ekf = init_jacobians_test(x_hat, u);
+
+    // analytical differentiation
+    ekf.dynamics(x_hat, u, dummy_dx, a_dfdx, a_dfdu);
     d_dfdu.setZero();
-    
-    // Perform Numerical Differentiation
+
+    // numerical differentiation
+    x_tilde = dxVector::Random() * epsilon;
+    f_tilde(x_tilde, x_hat, u, dt, ekf, dx_tilde);
     for (int i = 0; i < d_dfdu.cols(); i++)
     {
-      ekf.boxplus(x0, (Iu.col(i) * epsilon), xprime);
-      ekf.dynamics(xprime, u0, dxprime, dfdx_dummy, dfdu_dummy);
-      d_dfdu.col(i) = (dxprime - dx0) / epsilon;
+      x_tilde_plus = dx_tilde + Iu.col(i) * epsilon;
+      x_tilde_minus = dx_tilde - Iu.col(i) * epsilon;
+      f_tilde(x_tilde_plus, x_hat, u, dt, ekf, dx_tilde_plus);
+      f_tilde(x_tilde_minus, x_hat, u, dt, ekf, dx_tilde_minus);
+      d_dfdu.col(i) = (dx_tilde_plus - dx_tilde_minus) / (2 * epsilon);
     }
     
-    ASSERT_FALSE(check_block("dxVEL","uA", a_dfdu, d_dfdu));
-    ASSERT_FALSE(check_block("dxVEL","uG", a_dfdu, d_dfdu));
-    ASSERT_FALSE(check_block("dxATT", "uG", a_dfdu, d_dfdu));
+    ASSERT_FALSE(check_block("dxVEL","uA", a_dfdu, d_dfdu, 1e-2));
+    ASSERT_FALSE(check_block("dxVEL","uG", a_dfdu, d_dfdu, 1e-2));
+    ASSERT_FALSE(check_block("dxATT", "uG", a_dfdu, d_dfdu, 1e-2));
     for (int i = 0; i < ekf.get_len_features(); i++)
     {
       std::string zeta_key = "dxZETA_" + std::to_string(i);
       std::string rho_key = "dxRHO_" + std::to_string(i);
-      ASSERT_FALSE(check_block(zeta_key, "uG", a_dfdu, d_dfdu));
-      ASSERT_FALSE(check_block(rho_key, "uG", a_dfdu, d_dfdu, 1e-1));
+      ASSERT_FALSE(check_block(zeta_key, "uG", a_dfdu, d_dfdu, 5e-1));
+      ASSERT_FALSE(check_block(rho_key, "uG", a_dfdu, d_dfdu, 5e-1));
     }
   }
 }

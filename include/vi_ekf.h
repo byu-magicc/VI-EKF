@@ -15,8 +15,8 @@
 #include <random>
 #include <tuple>
 
-#include "quat.h"
-#include "xform.h"
+#include "geometry/quat.h"
+#include "geometry/xform.h"
 #include "math_helper.h"
 
 using namespace quat;

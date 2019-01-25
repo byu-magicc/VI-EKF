@@ -1,8 +1,8 @@
 #pragma once
 
 #include "math.h"
-#include "quat.h"
-#include "support.h"
+#include "geometry/quat.h"
+#include "geometry/support.h"
 
 #include <random>
 

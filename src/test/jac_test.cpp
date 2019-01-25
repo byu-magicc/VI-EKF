@@ -156,7 +156,8 @@ VIEKF init_jacobians_test(xVector& x0, uVector& u0)
   {
     Vector2d l;
     l << std::rand()%640, std::rand()%480;
-    double depth = static_cast <double> (rand()) / (static_cast <double> (RAND_MAX/10.0));
+    // Generate random depth between 1 and 21
+    double depth = 1.0 + double(rand()) / double(RAND_MAX) * 20.0;
     ekf.init_feature(l, i, depth);
   }
   // Recover the new state to return
@@ -352,14 +353,14 @@ void VIEKF_dfdx_test()
       std::string zeta_key = "dxZETA_" + std::to_string(i);
       std::string rho_key = "dxRHO_" + std::to_string(i);
       
-      ASSERT_FALSE(check_block(zeta_key, "dxVEL", a_dfdx, d_dfdx,  5e-1));
-      ASSERT_FALSE(check_block(zeta_key, "dxB_G", a_dfdx, d_dfdx,  5e-1));
-      ASSERT_FALSE(check_block(zeta_key, zeta_key, a_dfdx, d_dfdx, 5e-1));
-      ASSERT_FALSE(check_block(zeta_key, rho_key, a_dfdx, d_dfdx,  5e-1));
-      ASSERT_FALSE(check_block(rho_key, "dxVEL", a_dfdx, d_dfdx,   5e-1));
-      ASSERT_FALSE(check_block(rho_key, "dxB_G", a_dfdx, d_dfdx,   5e-1));
-      ASSERT_FALSE(check_block(rho_key, zeta_key, a_dfdx, d_dfdx,  5e-1));
-      ASSERT_FALSE(check_block(rho_key, rho_key, a_dfdx, d_dfdx,   5e-1));
+      ASSERT_FALSE(check_block(zeta_key, "dxVEL", a_dfdx, d_dfdx,  1e-1));
+      ASSERT_FALSE(check_block(zeta_key, "dxB_G", a_dfdx, d_dfdx,  1e-1));
+      ASSERT_FALSE(check_block(zeta_key, zeta_key, a_dfdx, d_dfdx, 1e-1));
+      ASSERT_FALSE(check_block(zeta_key, rho_key, a_dfdx, d_dfdx,  1e-1));
+      ASSERT_FALSE(check_block(rho_key, "dxVEL", a_dfdx, d_dfdx,   1e-1));
+      ASSERT_FALSE(check_block(rho_key, "dxB_G", a_dfdx, d_dfdx,   1e-1));
+      ASSERT_FALSE(check_block(rho_key, zeta_key, a_dfdx, d_dfdx,  1e-1));
+      ASSERT_FALSE(check_block(rho_key, rho_key, a_dfdx, d_dfdx,   1e-1));
     }
   }
 }
@@ -408,8 +409,8 @@ void VIEKF_dfdu_test()
     {
       std::string zeta_key = "dxZETA_" + std::to_string(i);
       std::string rho_key = "dxRHO_" + std::to_string(i);
-      ASSERT_FALSE(check_block(zeta_key, "uG", a_dfdu, d_dfdu, 5e-1));
-      ASSERT_FALSE(check_block(rho_key, "uG", a_dfdu, d_dfdu, 5e-1));
+      ASSERT_FALSE(check_block(zeta_key, "uG", a_dfdu, d_dfdu, 1e-1));
+      ASSERT_FALSE(check_block(rho_key, "uG", a_dfdu, d_dfdu, 1e-1));
     }
   }
 }

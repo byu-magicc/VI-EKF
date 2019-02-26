@@ -386,7 +386,7 @@ void VIEKF::h_gps(const xVector &x, zVector &h, hMatrix &H, const int id) const
   Quatd qb;
   ZECEF << 0,0,1;
   YECEF << 0,1,0;
-  ZNEDI = -1*(Pinit.t_)/(Pinit.t_.transpose()*Pinit.t_); //normalize
+  ZNEDI = -1*(Pinit.t_)/(Pinit.t_.norm()); //normalize
   YNEDI = skew(ZECEF)*(-ZNEDI);
   q1.from_two_unit_vectors(ZNEDI,ZECEF);
   q2.from_two_unit_vectors(YNEDI,YECEF);
@@ -399,7 +399,7 @@ void VIEKF::h_gps(const xVector &x, zVector &h, hMatrix &H, const int id) const
   // set bottom center block of H to qinit.R*qb.R (qb is data input quaternion)
   H.block<3,3>(3,(int)dxVEL) = qinit.R()*qb.R();
   // set bottom right block of H to qinit.R*qb.R*skew(vb) (where vb is the obtained velocity)
-  H.block<3,3>(3,(int)dxATT) = qinit.R()*qb.R()*skew(x.block<3,1>((int)xVEL,0));
+  H.block<3,3>(3,(int)dxATT) = Pinit.q().R()*qb.R()*skew(x.block<3,1>((int)xVEL,0));
   h.topRows(3) = qinit.R()*x.block<3,1>((int)xPOS,0)+Pinit.t_;
   h.bottomRows(3) = qinit.R()*qb.R()*x.block<3,1>((int)xVEL,0);
 }

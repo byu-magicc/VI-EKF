@@ -51,6 +51,17 @@ target_link_libraries(vi_ekf math_helper ${YAML_CPP_LIBRARIES} geometry)
 add_executable(jac_test test/jac_test.cpp)
 target_link_libraries(jac_test ${GTEST_LIBRARIES} pthread vi_ekf geometry)
 
+add_executable(vi_ekf_test test/vi_ekf_test.cpp)
+target_link_libraries(vi_ekf_test
+    gtest
+    gtest_main
+    ${GTEST_LIBRARIES}
+    multirotor_sim
+    vi_ekf
+    pthread
+    geometry
+  )
+
 ## BUILD THE ROS executables if catkin is present
 if (${catkin_FOUND})
   message("found catkin - building ROS parser and node")

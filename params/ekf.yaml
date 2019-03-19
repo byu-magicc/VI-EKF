@@ -1,0 +1,93 @@
+## General Parameters
+name: ekf1
+num_threads: 1
+record_video: false
+
+## Initial State
+x0: [0, 0, -2,    # POS
+     0, 0, 0,         # VEL
+     1, 0, 0, 0,      # ATT
+     0.0, 0.0, 0.0, # B_A
+     0.0, 0.0, 0.0,  # B_G
+     0.05]           # MU
+
+## Initial Uncertainty
+P0: [0.001, 0.001, 0.001,
+     0.001, 0.001, 0.001,
+     0.001, 0.001, 0.001,
+     0.1, 0.1, 0.1,
+     0.1, 0.1, 0.1,
+     0.01]
+P0_feat: [0.2, 0.2, 0.1]
+
+## Additive Process Noise
+Qx: [0.0, 0.0, 0.0,
+     0.0, 0.0, 0.0,
+     0.0, 0.0, 0.0,
+     0.0, 0.0, 0.0,
+     0.0, 0.0, 0.0,
+     0.0]
+Qx_feat: [0.0, 0.0, 0.0]
+
+# Input Process Noise
+Qu: [0.05, 0.05, 0.05,      # u_acc
+     0.01, 0.01, 0.01]  # u_gyro
+
+## Partial Update Gain
+lambda: [1.0, 1.0, 1.0,     # POS
+         1.0, 1.0, 1.0,     # VEL
+         1.0, 1.0, 1.0,     # ATT
+         0.2, 0.2, 0.2,     # B_A
+         1.0, 1.0, 1.0,     # B_G
+         0.05]               # MU
+lambda_feat: [1.0, 1.0, 0.4]
+
+## Sensor Noise
+depth_R: 0.5
+feat_R: [10.0, 10.0]
+acc_R_drag: [0.5, 0.5]
+acc_R_grav: [0.75, 0.75, 0.75]
+att_R: [0.01, 0.01, 0.01]
+pos_R: [0.1, 0.1, 0.1]
+
+vel_R: [0.1, 0.1, 0.1]
+alt_R: 0.1
+
+## Low-Pass Filtering on IMU and Truth
+imu_LPF: 0.0
+truth_LPF: 0.0
+
+## Measurement Model Flags
+use_truth: false
+use_depth: false
+use_features: true
+use_acc: true
+use_imu_att: false
+use_alt: false
+
+## Feature Flags
+use_drag_term: true
+use_partial_update: true
+use_keyframe_reset: true
+
+## Image feature tracking Parameters
+min_depth: 1.5
+keyframe_overlap_threshold: 0.8
+num_features: 20
+feature_radius: 45
+
+## Camera parameters
+image_size: [640, 480]
+cam_center: [316.680559, 230.660661]
+focal_len: [533.013144, 533.503964]
+distortion: [-0.28340811, 0.07395907, 0.00019359, 1.76187114e-05]
+invert_image: false
+
+q_b_c: [0.5, 0.5, 0.5, 0.5]
+p_b_c: [0.0, 0.00, 0.015]
+
+feature_mask: ../params/mask_default.png
+
+## IMU and Mocap rotations
+q_b_IMU: [1.0, 0.0, 0.0, 0.0]
+q_I_truth: [0.5, 0.5, -0.5, 0.5]

@@ -147,6 +147,7 @@ private:
     LOG_CONF,
     LOG_KF,
     LOG_DEBUG,
+    LOG_GLOBAL_POSE,
     TOTAL_LOGS
   } log_type_t;
 
@@ -213,10 +214,9 @@ private:
 
   // EKF Configuration Parameters
   bool use_drag_term_;
-  bool keyframe_reset_;
-  bool partial_update_;
+  bool use_keyframe_reset_;
+  bool use_partial_update_;
   double min_depth_;
-  int cov_prop_skips_;
 
   // Camera Intrinsics and Extrinsics
   Vector2d cam_center_;
@@ -237,21 +237,26 @@ private:
 public:
 
   VIEKF();
+  VIEKF(const string& param_file);
   ~VIEKF();
 #ifdef MC_SIM
   void load(string ekf_file, string common_file, bool use_logger=true, string prefix="");
 #endif
+  void load(const string& param_file);
+  void init();
   void init(Matrix<double, xZ,1> &x0, Matrix<double, dxZ,1> &P0, Matrix<double, dxZ,1> &Qx,
             Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,
             Vector3d& lambda_feat, Vector2d& cam_center, Vector2d& focal_len,
-            Vector4d& q_b_c, Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term,
-            bool partial_update, bool use_keyframe_reset, double keyframe_overlap, int cov_prop_skips, string prefix="");
+            Vector4d& q_b_c, Vector3d &p_b_c, double min_depth, bool use_drag_term,
+            bool use_partial_update, bool use_keyframe_reset, double keyframe_overlap_threshold);
 
   inline double now() const
   {
     std::chrono::microseconds now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch());
     return (double)now.count()*1e-6;
   }
+
+  std::vector<measurement_function_ptr> measurement_functions;
 
   // Errors
   bool NaNsInTheHouse() const;
@@ -280,7 +285,7 @@ public:
   void set_imu_bias(const Vector3d& b_g, const Vector3d& b_a);
   void set_drag_term(const bool use_drag_term) {use_drag_term_ = use_drag_term;}
   bool get_drag_term() const {return use_drag_term_;}
-  bool get_keyframe_reset() const {return keyframe_reset_;}
+  bool get_keyframe_reset() const {return use_keyframe_reset_;}
 
   bool init_feature(const Vector2d &l, const int id, const double depth=-1.0);
   void clear_feature(const int id);
@@ -344,21 +349,8 @@ static std::vector<std::string> measurement_names = [] {
   return tmp;
 }();
 
-static std::vector<measurement_function_ptr> measurement_functions = [] {
-  std::vector<measurement_function_ptr> tmp;
-  tmp.resize(VIEKF::TOTAL_MEAS);
-  tmp[VIEKF::ACC] = &VIEKF::h_acc;
-  tmp[VIEKF::ALT] = &VIEKF::h_alt;
-  tmp[VIEKF::ATT] = &VIEKF::h_att;
-  tmp[VIEKF::POS] = &VIEKF::h_pos;
-  tmp[VIEKF::VEL] = &VIEKF::h_vel;
-  tmp[VIEKF::QZETA] = &VIEKF::h_qzeta;
-  tmp[VIEKF::FEAT] = &VIEKF::h_feat;
-  tmp[VIEKF::DEPTH] = &VIEKF::h_depth;
-  tmp[VIEKF::INV_DEPTH] = &VIEKF::h_inv_depth;
-  tmp[VIEKF::PIXEL_VEL] = &VIEKF::h_pixel_vel;
-  return tmp;
-}();
+
+
 
 }
 

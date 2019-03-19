@@ -79,9 +79,7 @@ VIEKF_ROS::VIEKF_ROS() :
   
   P0feat(2,0) = 1.0/(16.0 * min_depth_ * min_depth_);
   
-  ekf_.init(x0, P0diag, Qxdiag, lambda, Qudiag, P0feat, Qxfeat, lambdafeat,
-            cam_center, focal_len, q_b_c, p_b_c, min_depth_, log_directory, 
-            use_drag_term_, partial_update, keyframe_reset, keyframe_overlap, cov_prop_skips);
+  ekf_.load("../params/ekf.yaml");
   ekf_.register_keyframe_reset_callback(std::bind(&VIEKF_ROS::keyframe_reset_callback, this));
   
   is_flying_ = false; // Start out not flying

@@ -147,7 +147,7 @@ VIEKF init_jacobians_test(xVector& x0, uVector& u0)
   Vector3d p_b_c = Vector3d::Random() * 0.5;
   Matrix<double, 17, 1> state_0;
   state_0 =x0.block<17, 1>(0,0); 
-  ekf.init(state_0, P0, Qx, gamma, Qu, P0feat, Qxfeat, gammafeat, cam_center, focal_len, q_b_c, p_b_c, 2.0, "~", true, true, true, 0.0, 0);
+  ekf.init(state_0, P0, Qx, gamma, Qu, P0feat, Qxfeat, gammafeat, cam_center, focal_len, q_b_c, p_b_c, 2.0, true, true, true, 0.0);
   
   // Initialize Random Features
   for (int i = 0; i < NUM_FEATURES; i++)

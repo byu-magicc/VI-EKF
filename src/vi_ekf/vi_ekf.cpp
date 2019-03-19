@@ -1,27 +1,129 @@
 #include "vi_ekf.h"
+#include "multirotor_sim/utils.h"
 
 namespace vi_ekf
 {
 
-VIEKF::VIEKF(){}
+VIEKF::VIEKF()
+{
+  init();
+}
 
-void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<double, dxZ,1> &Qx,
-                 Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,
-                 Vector3d& lambda_feat, Vector2d &cam_center, Vector2d &focal_len, Vector4d &q_b_c,
-                 Vector3d &p_b_c, double min_depth, std::string log_directory, bool use_drag_term, bool partial_update,
-                 bool use_keyframe_reset, double keyframe_overlap, int cov_prop_skips, std::string prefix)
+VIEKF::VIEKF(const string &param_file)
+{
+  init();
+  load(param_file);
+}
+
+void VIEKF::init()
 {
   x_.resize(LEN_STATE_HIST);
   P_.resize(LEN_STATE_HIST);
   t_.resize(LEN_STATE_HIST, -1);
-
   u_.clear();
   zbuf_.clear();
-
   i_ = 0;
-
   xp_.setZero();
   Qx_.setZero();
+  len_features_ = 0;
+  next_feature_id_ = 0;
+  current_feature_ids_.clear();
+  start_t_ = NAN; // indicate that we need to initialize the filter
+  current_node_global_pose_ = Xformd::Identity();
+  global_pose_cov_.setZero();
+  keyframe_features_.clear();
+  edges_.clear();
+  keyframe_reset_callback_ = nullptr;
+  K_.setZero();
+  H_.setZero();
+
+
+  measurement_functions = [] {
+    std::vector<measurement_function_ptr> tmp;
+    tmp.resize(VIEKF::TOTAL_MEAS);
+    tmp[VIEKF::ACC] = &VIEKF::h_acc;
+    tmp[VIEKF::ALT] = &VIEKF::h_alt;
+    tmp[VIEKF::ATT] = &VIEKF::h_att;
+    tmp[VIEKF::POS] = &VIEKF::h_pos;
+    tmp[VIEKF::VEL] = &VIEKF::h_vel;
+    tmp[VIEKF::QZETA] = &VIEKF::h_qzeta;
+    tmp[VIEKF::FEAT] = &VIEKF::h_feat;
+    tmp[VIEKF::DEPTH] = &VIEKF::h_depth;
+    tmp[VIEKF::INV_DEPTH] = &VIEKF::h_inv_depth;
+    tmp[VIEKF::PIXEL_VEL] = &VIEKF::h_pixel_vel;
+    return tmp;
+  }();
+}
+
+void VIEKF::init(Matrix<double, xZ,1> &x0, Matrix<double, dxZ,1> &P0, Matrix<double, dxZ,1> &Qx,
+                 Matrix<double, dxZ,1> &lambda, uVector &Qu, Vector3d& P0_feat, Vector3d& Qx_feat,
+                 Vector3d& lambda_feat, Vector2d& cam_center, Vector2d& focal_len,
+                 Vector4d& q_b_c, Vector3d &p_b_c, double min_depth, bool use_drag_term,
+                 bool use_partial_update, bool use_keyframe_reset, double keyframe_overlap_threshold)
+{
+  x_[i_].block<(int)xZ, 1>(0,0) = x0;
+  P_[i_].block<(int)dxZ, (int)dxZ>(0,0) = P0.asDiagonal();
+  Qx_.block<(int)dxZ, (int)dxZ>(0,0) = Qx.asDiagonal();
+  Qu_ = Qu.asDiagonal();
+  lambda_.block<(int)dxZ, 1>(0,0) = lambda;
+
+  for (int i = 0; i < NUM_FEATURES; i++)
+  {
+    P_[i_].block<3,3>(dxZ+3*i, dxZ+3*i) = P0_feat.asDiagonal();
+    Qx_.block<3,3>(dxZ+3*i, dxZ+3*i) = Qx_feat.asDiagonal();
+    lambda_.block<3,1>(dxZ+3*i,0) = lambda_feat;
+  }
+
+  Lambda_ = dx_ones_ * lambda_.transpose() + lambda_*dx_ones_.transpose() - lambda_*lambda_.transpose();
+
+  // set camera intrinsics
+  cam_center_ = cam_center;
+  cam_F_ << focal_len(0), 0, 0,
+            0, focal_len(1), 0;
+
+  // set cam-to-body
+  p_b_c_ = p_b_c;
+  q_b_c_ = Quatd(q_b_c);
+
+  min_depth_ = min_depth;
+  keyframe_overlap_threshold_ = keyframe_overlap_threshold;
+  use_drag_term_ = use_drag_term;
+  use_partial_update_ = use_partial_update;
+  use_keyframe_reset_ = use_keyframe_reset;
+}
+
+void VIEKF::load(const string &param_file)
+{
+  // Temporaries
+  string name;
+  Matrix<double, xZ,1> x0;
+  Matrix<double, dxZ,1> P0, Qx, lambda;
+  Matrix3d Qx_feat;
+  Vector3d lambda_feat;
+  Vector2d focal_len;
+  Vector4d q_b_c;
+
+  // Load parameters from YAML file
+  get_yaml_node("name", param_file, name);
+  get_yaml_node("min_depth", param_file, min_depth_);
+  get_yaml_node("keyframe_overlap_threshold", param_file, keyframe_overlap_threshold_);
+  get_yaml_node("use_drag_term", param_file, use_drag_term_);
+  get_yaml_node("use_partial_update", param_file, use_partial_update_);
+  get_yaml_node("use_keyframe_reset", param_file, use_keyframe_reset_);
+  get_yaml_eigen("x0", param_file, x0);
+  get_yaml_eigen("P0", param_file, P0);
+  get_yaml_eigen("Qx", param_file, Qx);
+  get_yaml_diag("Qu", param_file, Qu_);
+  get_yaml_eigen("lambda", param_file, lambda);
+  get_yaml_diag("P0_feat", param_file, P0_feat_);
+  get_yaml_diag("Qx_feat", param_file, Qx_feat);
+  get_yaml_eigen("lambda_feat", param_file, lambda_feat);
+  get_yaml_eigen("cam_center", param_file, cam_center_);
+  get_yaml_eigen("focal_len", param_file, focal_len);
+  get_yaml_eigen("q_b_c", param_file, q_b_c);
+  get_yaml_eigen("p_b_c", param_file, p_b_c_);
+
+  // Populate class variables
   x_[i_].block<(int)xZ, 1>(0,0) = x0;
   P_[i_].block<(int)dxZ, (int)dxZ>(0,0) = P0.asDiagonal();
   Qx_.block<(int)dxZ, (int)dxZ>(0,0) = Qx.asDiagonal();
@@ -29,51 +131,21 @@ void VIEKF::init(Matrix<double, xZ,1>& x0, Matrix<double, dxZ,1> &P0, Matrix<dou
   
   for (int i = 0; i < NUM_FEATURES; i++)
   {
-    P_[i_].block<3,3>(dxZ+3*i, dxZ+3*i) = P0_feat.asDiagonal();
-    Qx_.block<3,3>(dxZ+3*i, dxZ+3*i) = Qx_feat.asDiagonal();
+    P_[i_].block<3,3>(dxZ+3*i, dxZ+3*i) = P0_feat_;
+    Qx_.block<3,3>(dxZ+3*i, dxZ+3*i) = Qx_feat;
     lambda_.block<3,1>(dxZ+3*i,0) = lambda_feat;
   }
   
-  Qu_ = Qu.asDiagonal();
-  P0_feat_ = P0_feat.asDiagonal();
-  
   Lambda_ = dx_ones_ * lambda_.transpose() + lambda_*dx_ones_.transpose() - lambda_*lambda_.transpose();
   
-  len_features_ = 0;
-  next_feature_id_ = 0;
-  
-  current_feature_ids_.clear();
-  
-  // set cam-to-body
-  p_b_c_ = p_b_c;
-  q_b_c_ = Quatd(q_b_c);
-  
   // set camera intrinsics
-  cam_center_ = cam_center;
   cam_F_ << focal_len(0), 0, 0,
             0, focal_len(1), 0;
   
-  use_drag_term_ = use_drag_term;
-  partial_update_ = partial_update;
-  keyframe_reset_ = use_keyframe_reset;
-  cov_prop_skips_ = cov_prop_skips;
-  start_t_ = NAN; // indicate that we need to initialize the filter
+  // set cam-to-body
+  q_b_c_ = Quatd(q_b_c);
   
-  min_depth_ = min_depth;
-  
-  current_node_global_pose_ = Xformd::Identity();
-  global_pose_cov_.setZero();
-  
-  keyframe_overlap_threshold_ = keyframe_overlap;
-  keyframe_features_.clear();
-  edges_.clear();
-  keyframe_reset_callback_ = nullptr;
-  
-  if (log_directory.compare("~") != 0)
-    init_logger(log_directory);
-  
-  K_.setZero();
-  H_.setZero();
+  init_logger("/tmp/", name);
 }
 
 void VIEKF::set_x0(const Matrix<double, xZ, 1>& _x0)
@@ -224,6 +296,7 @@ void VIEKF::propagate_state(const uVector &u, const double t, bool save_input)
   
   log_state(t, x_[i_], P_[i_].diagonal(), u, dx_);
 }
+
 
 }
 

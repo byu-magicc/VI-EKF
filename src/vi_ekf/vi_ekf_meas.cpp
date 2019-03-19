@@ -212,7 +212,7 @@ VIEKF::meas_result_t VIEKF::update(measurement_t& meas)
     auto innov =  (H * P_[i_] * H.transpose() + R).inverse();
 
     double mahal = res.transpose() * innov * res;
-    if (mahal > 9.0)
+    if (mahal > 9.0) // TODO: this should follow chi^2 distribution with d.o.f. dependent on measurement
     {
       //      std::cout << "gating " << measurement_names[meas_type] << " measurement: " << mahal << std::endl;
       return MEAS_GATED;
@@ -226,7 +226,7 @@ VIEKF::meas_result_t VIEKF::update(measurement_t& meas)
     
     if (NO_NANS(K_) && NO_NANS(H_))
     {
-      if (partial_update_)
+      if (use_partial_update_)
       {
         // Apply Fixed Gain Partial update per
         // "Partial-Update Schmidt-Kalman Filter" by Brink

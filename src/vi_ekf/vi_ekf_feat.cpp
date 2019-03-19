@@ -91,7 +91,7 @@ void VIEKF::keep_only_features(const vector<int> features)
       if (current_feature_ids_[local_id] == features[i])
       {
         keep_feature = true;
-        if (keyframe_reset_)
+        if (use_keyframe_reset_)
         {
           // See if it overlaps with our keyframe features
           for (int j = 0; j < keyframe_features_.size(); j++)
@@ -116,7 +116,7 @@ void VIEKF::keep_only_features(const vector<int> features)
     clear_feature(features_to_remove[i]);
   }
   
-  if (keyframe_reset_ && keyframe_features_.size() > 0 
+  if (use_keyframe_reset_ && keyframe_features_.size() > 0 
       && (double)num_overlapping_features / (double)keyframe_features_.size() < keyframe_overlap_threshold_)
   {
     // perform keyframe reset
@@ -128,7 +128,7 @@ void VIEKF::keep_only_features(const vector<int> features)
       keyframe_features_[i] = features[i];
     }
   }
-  else if (keyframe_reset_ && keyframe_features_.size() == 0)
+  else if (use_keyframe_reset_ && keyframe_features_.size() == 0)
   {    
     // build the list of features for overlap detection
     keyframe_features_.resize(features.size());

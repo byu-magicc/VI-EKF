@@ -25,8 +25,9 @@ len_dxVector = 16+N*3;
 
 
 % Load data for plots
-state_t = reshape(fread(fopen(strcat(['/tmp/multirotor_true_state.log']), 'r'), 'double'), 14, []); % [t;pos;att;vel;ang_vel]
+state_t = reshape(fread(fopen('/tmp/multirotor_true_state.log', 'r'), 'double'), 14, []); % [t;pos;att;vel;ang_vel]
 imu_bias_drag_t = reshape(fread(fopen(strcat(['/tmp/multirotor_true_imu_biases_drag.log']), 'r'), 'double'), 8, []); % [t;acc_bias;gyro_bias;drag]
+cmd_state_t = reshape(fread(fopen('/tmp/multirotor_commanded_state.log', 'r'), 'double'), 14, []); % [t;pos;att;vel;ang_vel]
 
 
 figure()
@@ -38,12 +39,13 @@ for i=1:3
     title(titles(i))
     plot(state_t(1,:), state_t(i + idx, :), 'linewidth', 2.0)
 %     plot(ekf_state(1,:), ekf_state(i + idx, :), 'linewidth', 1.5)
+    plot(cmd_state_t(1,:), cmd_state_t(i + idx, :), 'g--', 'linewidth', 1.0)
 %     if plot_cov == true
 %         plot(ekf_state(1,:), ekf_state(i + idx, :) + 2 * sqrt(ekf_cov(i + idx, :)), 'm-', 'linewidth', 0.5)
 %         plot(ekf_state(1,:), ekf_state(i + idx, :) - 2 * sqrt(ekf_cov(i + idx, :)), 'm-', 'linewidth', 0.5)
 %     end
     if i == 1
-        legend('Truth', 'EKF')
+        legend('Truth', 'EKF', 'Command')
     end
 end
 

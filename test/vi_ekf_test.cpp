@@ -48,6 +48,10 @@ TEST(VIEKF_Test, SimulatedData)
   true_bias_drag_log.write((char*)multirotor.gyro_bias_.data(), 3 * sizeof(double));
   true_bias_drag_log.write((char*)&multirotor.dyn_.get_drag(), sizeof(double));
 
+  ofstream commanded_state_log;
+  commanded_state_log.open("/tmp/multirotor_commanded_state.log");
+  commanded_state_log.write((char*)&multirotor.t_, sizeof(double));
+  commanded_state_log.write((char*)multirotor.commanded_state().arr.data(), multirotor.state().arr.rows() * sizeof(double));
 
   // Run the simulation and log truth for plotting
   while (multirotor.run())
@@ -59,9 +63,21 @@ TEST(VIEKF_Test, SimulatedData)
     true_bias_drag_log.write((char*)multirotor.accel_bias_.data(), 3 * sizeof(double));
     true_bias_drag_log.write((char*)multirotor.gyro_bias_.data(), 3 * sizeof(double));
     true_bias_drag_log.write((char*)&multirotor.dyn_.get_drag(), sizeof(double));
+
+    commanded_state_log.write((char*)&multirotor.t_, sizeof(double));
+    commanded_state_log.write((char*)multirotor.commanded_state().arr.data(), multirotor.state().arr.rows() * sizeof(double));
   }
+
+  // Log landmarks and close loggers
+  ofstream landmarks_log;
+  landmarks_log.open("/tmp/landmarks.log");
+  for (auto& lm : multirotor.env_.get_points())
+    landmarks_log.write((char*)lm.data(), 3 * sizeof(double));
+
   true_state_log.close();
   true_bias_drag_log.close();
+  commanded_state_log.close();
+  landmarks_log.close();
 
   // Check error magnitudes
 }

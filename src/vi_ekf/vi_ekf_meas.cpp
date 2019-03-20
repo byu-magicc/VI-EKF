@@ -21,6 +21,12 @@ void VIEKF::handle_measurements(std::vector<int>* gated_feature_ids)
   if (z_it == zbuf_.begin() && z_it->handled)
     return;
 
+  if (z_it->t > u_.begin()->first)
+  {
+//    cerr << "trying to fuse " << measurement_names[z_it->type] << " meas from the future!" << endl;
+    return;
+  }
+
 
   // Select the input which just before the measurement (so the measurement happened in the next interval))
   uBuf::iterator u_it = u_.begin();
@@ -40,7 +46,7 @@ void VIEKF::handle_measurements(std::vector<int>* gated_feature_ids)
   int i = LEN_STATE_HIST;
   while (i > 0)
   {
-    if (t_[(i_ + i) % LEN_STATE_HIST] <= z_it->t)
+    if (t_[(i_ + i) % LEN_STATE_HIST] <= u_it->first)
     {
       // rewind state to here (by just setting the position in the circular buffer)
       i_ = (i_ + i) % LEN_STATE_HIST;
@@ -48,6 +54,7 @@ void VIEKF::handle_measurements(std::vector<int>* gated_feature_ids)
     }
     i--;
   }
+
   if (i == 0)
   {
     cerr << "not enough history in state buffer to handle measurement" << endl;
@@ -56,17 +63,16 @@ void VIEKF::handle_measurements(std::vector<int>* gated_feature_ids)
   }
 
   // Make sure everything is lined up
-  if (t_[i_] > z_it->t || t_[i_] > u_it->first)
+  if (t_[i_] > z_it->t || std::fabs(t_[i_] - u_it->first) > 1e-8 || u_it->first > z_it->t)
   {
-    cerr << "Time history misaligned\n";
+    cerr << "Time history misaligned t: " << t_[i_] << " zt: " << z_it->t  << " ut: "  << u_it->first << "\n";
   }
 
 
   // Process all inputs and measurements to catch back up
+  u_it--;
   while (u_it != u_.begin())
   {
-    u_it--;
-
     // While the current measurment occurred between the current time step and the next
     while (z_it->t <= u_it->first)
     {
@@ -74,7 +80,7 @@ void VIEKF::handle_measurements(std::vector<int>* gated_feature_ids)
       if (t_[i_] < z_it->t)
         propagate_state(u_it->second, z_it->t, false);
       else if (t_[i_] > z_it->t)
-        cerr << "can't propagate backwards\n";
+        cerr << "can't propagate backwards, t: " << t_[i_] << " zt: " << z_it->t << "\n";
 
       // Perform the measurement
       if (z_it->handled)
@@ -86,15 +92,29 @@ void VIEKF::handle_measurements(std::vector<int>* gated_feature_ids)
         if (gated_feature_ids != nullptr && result == MEAS_GATED && z_it->type == FEAT)
           gated_feature_ids->push_back(z_it->id);
       }
-      if (z_it != zbuf_.begin())
-        z_it--; // Perform the next measurement in this interval
-      else
-        break;
 
+      if (z_it != zbuf_.begin())
+      {
+        z_it--; // Perform the next measurement in this interval
+        while (u_it->first < z_it->t && u_it != u_.begin())
+        {
+          propagate_state(u_it->second, u_it->first, false);
+          u_it--;
+        }
+      }
+      else
+      {
+        // propagate the rest of the way
+        while (u_it != u_.begin())
+        {
+          propagate_state(u_it->second, u_it->first, false);
+          u_it--;
+        }
+        break;
+      }
     }
-    // Propagate to the time of the next input
-    propagate_state(u_it->second, u_it->first, false);
   }
+  propagate_state(u_it->second, u_it->first, false);
 
   // Clear any old measurements in the queue
   while (zbuf_.size() > LEN_MEAS_HIST)
@@ -155,19 +175,19 @@ VIEKF::meas_result_t VIEKF::add_measurement(const double t, const VectorXd& z, c
   else
     zbuf_.insert(z_it, meas);
 
-    // Ensure that all the measurements are in order
-    double t_prev = zbuf_.end()->t;
-    if (zbuf_.size() > 1)
+  // Ensure that all the measurements are in order
+  double t_prev = zbuf_.back().t;
+  if (zbuf_.size() > 1)
+  {
+    for (auto it = zbuf_.end()-1; it != zbuf_.begin(); it--)
     {
-      for (auto it = zbuf_.end()-1; it != zbuf_.begin(); it--)
+      if (it->t < t_prev)
       {
-        if (it->t < t_prev)
-        {
-          cerr << "measurements out of order" << endl;
-        }
-        t_prev = it->t;
+        cerr << "measurements out of order" << endl;
       }
+      t_prev = it->t;
     }
+  }
 
   return MEAS_SUCCESS;
 

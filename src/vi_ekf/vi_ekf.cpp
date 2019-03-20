@@ -19,7 +19,13 @@ void VIEKF::init()
 {
   x_.resize(LEN_STATE_HIST);
   P_.resize(LEN_STATE_HIST);
-  t_.resize(LEN_STATE_HIST, -1);
+  t_.resize(LEN_STATE_HIST);
+  for (int i = 0; i < LEN_STATE_HIST; i++)
+  {
+    x_[i].setConstant(0);
+    P_[i].setConstant(0);
+    t_[i] = NAN;
+  }
   u_.clear();
   zbuf_.clear();
   i_ = 0;
@@ -273,8 +279,15 @@ void VIEKF::propagate_state(const uVector &u, const double t, bool save_input)
   }
 
   double dt = t - t_[i_];
-  if (dt < 1e-6)
+  if (fabs(dt) < 1e-6)
     return;
+
+  if (dt < 0)
+  {
+    cerr << "Trying to propagate backwards!  I won't let you" <<endl;
+    return;
+  }
+
 
   NAN_CHECK;
 

@@ -28,7 +28,8 @@ TEST(VIEKF_Test, SimulatedData)
   auto feat_cb = [&ekf](const double& t, const multirotor_sim::ImageFeat& z, const Matrix2d& R_pix, const Matrix1d& R_depth)
   {
     for (int i = 0; i < z.pixs.size(); ++i)
-      ekf.add_measurement(t, z.pixs[i], vi_ekf::VIEKF::FEAT, R_pix, true, z.feat_ids[i]);
+      ekf.add_measurement(t, z.pixs[i], vi_ekf::VIEKF::FEAT, R_pix, true, z.feat_ids[i], NAN);
+    ekf.handle_measurements();
   };
 
   est.register_imu_cb(imu_cb);

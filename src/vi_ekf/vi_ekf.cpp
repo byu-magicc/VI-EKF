@@ -312,7 +312,8 @@ void VIEKF::propagate_state(const uVector &u, const double t, bool save_input)
   NAN_CHECK;
   NEGATIVE_DEPTH;
   
-  log_state(t, x_[i_], P_[i_].diagonal(), ub, dx_);
+  if (save_input)
+    log_state(t, x_[i_], P_[i_].diagonal(), ub, dx_);
 }
 
 

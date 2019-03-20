@@ -129,8 +129,8 @@ title("Drag Coefficient")
 plot(imu_bias_drag_t(1,:), imu_bias_drag_t(1 + 7, :), 'linewidth', 2.0)
 plot(state_e(1,:), state_e(1 + 17, :), 'r', 'linewidth', 1.5)
 if plot_cov == true
-    plot(cov_e(1,:), state_e(i + 17, :) + 2 * sqrt(cov_e(i + 16, :)), 'm-', 'linewidth', 0.5)
-    plot(cov_e(1,:), state_e(i + 17, :) - 2 * sqrt(cov_e(i + 16, :)), 'm-', 'linewidth', 0.5)
+    plot(cov_e(1,:), state_e(1 + 17, :) + 2 * sqrt(cov_e(1 + 16, :)), 'm-', 'linewidth', 0.5)
+    plot(cov_e(1,:), state_e(1 + 17, :) - 2 * sqrt(cov_e(1 + 16, :)), 'm-', 'linewidth', 0.5)
 end
 legend('Truth', 'EKF')
 

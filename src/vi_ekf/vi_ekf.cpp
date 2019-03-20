@@ -299,7 +299,8 @@ void VIEKF::propagate_state(const uVector &u, const double t, bool save_input)
 
   // Propagate State and Covariance
   boxplus(x_[i_], dx_*dt, x_[ip]);
-  A_ = I_big_ + A_*dt;
+  G_ = (I_big_ + A_*dt/2.0 + A_*A_*dt*dt/6.0)*G_*dt;
+  A_ = I_big_ + A_*dt + A_*A_*dt*dt/2.0;
   P_[ip] = A_ * P_[i_]* A_.transpose() + G_ * Qu_ * G_.transpose() + Qx_;
   t_[ip] = t;
   i_ = ip;

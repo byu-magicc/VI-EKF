@@ -23,7 +23,7 @@ TEST(VIEKF_Test, SimulatedData)
 
   auto imu_cb = [&ekf](const double& t, const Vector6d& z, const Matrix6d& R)
   {
-    ekf.propagate_state(z, t);
+    ekf.propagate_state(z, t, true);
   };
   auto feat_cb = [&ekf](const double& t, const multirotor_sim::ImageFeat& z, const Matrix2d& R_pix, const Matrix1d& R_depth)
   {
@@ -52,6 +52,9 @@ TEST(VIEKF_Test, SimulatedData)
   commanded_state_log.open("/tmp/multirotor_commanded_state.log");
   commanded_state_log.write((char*)&multirotor.t_, sizeof(double));
   commanded_state_log.write((char*)multirotor.commanded_state().arr.data(), multirotor.state().arr.rows() * sizeof(double));
+
+  // Initialize EKF
+  ekf.propagate_state(multirotor.imu(), multirotor.t_, true);
 
   // Run the simulation and log truth for plotting
   while (multirotor.run())

@@ -28,6 +28,7 @@ cmd_state_t = reshape(fread(fopen('/tmp/multirotor_commanded_state.log', 'r'), '
 state_e = reshape(fread(fopen(strcat(['/tmp/',name,'_state.log']), 'r'), 'double'), 1+17+num_features*5, []); % [t;pos;vel;att;ba;bg;drag;q_feat;rho;...]
 cov_e = reshape(fread(fopen(strcat(['/tmp/',name,'_cov.log']), 'r'), 'double'), 1+16+num_features*3, []); % [t;pos;vel;att;ba;bg;drag;q_feat;rho;...]
 global_pose_e = reshape(fread(fopen(strcat(['/tmp/',name,'_global_pose.log']), 'r'), 'double'), 8, []); % [t;pos;att]
+imu = reshape(fread(fopen(strcat(['/tmp/',name,'_input.log']), 'r'), 'double'), 7, []); % [t;acc;gyro]
 
 
 figure()
@@ -132,3 +133,23 @@ if plot_cov == true
     plot(cov_e(1,:), state_e(i + 17, :) - 2 * sqrt(cov_e(i + 16, :)), 'm-', 'linewidth', 0.5)
 end
 legend('Truth', 'EKF')
+
+
+figure()
+set(gcf, 'name', 'Accelerometer', 'NumberTitle', 'off');
+titles = ["x","y","z"];
+for i=1:3
+    subplot(3, 1, i), hold on, grid on
+    title(titles(i))
+    plot(imu(1,:), imu(i + 1, :), 'linewidth', 2.0)
+end
+
+
+figure()
+set(gcf, 'name', 'Rate Gyro', 'NumberTitle', 'off');
+titles = ["x","y","z"];
+for i=1:3
+    subplot(3, 1, i), hold on, grid on
+    title(titles(i))
+    plot(imu(1,:), imu(i + 4, :), 'linewidth', 2.0)
+end

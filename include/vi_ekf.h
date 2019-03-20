@@ -225,6 +225,9 @@ private:
   Quatd q_b_c_;
   Vector3d p_b_c_;
 
+  // Rotation from body to IMU
+  Quatd q_b_u_;
+
   Matrix6d global_pose_cov_;
   Xformd current_node_global_pose_;
   std::default_random_engine generator_;

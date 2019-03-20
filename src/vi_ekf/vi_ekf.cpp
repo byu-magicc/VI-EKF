@@ -101,7 +101,7 @@ void VIEKF::load(const string &param_file)
   Matrix3d Qx_feat;
   Vector3d lambda_feat;
   Vector2d focal_len;
-  Vector4d q_b_c;
+  Vector4d q_b_c, q_b_u;
 
   // Load parameters from YAML file
   get_yaml_node("name", param_file, name);
@@ -122,6 +122,7 @@ void VIEKF::load(const string &param_file)
   get_yaml_eigen("focal_len", param_file, focal_len);
   get_yaml_eigen("q_b_c", param_file, q_b_c);
   get_yaml_eigen("p_b_c", param_file, p_b_c_);
+  get_yaml_eigen("q_b_u", param_file, q_b_u);
 
   // Populate class variables
   x_[i_].block<(int)xZ, 1>(0,0) = x0;
@@ -137,15 +138,14 @@ void VIEKF::load(const string &param_file)
   }
   
   Lambda_ = dx_ones_ * lambda_.transpose() + lambda_*dx_ones_.transpose() - lambda_*lambda_.transpose();
-  
-  // set camera intrinsics
+
   cam_F_ << focal_len(0), 0, 0,
             0, focal_len(1), 0;
-  
-  // set cam-to-body
   q_b_c_ = Quatd(q_b_c);
+  q_b_u_ = Quatd(q_b_u);
   
   init_logger("/tmp/", name);
+  log_state(0, x_[i_], P_[i_].diagonal(), Vector6d::Zero(), dx_);
 }
 
 void VIEKF::set_x0(const Matrix<double, xZ, 1>& _x0)
@@ -255,9 +255,14 @@ Vector2d VIEKF::get_feat(const int id) const
 
 void VIEKF::propagate_state(const uVector &u, const double t, bool save_input)
 {
+  // Rotate IMU measurement into body frame
+  Vector6d ub;
+  ub.segment<3>(uA) = q_b_u_.rota(u.segment<3>(uA));
+  ub.segment<3>(uG) = q_b_u_.rota(u.segment<3>(uG));
+
   if (save_input)
   {
-    u_.push_front(std::pair<double, uVector>{t, u});
+    u_.push_front(std::pair<double, uVector>{t, ub});
   }
 
   if (std::isnan(start_t_))
@@ -274,7 +279,7 @@ void VIEKF::propagate_state(const uVector &u, const double t, bool save_input)
   NAN_CHECK;
 
   // Calculate Dynamics and Jacobians
-  dynamics(x_[i_], u, true, true);
+  dynamics(x_[i_], ub, true, true);
 
   NAN_CHECK;
   int ip = (i_ + 1) % LEN_STATE_HIST; // next state history index
@@ -294,7 +299,7 @@ void VIEKF::propagate_state(const uVector &u, const double t, bool save_input)
   NAN_CHECK;
   NEGATIVE_DEPTH;
   
-  log_state(t, x_[i_], P_[i_].diagonal(), u, dx_);
+  log_state(t, x_[i_], P_[i_].diagonal(), ub, dx_);
 }
 
 

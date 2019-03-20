@@ -1,5 +1,4 @@
-.m~
-logs/
+*.m~
 *.aux
 *.fdb_latexmk
 *.synctex.gz

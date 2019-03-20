@@ -86,7 +86,7 @@ void VIEKF::init_logger(string root_filename, string ekf_name)
   }
   (*log_)[LOG_STATE].open(root_filename + ekf_name +"_prop.log", std::ofstream::out | std::ofstream::trunc);
   (*log_)[LOG_FEATURE_IDS].open(root_filename + ekf_name +"_feat_id.log", std::ofstream::out | std::ofstream::trunc);
-  (*log_)[LOG_CONF].open(root_filename + ekf_name +"_conf.txt", std::ofstream::out | std::ofstream::trunc);
+  (*log_)[LOG_CONF].open(root_filename + ekf_name +"_config.txt", std::ofstream::out | std::ofstream::trunc);
   (*log_)[LOG_INPUT].open(root_filename + ekf_name +"_input.log", std::ofstream::out | std::ofstream::trunc);
   (*log_)[LOG_XDOT].open(root_filename + ekf_name +"_xdot.log", std::ofstream::out | std::ofstream::trunc);
   (*log_)[LOG_KF].open(root_filename + ekf_name +"_kf.log", std::ofstream::out | std::ofstream::trunc);
@@ -105,9 +105,9 @@ void VIEKF::init_logger(string root_filename, string ekf_name)
   (*log_)[LOG_CONF] << "p_b_c: " << p_b_c_.transpose() << "\n";
   (*log_)[LOG_CONF] << "lambda: " << lambda_.block<(int)dxZ,1>(0,0).transpose() << "\n";
   (*log_)[LOG_CONF] << "lambda_feat: " << lambda_.block<3,1>((int)dxZ,0).transpose() << "\n";
-  (*log_)[LOG_CONF] << "partial_update: " << use_partial_update_ << "\n";
-  (*log_)[LOG_CONF] << "keyframe reset: " << use_keyframe_reset_ << "\n";
-  (*log_)[LOG_CONF] << "Using Drag Term: " << use_drag_term_ << "\n";
+  (*log_)[LOG_CONF] << "using partial_update: " << use_partial_update_ << "\n";
+  (*log_)[LOG_CONF] << "using keyframe reset: " << use_keyframe_reset_ << "\n";
+  (*log_)[LOG_CONF] << "using drag Term: " << use_drag_term_ << "\n";
   (*log_)[LOG_CONF] << "keyframe overlap: " << keyframe_overlap_threshold_ << "\n";
   (*log_)[LOG_CONF] << "num features: " << NUM_FEATURES << "\n";
   (*log_)[LOG_CONF] << "min_depth: " << min_depth_ << std::endl;

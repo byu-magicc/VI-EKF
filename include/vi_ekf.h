@@ -140,6 +140,7 @@ public:
 private:
   typedef enum {
     LOG_STATE = TOTAL_MEAS,
+    LOG_COV,
     LOG_FEATURE_IDS,
     LOG_INPUT,
     LOG_XDOT,

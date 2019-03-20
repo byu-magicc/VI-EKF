@@ -9,7 +9,9 @@ void VIEKF::log_state(const double t, const xVector& x, const dxVector& P, const
   {
     (*log_)[LOG_STATE].write((char*)&t, sizeof(double));
     (*log_)[LOG_STATE].write((char*)x.data(), sizeof(double) * x.rows());
-    (*log_)[LOG_STATE].write((char*)P.data(), sizeof(double) * P.rows());
+
+    (*log_)[LOG_COV].write((char*)&t, sizeof(double));
+    (*log_)[LOG_COV].write((char*)P.data(), sizeof(double) * P.rows());
 
     (*log_)[LOG_INPUT].write((char*)&t, sizeof(double));
     (*log_)[LOG_INPUT].write((char*)u.data(), sizeof(double) * u.rows());
@@ -84,7 +86,8 @@ void VIEKF::init_logger(string root_filename, string ekf_name)
   {
     (*log_)[i].open(root_filename + ekf_name + "_" + measurement_names[i] + ".log",  std::ofstream::out | std::ofstream::trunc);
   }
-  (*log_)[LOG_STATE].open(root_filename + ekf_name +"_prop.log", std::ofstream::out | std::ofstream::trunc);
+  (*log_)[LOG_STATE].open(root_filename + ekf_name +"_state.log", std::ofstream::out | std::ofstream::trunc);
+  (*log_)[LOG_COV].open(root_filename + ekf_name +"_cov.log", std::ofstream::out | std::ofstream::trunc);
   (*log_)[LOG_FEATURE_IDS].open(root_filename + ekf_name +"_feat_id.log", std::ofstream::out | std::ofstream::trunc);
   (*log_)[LOG_CONF].open(root_filename + ekf_name +"_config.txt", std::ofstream::out | std::ofstream::trunc);
   (*log_)[LOG_INPUT].open(root_filename + ekf_name +"_input.log", std::ofstream::out | std::ofstream::trunc);
